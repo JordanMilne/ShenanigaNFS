@@ -115,11 +115,11 @@ typedef opaque nfsdata<MAXDATA>;
 union statfsres switch (stat status) { /* original missing 'switch' XXX */
            case NFS_OK:
                struct {
-		 unsigned int tsize; /* added 'int' here and passim, below*/
-                   unsigned int bsize;
-                   unsigned int blocks;
-                   unsigned int bfree;
-                   unsigned int bavail;
+		           unsigned tsize; /* added 'int' here and passim, below*/
+                   unsigned bsize;
+                   unsigned blocks;
+                   unsigned bfree;
+                   unsigned bavail;
                } info;
            default:
                    void;
@@ -288,6 +288,7 @@ doesn't seem to conform to rfc1832 grammar XXX */
 const MNTPATHLEN = 1024;
 
 typedef string dirpath<MNTPATHLEN>;
+typedef string name<MNTPATHLEN>;
 
 
 union fhstatus switch (unsigned int status) { /* was just unsigned, not unsigned int */
@@ -306,14 +307,14 @@ struct mountlist {
 	   };
 
 
-struct groups {
+struct grouplist {
                    name grname;
-                   groups * grnext;
+                   grouplist * grnext;
            };
 
 struct exportlist {
                    dirpath filesys;
-                   groups groups;
+                   grouplist groups;
                    exportlist * next;
            };
 
@@ -339,14 +340,3 @@ program MOUNTPROG {
                            MOUNTPROC_EXPORT(void)  = 5;
                    } = 1;
            } = 100005;
-
-
-/* Note: all of mountlist, groups, exportlist used to be declared w/
-   struct *typ { ... } syntax, which doesn't seem to match the
-   grammar in rfc1832.
-*/
-/*
-
-
-*/
-

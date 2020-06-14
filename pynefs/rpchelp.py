@@ -33,6 +33,7 @@
 
 from __future__ import nested_scopes
 
+import abc
 import typing
 import xdrlib
 
@@ -48,10 +49,26 @@ class LengthMismatchException(Exception):
     pass
 
 
-class BadUnionSwitchException(Exception): pass
+class BadUnionSwitchException(Exception):
+    pass
 
 
-class arr:
+class packable(abc.ABC):
+    @abc.abstractmethod
+    def unpack(self, up):
+        pass
+
+    @abc.abstractmethod
+    def pack(self, p, val):
+        pass
+
+    @classmethod
+    @abc.abstractmethod
+    def type_hint(cls) -> str:
+        pass
+
+
+class arr(packable):
     """Pack and unpack a fixed-length or variable-length array,
     both corresponding to a Python list"""
 
@@ -60,6 +77,12 @@ class arr:
         self.var_fixed = var_fixed
         self.length = length
         assert (not (var_fixed == fixed and length is None))
+
+    def type_hint(self):
+        inner_hint_func = getattr(self.base_type, 'type_hint')
+        if getattr(base_type, 'override', False):
+            return inner_hint_func()
+        return f"typing.List[{inner_hint_func()}]"
 
     def check_pack_len(self, v):
         if self.var_fixed != fixed and self.length is not None:
@@ -96,6 +119,11 @@ class opaque_or_string(arr):
         super().__init__(bytes, var_fixed, length)
         assert (not (var_fixed == fixed and length is None))
 
+    @classmethod
+    def type_hint(cls):
+        return "bytes"
+    type_hint.override = True
+
     def pack(self, p, val):
         self.check_pack_len(val)
         if self.var_fixed == fixed:
@@ -115,90 +143,136 @@ opaque = opaque_or_string
 string = opaque_or_string
 
 
-# for making structs or unions.
-
-class struct_or_union_base:
+class struct_val_base:
     """Base class for struct or union data.  The packing code for
     struct or union types doesn't require values to be derived
     from this class, but it does provide some minor conveniences."""
 
     def __init__(self, **kw):
         for k, v in kw.items():
-            # can't self.__dict__.update (kw) b/c __slots__ is defined
             setattr(self, k, v)
 
-    def __str__(self):
-        rv = self.__class__.__name__ + ": " + str(self.__dict__)
+    def __repr__(self):
         if hasattr(self, '__slots__'):
-            def strify(obj):
-                """Prevent recursive stringification, or printing
-                too much of a string (as in NFS read/write data).
-                Also, use repr () on strings, to avoid printing control
-                characters (again, useful for NFS read/write data)"""
-                if isinstance(obj, struct_or_union_base):
-                    return object.__str__(obj)
-                if isinstance(obj, str):
-                    return repr(obj)[0:80]  # 80 arbitrarily chosen
-                return str(obj)
+            member_dict = dict(
+                (k, getattr(self, k, None))
+                for k in self.__slots__
+            )
+        else:
+            member_dict = self.__dict__
+        return f"<{self.__class__.__name__}: {member_dict!r}>"
 
-            vals = ["%s:%s" % (k, strify(getattr(self, k, None)))
-                    for k in self.__slots__]
-            rv += ": {" + ", ".join(vals) + "}"
-        return rv
+    def __str__(self):
+        return repr(self)
 
 
-def struct_union_class_factory(class_name, class_dict):
+def struct_val_factory(class_name, class_dict):
     """Create a class type with name class_name, descended from
     struct_or_union_base and object, to be a factory for instantiating
     struct/union values."""
-    return type(class_name, (struct_or_union_base,), class_dict)
+    return type(class_name, (struct_val_base,), class_dict)
 
 
-class struct_union_impl:
+class struct_base(packable):
     """Base class for packing/unpacking structs/unions"""
     name: str
     nested_defs_list: typing.List
 
-    def __init__(self):
-        self.val_base_class = None
+    def __init__(self, name, elt_list):
+        self.name = name
+        self.elt_list = elt_list
+        # Will only be used for dynamically constructed structs
+        self.val_base_class = self.mk_val_class()
 
-    def mk_val_class(self, member_names, nested_typ_list):
+    @property
+    def val_name(self):
+        return "v_" + self.name
+
+    def _base_mk_val_class(self, member_names, nested_typ_list):
         class_dict = {'__slots__': member_names}
         for typ in nested_typ_list:
-            if isinstance(typ, struct_union_impl):
+            if isinstance(typ, struct_base):
                 class_dict[typ.name] = typ
-        self.val_base_class = struct_union_class_factory(self.name,
-                                                         class_dict)
+        return struct_val_factory(self.val_name, class_dict)
 
-    def get_val_class(self):
-        return self.val_base_class
+    def mk_val_class(self) -> typing.Type:
+        member_names = [elt[0] for elt in self.elt_list]
+        return self._base_mk_val_class(member_names, [elt[1] for elt in self.elt_list])
 
     def __call__(self, **kw):
         return self.val_base_class(**kw)
 
-    def get_nested_def(self, nested_name):
-        for typ in self.nested_defs_list:
-            if isinstance(typ, struct_union_impl):
-                if nested_name == typ.name:
-                    return typ
-        return None
+
+class struct(struct_base):
+    """Pack and unpack an instance with member names as given
+    by the structure definition."""
+
+    @property
+    def single_elem(self):
+        return len(self.elt_list) == 1
+
+    def type_hint(self) -> str:
+        # If we're a single elem struct (like a linked list) we just
+        # (un)pack the bare value
+        val_name = self.val_base_class.__name__
+        if self.single_elem:
+            return f"typing.Union[{self.elt_list[0][1].type_hint()}, {val_name}]"
+        return val_name
+
+    def pack(self, p, val):
+        if self.single_elem:
+            self.elt_list[0][1].pack(p, val)
+            return
+
+        for (nm, typ) in self.elt_list:
+            member_val = getattr(val, nm)
+            if trace_struct:
+                print("packing", nm, typ, str(member_val))
+            typ.pack(p, member_val)
+
+    def unpack(self, up):
+        if self.single_elem:
+            return self.elt_list[0][1].unpack(up)
+        return self(**{nm: typ.unpack(up) for nm, typ in self.elt_list})
 
 
-class union(struct_union_impl):
+class linked_list(struct):
+    """Pack and unpack an XDR linked list as a Python list."""
+
+    def type_hint(self) -> str:
+        return f"typing.List[{super().type_hint()}]"
+
+    def pack(self, p, val_list):
+        for val in val_list:
+            p.pack_bool(True)
+            super().pack(p, val)
+        p.pack_bool(False)
+
+    def unpack(self, up):
+        elem_list = []
+        while up.unpack_bool():
+            elem_list.append(super().unpack(up))
+        return elem_list
+
+
+class union(packable):
     """Pack and unpack a union as a two-membered instance, with
     members switch_name and '_data'.  Note that _data is not a valid
     switch_name, and I use it for that reason, rather than because the
     data member is private."""
 
-    def __init__(self, union_name, switch_decl, switch_name, union_dict):
+    def __init__(self, union_name, switch_decl, union_dict):
         super().__init__()
         self.name = union_name
-        self.switch_decl = switch_decl
-        self.switch_name = switch_name
-        self.union_dict = union_dict
+        self.switch_decl: packable = switch_decl
+        self.union_dict: typing.Dict[typing.Any, packable] = union_dict
         self.def_typ = self.union_dict.get(None, None)
-        member_names = ['_data', self.switch_name]
-        self.mk_val_class(member_names, self.union_dict.values())
+
+    @property
+    def is_simple_option(self):
+        """check if the union is basically just a fancy opt_data"""
+        type_hints = {k: v.type_hint() for k, v in self.union_dict.items()}
+        return len(type_hints) == 2 and type_hints.get(False, "") == "None"
 
     def _sw_val_to_typ(self, sw_val):
         """Get the type descriptor for the arm of the union specified by
@@ -208,108 +282,45 @@ class union(struct_union_impl):
             raise BadUnionSwitchException(sw_val)
         return typ
 
+    def type_hint(self) -> str:
+        type_hints = {k: v.type_hint() for k, v in self.union_dict.items()}
+        type_values = list(type_hints.values())
+        if self.is_simple_option:
+            return f"typing.Optional[{type_hints[True]}]"
+        type_str = f"typing.Tuple[{self.switch_decl.type_hint()}, "
+
+        # Might still be able to make just the type hint shorter
+        if "None" in type_values and len(type_values) == 2:
+            type_values.remove("None")
+            return type_str + f"typing.Optional[{', '.join(type_values)}]]"
+        return type_str + f"typing.Union[{', '.join(type_values)}]]"
+
     def pack(self, p, val):
-        sw_val = getattr(val, self.switch_name)
+        if self.is_simple_option:
+            p.pack_bool(val is not None)
+            if val is not None:
+                self.union_dict[True].pack(p, val)
+            return
+        sw_val, data = val
         if trace_union:
-            print("union: packing switch", self.switch_name, sw_val)
+            print("union: packing switch", sw_val)
         self.switch_decl.pack(p, sw_val)
         typ = self._sw_val_to_typ(sw_val)
-        if typ == r_void:  # avoid accessint _data
-            return
         if trace_union:
-            print("union: typ", "data:", val._data)
-        typ.pack(p, val._data)
+            print("union: typ", "data:", val)
+        typ.pack(p, data)
 
     def unpack(self, up):
-        tmp = self()
         sw_val = self.switch_decl.unpack(up)
-        setattr(tmp, self.switch_name, sw_val)
-        tmp._data = self._sw_val_to_typ(sw_val).unpack(up)
-        return tmp
+        if self.is_simple_option:
+            if sw_val:
+                return self.union_dict[True].unpack(up)
+            return None
+        unpacked = self._sw_val_to_typ(sw_val).unpack(up)
+        return sw_val, unpacked
 
 
-class struct(struct_union_impl):
-    """Pack and unpack an instance with member names as given
-    by the structure definition."""
-
-    def __init__(self, struct_name, elt_list):
-        super().__init__()
-        self.elt_list = elt_list
-        self.name = struct_name
-        member_names = [elt[0] for elt in self.elt_list]
-        self.mk_val_class(member_names, [elt[1] for elt in self.elt_list])
-
-    def pack(self, p, val):
-        for (nm, typ) in self.elt_list:
-            member_val = getattr(val, nm)
-            if trace_struct:
-                print("packing", nm, typ, str(member_val))
-            typ.pack(p, member_val)
-
-    def unpack(self, up):
-        tmp = self()
-        for (nm, typ) in self.elt_list:
-            member_val = typ.unpack(up)
-            setattr(tmp, nm, member_val)
-        return tmp
-
-
-class linked_list(struct_union_impl):
-    """Pack and unpack an XDR linked list as a Python list."""
-
-    def __init__(self, struct_name, link_index, elt_list):
-        super().__init__()
-        self.name = struct_name
-        elt_list[link_index] = (None, None)
-        self.elt_list = elt_list
-
-        self.link_index = link_index
-        member_names = [elt[0] for elt in self.elt_list if elt[0] is not None]
-        self.mk_val_class(member_names, [elt[1] for elt in self.elt_list
-                                         if elt[1] is not None])
-
-    def pack(self, p, val_list, ind=0):
-        val = val_list[ind]  # note: wrong to pass 0-len list!
-        for (nm, typ) in self.elt_list:
-            if nm is None:
-                next_ind = ind + 1
-                if next_ind == len(val_list):
-                    if trace_struct: print("packing end")
-                    p.pack_bool(0)
-                else:
-                    if trace_struct: print("recursing", next_ind)
-                    p.pack_bool(1)
-                    self.pack(p, val_list, next_ind)
-            else:
-                member_val = getattr(val, nm)
-                if trace_struct:
-                    print("packing", nm, typ, member_val)
-                typ.pack(p, member_val)
-
-    def unpack(self, up, l=None):
-        if l is None:
-            l = []
-            begin = 1
-        else:
-            begin = 0
-        tmp = self()
-        for (nm, typ) in self.elt_list:
-            if nm is None:
-                b = up.unpack_bool()
-                if b:
-                    self.unpack(up, l)
-            else:
-                member_val = typ.unpack(up)
-                setattr(tmp, nm, member_val)
-        l.append(tmp)
-        if begin == 1:
-            l.reverse()
-            return l
-
-
-# we use None as the out-of-band indicator.  This
-
-class opt_data:
+class opt_data(packable):
     """Pack and unpack an optional value, as either None or the value
     itself.  This choice means that we can't encode declarations which
     resolve to void * in both ways (both void absent, and void
@@ -320,63 +331,48 @@ class opt_data:
     gain for users of opt_data.  (OTOH, if we had the ML-style
     "option" type ...)"""
 
-    def __init__(self, typ_lambda):  # lambda to enable recursive def'ns
-        self.typ_lambda = typ_lambda
+    def __init__(self, typ):
+        self.typ: packable = typ
+
+    @property
+    def is_linked_list(self):
+        return isinstance(self.typ, linked_list)
+
+    def type_hint(self) -> str:
+        # Ugh. Gross special case because of ambiguity in the IDL.
+        # At parse time we don't necessarily know whether this is
+        # a pointer to a struct or a linked list-like struct.
+        # linked lists are already effectively optional, so don't wrap it.
+        if self.is_linked_list:
+            return self.typ.type_hint()
+        return f"typing.Optional[{self.typ.type_hint()}]"
 
     def pack(self, p, val):
+        if self.is_linked_list:
+            return self.typ.pack(p, val)
+
         if val is None:
-            p.pack_bool(0)
+            p.pack_bool(False)
         else:
-            p.pack_bool(1)
-            self.typ_lambda().pack(p, val)
+            p.pack_bool(True)
+            self.typ.pack(p, val)
 
     def unpack(self, up):
+        if self.is_linked_list:
+            return self.typ.unpack(up)
+
         tmp = up.unpack_bool()
         if tmp:
-            return self.typ_lambda().unpack(up)
+            return self.typ.unpack(up)
         else:
             return None
 
 
-class linked_list_help:
-    """utility function to convert back and forth
-    between Python-style lists and structs corresponding to linked
-    lists.  Usually rpcgen should auto-generate calls to linked_list
-    instead, but this might be useful if it gets confused, or as
-    sample code to hack if you need mutually recursive linked lists or
-    trees."""
-
-    def __init__(self, link_member):
-        self.link_member = link_member
-
-    def to_ll(self, l):
-        if not l:
-            return None
-        first = l[0]
-        last = l[0]
-        for elt in l[1:]:
-            setattr(last, self.link_member, elt)
-            last = elt
-        setattr(last, self.link_member, None)
-        return first
-
-    def from_ll(self, linked):
-        l = []
-        while 1:
-            if linked is None:
-                break
-            v = getattr(linked, self.link_member)
-            setattr(linked, self.link_member, None)
-            # setattr avoids surprising space leaks if we keep just one elt.
-            l.append(linked)
-            linked = v
-        return l
-
-
-class base_type:
-    def __init__(self, p, up):
+class base_type(packable):
+    def __init__(self, p, up, python_type: typing.Optional[typing.Type]):
         self.p_proc = p
         self.up_proc = up
+        self.python_type = python_type
 
     def pack(self, p, val):
         self.p_proc(p, val)
@@ -384,33 +380,33 @@ class base_type:
     def unpack(self, up):
         return self.up_proc(up)
 
+    def type_hint(self) -> str:
+        if not self.python_type:
+            return "None"
+        return self.python_type.__name__
+
 
 # r_ prefix to avoid shadowing Python names
-r_uint = base_type(xdrlib.Packer.pack_uint, xdrlib.Unpacker.unpack_uint)
-r_int = base_type(xdrlib.Packer.pack_int, xdrlib.Unpacker.unpack_int)
-r_bool = base_type(xdrlib.Packer.pack_bool, xdrlib.Unpacker.unpack_bool)
-r_void = base_type(lambda p, v: None, lambda up: None)
-r_hyper = base_type(xdrlib.Packer.pack_hyper, xdrlib.Unpacker.unpack_hyper)
-r_uhyper = base_type(xdrlib.Packer.pack_uhyper, xdrlib.Unpacker.unpack_uhyper)
-r_float = base_type(xdrlib.Packer.pack_float, xdrlib.Unpacker.unpack_float)
-r_double = base_type(xdrlib.Packer.pack_double, xdrlib.Unpacker.unpack_double)
-
-
+r_uint = base_type(xdrlib.Packer.pack_uint, xdrlib.Unpacker.unpack_uint, int)
+r_int = base_type(xdrlib.Packer.pack_int, xdrlib.Unpacker.unpack_int, int)
+r_bool = base_type(xdrlib.Packer.pack_bool, xdrlib.Unpacker.unpack_bool, bool)
+r_void = base_type(lambda p, v: None, lambda up: None, None)
+r_hyper = base_type(xdrlib.Packer.pack_hyper, xdrlib.Unpacker.unpack_hyper, int)
+r_uhyper = base_type(xdrlib.Packer.pack_uhyper, xdrlib.Unpacker.unpack_uhyper, int)
+r_float = base_type(xdrlib.Packer.pack_float, xdrlib.Unpacker.unpack_float, float)
+r_double = base_type(xdrlib.Packer.pack_double, xdrlib.Unpacker.unpack_double, float)
+r_opaque = base_type(xdrlib.Packer.pack_opaque, xdrlib.Unpacker.unpack_opaque, bytes)
+r_string = r_opaque
 # XXX should add quadruple, but no direct Python support for it.
+
 
 class Proc:
     """Manage a RPC procedure definition."""
 
     def __init__(self, name, ret_type, arg_types):
         self.name = name
-        self.ret_type = ret_type
-        self.arg_types = arg_types
-
-    def check_for_implementation(self, server):
-        if (not hasattr(server, self.name) and
-                not self.name in server.deliberately_unimplemented):
-            print("Warning: %s not implemented in %s" % (self.name,
-                                                         server.__class__))
+        self.ret_type: packable = ret_type
+        self.arg_types: typing.List[packable] = arg_types
 
     def __str__(self):
         return "Proc: %s %s %s" % (self.name, str(self.ret_type),
@@ -431,34 +427,30 @@ class Server:
     As a convenience, allows creation of transport server w/
     create_transport_server.  In what every way the server is created,
     you must call register."""
-    deliberately_unimplemented = []
     prog: int
-    procs: typing.Dict[int, Proc]
     vers: int
+    procs: typing.Dict[int, Proc]
 
     def __init__(self):
-        for p in self.procs.values():
-            p.check_for_implementation(self)
+        pass
+
+    def get_handler(self, proc_id) -> typing.Callable:
+        return getattr(self, self.procs[proc_id].name)
 
     def register(self, transport_server):
         transport_server.register(self.prog, self.vers, self)
 
     def handle_proc(self, i, transport):
-        try:
-            proc = self.procs[i]
-        except KeyError:
-            # Actually, this means the client sent us a procedure call
-            # not documented in the IDL.
+        proc = self.procs[i]
+        if proc is None:
             raise NotImplementedError()
+        fn = self.get_handler(i)
+
         if trace_rpc:
             print("Proc: %s" % (proc.name,), )
         argl = [arg_type.unpack(transport.unpacker)
                 for arg_type in proc.arg_types]
-        transport.turn_around()
-        try:
-            fn = getattr(self, proc.name)
-        except AttributeError:
-            raise NotImplementedError()
+
         rv = fn(*argl)
         proc.ret_type.pack(transport.packer, rv)
         if trace_rpc:

@@ -93,19 +93,20 @@ treatment of nested enum definitions is wrong, according to RFC1832
 section 5.4, but I'm not sure.)
 
 Rpcgen doesn't support:
-- 'unsigned' as a synonym for 'unsigned int'
 - case fall-through in unions
 Neither seems to be defined in the grammar, but I should support them,
 and look around for an updated IDL specification.
 """
-
-from __future__ import nested_scopes
-
+import abc
+import itertools
 import sys
 import time
 
+import typing
 from ply import lex
 from ply import yacc
+
+from pynefs import rpchelp
 
 
 class LexError(Exception):
@@ -154,7 +155,7 @@ reserved_tuple = (
     'program',
     'version')
 
-types = ('int', 'hyper', 'float', 'double', 'quadruple', 'bool')
+types = ('int', 'hyper', 'float', 'double', 'quadruple', 'bool', 'long', 'string', 'opaque')
 
 py_reserved_words = ['def', 'print', 'del', 'pass', 'break', 'continue',
                      'return', 'yield', 'raise', 'import', 'from',
@@ -175,13 +176,13 @@ def t_CONSTVAL(t):
 
 def t_COMMENT(t):
     r"""/\*(.|\n)*?\*/"""
-    t.lineno += t.value.count('\n')
+    t.lexer.lineno += t.value.count('\n')
     return None
 
 
 def t_NEWLINE(t):
     r"""\n+"""
-    t.lineno += t.value.count("\n")
+    t.lexer.lineno += t.value.count("\n")
 
 
 t_ignore = " \t"
@@ -216,18 +217,58 @@ class Ctx:
     def __init__(self):
         self.indent = 0
         self.deferred_list = []  # used for deferring nested Enum definitions
+        self.progs: typing.List["Program"] = []
+        self.type_mapping: typing.Dict[str, rpchelp.packable] = {}
+        self.const_mapping: typing.Dict[str, int] = {}
+        self.exportable = []
 
     def defer(self, val):
         self.deferred_list.append(val)
 
+    def defer_prog(self, val):
+        self.progs.append(val)
+
     def finish(self):
         return "\n".join(self.deferred_list)
+
+    def collect_types(self, type_dict):
+        self.type_mapping.clear()
+        self.const_mapping.clear()
+        for name, val in type_dict.items():
+            if isinstance(val, rpchelp.packable):
+                self.type_mapping[name] = val
+            if isinstance(val, int):
+                self.const_mapping[name] = val
+
+    def finish_struct_vals(self):
+        buf = ""
+        for nm, typ in self.type_mapping.items():
+            if not isinstance(typ, rpchelp.struct_base):
+                continue
+            self.exportable.append(typ.val_name)
+            buf += f"@dataclass\nclass {typ.val_name}(rpchelp.struct_val_base):\n"
+            for el_nm, el_typ in typ.elt_list:
+                buf += f"\t{el_nm}: {el_typ.type_hint()}\n"
+            if not typ.elt_list:
+                buf += "\tpass\n"
+            buf += f"\n\n{typ.name}.val_base_class = {typ.val_name}\n\n\n"
+        return buf
+
+    def finish_progs(self):
+        return "\n".join("\n".join(
+            [p.str_one_vers(self, vers) for vers in p.versions.children]) for p in self.progs)
+
+    def finish_exports(self):
+        prog_names = list(itertools.chain(*[[
+            f"{p.ident}_{vers.version_id}" for vers in p.versions.children
+        ] for p in self.progs]))
+        return f"__all__ = {repr(self.exportable + prog_names + list(self.const_mapping.keys()))}"
 
 
 class Node:
     def __init__(self, val=None, children=None):
         self.val = val
-        self.name = "_undefined"
+        self.name = None
         self.children = children or []
 
     def set_ident(self, ident):
@@ -235,8 +276,33 @@ class Node:
         the right place)"""
         pass
 
+    def visit(self, visitor):
+        visitor.visit(self)
+
+        seen = set()
+
+        # Be careful, visitor may mutate tree.
+        for key, val in list(self.__dict__.items()):
+            if key == "children":
+                continue
+            if val is self:
+                continue
+            if not isinstance(val, Node):
+                continue
+            if id(val) in seen:
+                continue
+            seen.add(id(val))
+            val.visit(visitor)
+        for node in self.children[:]:
+            if id(node) in seen:
+                continue
+            seen.add(id(node))
+            node.visit(visitor)
+
+        visitor.leave()
+
     def to_str(self, ctx):
-        return '# Unimplemented ' + self.__class__.__name__ + " " + str(self.__dict__)
+        raise NotImplementedError(f'{self.__class__.__name__}.to_str()')
 
 
 class NodeList(Node):
@@ -245,7 +311,6 @@ class NodeList(Node):
     def __init__(self, node, node_list=None):
         Node.__init__(self)
         self.children = [node]
-        self.node = node
         if node_list is not None:
             self.children.extend(node_list.children)
 
@@ -286,10 +351,18 @@ class ArrType(Node):
 
     def to_str(self, ctx):
         var_fixed = ['rpchelp.fixed', 'rpchelp.var'][self.var_fixed]
+        is_string = False
+        typ = self.typ
         if self.typ in ['string', 'opaque']:
-            return 'rpchelp.%s(%s, %s)' % (self.typ, var_fixed, self.maxind)
+            is_string = True
+        elif isinstance(self.typ, TypeSpec) and self.typ.val in ['string', 'opaque']:
+            is_string = True
+            typ = self.typ.val
+
+        if is_string:
+            return 'rpchelp.%s(%s, %s)' % (typ, var_fixed, self.maxind)
         return 'rpchelp.arr(%s, %s, %s)' % (
-            self.typ.to_str(ctx), var_fixed, self.maxind)
+            typ.to_str(ctx), var_fixed, self.maxind)
 
 
 class OptData(Node):
@@ -299,7 +372,7 @@ class OptData(Node):
         Node.__init__(self)
 
     def to_str(self, ctx):
-        return 'rpchelp.opt_data(lambda : %s)' % (self.type_spec.to_str(ctx))
+        return 'rpchelp.opt_data(%s)' % (self.type_spec.to_str(ctx))
 
 
 class TypeSpec(Node):
@@ -307,6 +380,8 @@ class TypeSpec(Node):
 
     def __init__(self, val, unsigned, base, compound=0):
         Node.__init__(self)
+        if val == "long":
+            val = "int"
         if unsigned:
             v = self.unsignable.get(val, None)
             if v is None:
@@ -360,7 +435,6 @@ class EnumClause(Node):
 class Struct(Node):
     def __init__(self, body):
         Node.__init__(self)
-        body.name = '_unnamed'
         self.body = body
 
     def set_ident(self, ident):
@@ -374,25 +448,25 @@ class StructList(NodeList):
     def to_str(self, ctx):
         str_children = []
         l_count = 0
-        l_index = None
         for (decl, i) in zip(self.children, range(0, len(self.children))):
-            elt = "('%s',%s)" % (decl.ident, decl.to_str(ctx))
-            str_children.append(elt)
-            if (self.name != '_unnamed' and isinstance(decl, OptData)
+            elt = "('%s', %s)" % (decl.ident, decl.to_str(ctx))
+            # Self-referential tail pointer means we get treated like a linked list
+            if (self.name and isinstance(decl, OptData)
                     and decl.type_spec.val == self.name):
+                # If it's not actually a tail pointer something's very wrong
+                assert(i == len(self.children) - 1)
                 l_count += 1
-                l_index = i
-        members_str = ",".join(str_children)
+            else:
+                str_children.append(elt)
+        members_str = ", ".join(str_children)
         if l_count == 1:
-            return "rpchelp.linked_list('%s', %d, [%s])" % (self.name, l_index,
-                                                            members_str)
+            return "rpchelp.linked_list('%s', [%s])" % (self.name, members_str)
         else:  # either a flat struct or a tree or something more complex
             return "rpchelp.struct('%s', [%s])" % (self.name, members_str)
 
 
 class Union(Node):
     def __init__(self, body):
-        body.name = 'unnamed'
         self.body = body
         Node.__init__(self)
 
@@ -414,10 +488,9 @@ class UnionBody(Node):
         Node.__init__(self)
 
     def to_str(self, ctx):
-        return "rpchelp.union('%s', %s, '%s', {%s})" % (
+        return "rpchelp.union('%s', %s, {%s})" % (
             self.name,
             self.sw_decl.typ.to_str(ctx),
-            self.sw_decl.ident,
             self.body.to_str(ctx))
 
 
@@ -429,7 +502,7 @@ class UnionElt(Node):
 
     def to_str(self, ctx):
         typestr = self.decl.to_str(ctx)
-        return "%s : %s" % (self.val, typestr)
+        return "%s: %s" % (self.val, typestr)
     # We ignore self.decl.ident.  Not needed for current union
     # implementation, because we can assign the data to '_data',
     # because the type goes with the object bound to '_data',
@@ -448,11 +521,32 @@ class VersionList(NodeList):
 
 
 class ProcedureList(NodeListComma):
-    pass
+    @staticmethod
+    def _common_prefix(strings):
+        if not strings:
+            return ""
+        prefix = strings[-1]
+        for string in strings:
+            shortest = min(len(prefix), len(string))
+            prefix = prefix[:shortest]
+            last_match = 0
+            for x, y in zip(prefix, string[:shortest]):
+                if x != y:
+                    break
+                last_match += 1
+            prefix = prefix[:last_match]
+        return prefix
+
+    def remove_common_prefix(self):
+        prefix = self._common_prefix([p.ident for p in self.children])
+        if not prefix:
+            return
+        for proc in self.children:
+            proc.ident = proc.ident[len(prefix):]
 
 
 class TypeSpecList(NodeList):
-    sep = ','
+    sep = ', '
 
 
 class Const(Node):
@@ -499,17 +593,36 @@ class Program(Node):
         self.program_id = program_id
 
     def str_one_vers(self, ctx, vers):
-        class_decl = 'class %s_%s(rpchelp.Server):' % (self.ident,
-                                                       vers.version_id)
+        class_decl = '\n\nclass %s_%s(rpchelp.Server):' % (self.ident, vers.version_id)
         prog = 'prog = %s' % (self.program_id,)
         vers_str = 'vers = %s' % (vers.version_id,)
-        proc_list = [p.to_str(ctx) for p in vers.proc_defs.children]
-        return "\n\t".join([class_decl, prog, vers_str, 'procs = {' +
-                            ",\n\t".join(proc_list)]) + '}\n'
+
+        vers.proc_defs.remove_common_prefix()
+        procs_str = "procs = {\n"
+        for proc in vers.proc_defs.children:
+            procs_str += f"\t\t{proc.proc_id}: {proc.to_str(ctx)},\n"
+        procs_str += "\t}\n"
+
+        funcs_str = ""
+
+        def _get_type(p_typ):
+            if p_typ.base:
+                return getattr(rpchelp, 'r_' + p_typ.val)
+            return ctx.type_mapping[p_typ.val]
+
+        for proc in vers.proc_defs.children:
+            funcs_str += "\t@abc.abstractmethod\n"
+            funcs_str += f"\tdef {proc.ident}(self"
+            for i, parm_type in enumerate(proc.parm_list.children):
+                funcs_str += f", arg_{i}: {_get_type(parm_type).type_hint()}"
+            funcs_str += f") -> {_get_type(proc.ret_type).type_hint()}:\n"
+            funcs_str += "\t\tpass\n\n"
+        funcs_str = funcs_str.strip()
+        return "\n\t".join([class_decl, prog, vers_str, procs_str, funcs_str])
 
     def to_str(self, ctx):
-        return "\n".join(
-            [self.str_one_vers(ctx, vers) for vers in self.versions.children])
+        ctx.defer_prog(self)
+        return ""
 
 
 class Version(Node):
@@ -529,9 +642,7 @@ class Procedure(Node):
         self.proc_id = proc_id
 
     def to_str(self, ctx):
-        return "%s : rpchelp.Proc('%s', %s, [%s])" % (
-            self.proc_id, self.ident, self.ret_type.to_str(ctx),
-            self.parm_list.to_str(ctx))
+        return "rpchelp.Proc('%s', %s, [%s])" % (self.ident, self.ret_type.to_str(ctx), self.parm_list.to_str(ctx))
 
 
 def p_specification_1(t):
@@ -627,6 +738,11 @@ def p_type_spec_3(t):
 def p_type_spec_4(t):
     """type_specifier : IDENT"""
     t[0] = TypeSpec(t[1], unsigned=0, base=0)
+
+
+def p_type_spec_5(t):
+    """type_specifier : UNSIGNED"""
+    t[0] = TypeSpec("int", unsigned=1, base=1)
 
 
 def p_enum(t):
@@ -817,16 +933,80 @@ def testyacc(s, fn):
     print_ast(ast)
 
 
+class NodeVisitor(abc.ABC):
+    def __init__(self, ctx: Ctx):
+        self.ctx = ctx
+        self.node_stack = []
+
+    @abc.abstractmethod
+    def visit(self, node: Node):
+        self.node_stack.append(node)
+
+    def leave(self):
+        self.node_stack.pop(-1)
+
+
+class StructHoistingVisitor(NodeVisitor):
+    def visit(self, node: Node):
+        """Hoist struct declarations up and out of unions"""
+        super().visit(node)
+        if not isinstance(node, UnionElt):
+            return
+        typ_spec: TypeSpec = node.decl.typ
+        if not typ_spec.compound:
+            return
+        root = self.node_stack[0]
+        base_typedef = self.node_stack[-4]
+
+        # Extract the struct def and create a new top-level node for it
+        new_name = f"{base_typedef.ident}_{typ_spec.val.body.name}"
+        struct_val = typ_spec.val
+        struct_val.body.name = new_name
+        new_typ_spec = TypeDefCompound(struct_val.body.name, struct_val, struct_val.body)
+
+        # Have the union reference this instead
+        typ_spec.base = False
+        typ_spec.compound = False
+        typ_spec.val = new_name
+
+        # Insert the struct just before the union
+        root.children.insert(root.children.index(base_typedef), new_typ_spec)
+
+
 def test(s, fn):
     ast = parser.parse(s)
     ctx = Ctx()
-    print("### Auto-generated at %s from %s" % (
-        time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime()),
-        fn))
-    print("import rpchelp")
+    hoister = StructHoistingVisitor(ctx)
+    ast.visit(hoister)
+
+    header = "# Auto-generated at %s from %s\n" % (
+            time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime()), fn
+    )
+    src = """import abc
+from dataclasses import dataclass
+import typing
+
+from pynefs import rpchelp
+
+TRUE = True
+FALSE = False
+"""
     tmp = ast.to_str(ctx)
-    print(ctx.finish())
-    print(tmp)
+    src += "\n".join((ctx.finish(), tmp.strip()))
+
+    # Gross. This file probably needs to be totally rewritten.
+    # Might be ok to construct the classes instead and give them
+    # a __repr__ that will completely recreate them?
+    src_locals = {}
+    exec(src, globals(), src_locals)
+    ctx.collect_types(src_locals)
+
+    print(header)
+    print(src)
+    print(ctx.finish_struct_vals())
+    print(ctx.finish_progs())
+    print("\n")
+    print(ctx.finish_exports())
 
 
 def main():
@@ -835,8 +1015,8 @@ def main():
     #    testfn = testlex
 
     for fn in sys.argv[1:]:
-        f = open(fn)
-        s = f.read()
+        with open(fn) as f:
+            s = f.read()
         testfn(s, fn)
 
 

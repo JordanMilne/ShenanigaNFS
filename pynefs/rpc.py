@@ -1,5 +1,8 @@
 import xdrlib as xdr
 
+from pynefs.generated.rfc1831 import rpc_msg
+
+
 RPCVERSION = 2
 
 CALL = 0
@@ -32,7 +35,6 @@ AUTH_FAILED = 7  # reason unknown
 
 
 class Packer(xdr.Packer):
-
     def pack_auth(self, auth):
         flavor, stuff = auth
         self.pack_enum(flavor)
@@ -65,7 +67,6 @@ class Packer(xdr.Packer):
         self.pack_uint(MSG_ACCEPTED)
         self.pack_auth(verf)
         self.pack_enum(SUCCESS)
-    # Caller must add procedure-specific part of reply
 
 
 # Exceptions
@@ -82,66 +83,14 @@ class GarbageArgs(Exception):
 
 
 class Unpacker(xdr.Unpacker):
-
-    def unpack_auth(self):
-        flavor = self.unpack_enum()
-        stuff = self.unpack_opaque()
-        return flavor, stuff
+    def __copy__(self):
+        return self.__class__(self.get_buffer()[self.get_position():])
 
     def unpack_fragheader(self):
         return self.unpack_uint()
 
-    def unpack_callheader(self):
-        xid = self.unpack_uint()
-        temp = self.unpack_enum()
-        if temp != CALL:
-            raise BadRPCFormat('no CALL but ' + temp)
-        temp = self.unpack_uint()
-        if temp != RPCVERSION:
-            raise BadRPCVersion('bad RPC version ' + temp)
-        prog = self.unpack_uint()
-        vers = self.unpack_uint()
-        proc = self.unpack_uint()
-        cred = self.unpack_auth()
-        verf = self.unpack_auth()
-        return xid, prog, vers, proc, cred, verf
-
-    # Caller must add procedure-specific part of call
-
-    def unpack_replyheader(self):
-        xid = self.unpack_uint()
-        mtype = self.unpack_enum()
-        if mtype != REPLY:
-            raise RuntimeError(f'no REPLY but {mtype}')
-        stat = self.unpack_enum()
-        if stat == MSG_DENIED:
-            stat = self.unpack_enum()
-            if stat == RPC_MISMATCH:
-                low = self.unpack_uint()
-                high = self.unpack_uint()
-                raise RuntimeError(f'MSG_DENIED: RPC_MISMATCH: {low}, {high}')
-            if stat == AUTH_ERROR:
-                stat = self.unpack_uint()
-                raise RuntimeError(f'MSG_DENIED: AUTH_ERROR: {stat}')
-            raise RuntimeError(f'MSG_DENIED: {stat}')
-        elif stat != MSG_ACCEPTED:
-            raise RuntimeError(f'Neither MSG_DENIED nor MSG_ACCEPTED: {stat}')
-        verf = self.unpack_auth()
-        stat = self.unpack_enum()
-        if stat == PROG_UNAVAIL:
-            raise RuntimeError('call failed: PROG_UNAVAIL')
-        if stat == PROG_MISMATCH:
-            low = self.unpack_uint()
-            high = self.unpack_uint()
-            raise RuntimeError(f'call failed: PROG_MISMATCH: {low} {high}')
-        if stat == PROC_UNAVAIL:
-            raise RuntimeError('call failed: PROC_UNAVAIL')
-        if stat == GARBAGE_ARGS:
-            raise RuntimeError('call failed: GARBAGE_ARGS')
-        if stat != SUCCESS:
-            raise RuntimeError(f'call failed: {stat}')
-        return xid, verf
-        # Caller must get procedure-specific part of reply
+    def unpack_msg_header(self):
+        return rpc_msg.unpack(self)
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.__buf[self.__pos:]!r}>"

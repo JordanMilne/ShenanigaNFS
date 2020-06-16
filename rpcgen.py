@@ -596,8 +596,6 @@ class Program(Node):
         class_decl = '\n\nclass %s_%s(rpchelp.Server):' % (self.ident, vers.version_id)
         prog = 'prog = %s' % (self.program_id,)
         vers_str = 'vers = %s' % (vers.version_id,)
-
-        vers.proc_defs.remove_common_prefix()
         procs_str = "procs = {\n"
         for proc in vers.proc_defs.children:
             procs_str += f"\t\t{proc.proc_id}: {proc.to_str(ctx)},\n"
@@ -629,6 +627,11 @@ class Version(Node):
     def __init__(self, ident, proc_defs, version_id):
         Node.__init__(self)
         self.ident = ident
+        proc_defs.remove_common_prefix()
+        # All programs have an implicit NULL procedure
+        if not any(str(proc.proc_id) == "0" for proc in proc_defs.children):
+            void_spec = TypeSpec("void", False, True, False)
+            proc_defs.children.insert(0, Procedure("NULL", void_spec, TypeSpecList(void_spec), 0))
         self.proc_defs = proc_defs
         self.version_id = version_id
 

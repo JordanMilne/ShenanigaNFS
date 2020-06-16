@@ -1,4 +1,4 @@
-# Auto-generated at Mon, 15 Jun 2020 23:14:05 +0000 from pynefs/idl/rfc1833_rpcbind.x
+# Auto-generated at Tue, 16 Jun 2020 13:13:33 +0000 from pynefs/idl/rfc1833_rpcbind.x
 
 import abc
 from dataclasses import dataclass
@@ -153,6 +153,7 @@ class RPCBPROG_3(rpchelp.Server):
 	prog = 100000
 	vers = 3
 	procs = {
+		0: rpchelp.Proc('NULL', rpchelp.r_void, [rpchelp.r_void]),
 		1: rpchelp.Proc('SET', rpchelp.r_bool, [rpcb]),
 		2: rpchelp.Proc('UNSET', rpchelp.r_bool, [rpcb]),
 		3: rpchelp.Proc('GETADDR', rpchelp.r_string, [rpcb]),
@@ -162,6 +163,10 @@ class RPCBPROG_3(rpchelp.Server):
 		7: rpchelp.Proc('UADDR2TADDR', netbuf, [rpchelp.r_string]),
 		8: rpchelp.Proc('TADDR2UADDR', rpchelp.r_string, [netbuf]),
 	}
+
+	@abc.abstractmethod
+	def NULL(self, arg_0: None) -> None:
+		pass
 
 	@abc.abstractmethod
 	def SET(self, arg_0: v_rpcb) -> bool:
@@ -200,6 +205,7 @@ class RPCBPROG_4(rpchelp.Server):
 	prog = 100000
 	vers = 4
 	procs = {
+		0: rpchelp.Proc('NULL', rpchelp.r_void, [rpchelp.r_void]),
 		1: rpchelp.Proc('SET', rpchelp.r_bool, [rpcb]),
 		2: rpchelp.Proc('UNSET', rpchelp.r_bool, [rpcb]),
 		3: rpchelp.Proc('GETADDR', rpchelp.r_string, [rpcb]),
@@ -213,6 +219,10 @@ class RPCBPROG_4(rpchelp.Server):
 		11: rpchelp.Proc('GETADDRLIST', rpcb_entry_list, [rpcb]),
 		12: rpchelp.Proc('GETSTAT', rpcb_stat_byvers, [rpchelp.r_void]),
 	}
+
+	@abc.abstractmethod
+	def NULL(self, arg_0: None) -> None:
+		pass
 
 	@abc.abstractmethod
 	def SET(self, arg_0: v_rpcb) -> bool:

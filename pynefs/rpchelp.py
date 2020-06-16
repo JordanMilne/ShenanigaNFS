@@ -31,18 +31,13 @@
 # or other dealings in this Software without prior written authorization
 # of the copyright holder.
 
-from __future__ import nested_scopes
-
 import abc
 import typing
 import xdrlib
 
-trace_struct = 0
-trace_union = 0
-trace_rpc = 0
 
-fixed = 0
-var = 1
+fixed = 1
+var = 0
 
 
 class LengthMismatchException(Exception):
@@ -55,11 +50,11 @@ class BadUnionSwitchException(Exception):
 
 class packable(abc.ABC):
     @abc.abstractmethod
-    def unpack(self, up):
+    def unpack(self, up: xdrlib.Unpacker):
         pass
 
     @abc.abstractmethod
-    def pack(self, p, val):
+    def pack(self, p: xdrlib.Packer, val):
         pass
 
     @classmethod
@@ -72,11 +67,11 @@ class arr(packable):
     """Pack and unpack a fixed-length or variable-length array,
     both corresponding to a Python list"""
 
-    def __init__(self, base_type, var_fixed, length=None):
+    def __init__(self, base_type, fixed_len, length=None):
         self.base_type = base_type
-        self.var_fixed = var_fixed
+        self.fixed_len = fixed_len
         self.length = length
-        assert (not (var_fixed == fixed and length is None))
+        assert (not (fixed_len and length is None))
 
     def type_hint(self):
         inner_hint_func = getattr(self.base_type, 'type_hint')
@@ -85,7 +80,7 @@ class arr(packable):
         return f"typing.List[{inner_hint_func()}]"
 
     def check_pack_len(self, v):
-        if self.var_fixed != fixed and self.length is not None:
+        if self.fixed_len and self.length is not None:
             # if it's a fixed type, xdrlib checks
             val_len = len(v)
             if val_len > self.length:
@@ -96,7 +91,7 @@ class arr(packable):
             self.base_type.pack(p, v)
 
         self.check_pack_len(val)
-        if self.var_fixed == fixed:
+        if self.fixed_len:
             p.pack_farray(len(val), val, pack_one)
         else:
             p.pack_array(val, pack_one)
@@ -105,19 +100,19 @@ class arr(packable):
         def unpack_one():
             return self.base_type.unpack(up)
 
-        if self.var_fixed == fixed:
+        if self.fixed_len:
             return up.unpack_farray(self.length, unpack_one)
         else:
-            return up.unpack_opaque(unpack_one)
+            return up.unpack_array(unpack_one)
 
 
 class opaque_or_string(arr):
     """Pack and unpack an opaque or string type, both corresponding
     to a Python string"""
 
-    def __init__(self, var_fixed, length=None):
-        super().__init__(bytes, var_fixed, length)
-        assert (not (var_fixed == fixed and length is None))
+    def __init__(self, fixed_len, length=None):
+        super().__init__(bytes, fixed_len, length)
+        assert (not (fixed_len and length is None))
 
     @classmethod
     def type_hint(cls):
@@ -126,13 +121,13 @@ class opaque_or_string(arr):
 
     def pack(self, p, val):
         self.check_pack_len(val)
-        if self.var_fixed == fixed:
+        if self.fixed_len:
             p.pack_fopaque(len(val), val)
         else:
             p.pack_opaque(val)
 
     def unpack(self, up):
-        if self.var_fixed == fixed:
+        if self.fixed_len:
             return up.unpack_fopaque(self.length)
         else:
             return up.unpack_opaque()
@@ -225,10 +220,7 @@ class struct(struct_base):
             return
 
         for (nm, typ) in self.elt_list:
-            member_val = getattr(val, nm)
-            if trace_struct:
-                print("packing", nm, typ, str(member_val))
-            typ.pack(p, member_val)
+            typ.pack(p, getattr(val, nm))
 
     def unpack(self, up, want_single=False):
         if self.single_elem and want_single:
@@ -243,16 +235,10 @@ class linked_list(struct):
         return f"typing.List[{super().type_hint(want_single)}]"
 
     def pack(self, p, val_list, want_single=True):
-        for val in val_list:
-            p.pack_bool(True)
-            super().pack(p, val, want_single)
-        p.pack_bool(False)
+        return p.pack_list(val_list, lambda val: super(linked_list, self).pack(p, val, want_single))
 
     def unpack(self, up, want_single=True):
-        elem_list = []
-        while up.unpack_bool():
-            elem_list.append(super().unpack(up, want_single))
-        return elem_list
+        return up.unpack_list(lambda: super(linked_list, self).unpack(up, want_single))
 
 
 class union(packable):
@@ -313,12 +299,8 @@ class union(packable):
                 self.union_dict[True].pack(p, val)
             return
         sw_val, data = val
-        if trace_union:
-            print("union: packing switch", sw_val)
         self.switch_decl.pack(p, sw_val)
         typ = self._sw_val_to_typ(sw_val)
-        if trace_union:
-            print("union: typ", "data:", val)
         typ.pack(p, data)
 
     def unpack(self, up):
@@ -432,11 +414,6 @@ class Server:
     at instantiation time, whether there are any procedures defined in the
     IDL which are both unimplemented and whose names are missing from the
     deliberately_unimplemented member.
-
-    Stashes transaction_id in self.xid for duration of call.  Perhaps
-    should provide optional caching facility for results of non-idempotent
-    calls.
-
     As a convenience, allows creation of transport server w/
     create_transport_server.  In what every way the server is created,
     you must call register."""
@@ -453,18 +430,12 @@ class Server:
     def register(self, transport_server):
         transport_server.register(self.prog, self.vers, self)
 
-    def handle_proc(self, i, transport):
-        proc = self.procs[i]
+    def handle_proc_call(self, proc_id, transport):
+        proc = self.procs[proc_id]
         if proc is None:
             raise NotImplementedError()
-        fn = self.get_handler(i)
 
-        if trace_rpc:
-            print("Proc: %s" % (proc.name,), )
         argl = [arg_type.unpack(transport.unpacker)
                 for arg_type in proc.arg_types]
-
-        rv = fn(*argl)
+        rv = self.get_handler(proc_id)(*argl)
         proc.ret_type.pack(transport.packer, rv)
-        if trace_rpc:
-            print("(%s) -> %s" % (",".join(map(str, argl)), str(rv)))

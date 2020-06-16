@@ -212,15 +212,10 @@ class struct(struct_base):
         return len(self.elt_list) == 1
 
     def type_hint(self) -> str:
-        # If we're a single elem struct (like a linked list) we just
-        # (un)pack the bare value
-        val_name = self.val_base_class.__name__
-        if self.single_elem:
-            return f"typing.Union[{self.elt_list[0][1].type_hint()}, {val_name}]"
-        return val_name
+        return self.val_base_class.__name__
 
-    def pack(self, p, val):
-        if self.single_elem:
+    def pack(self, p, val, unpack_single=False):
+        if self.single_elem and unpack_single:
             self.elt_list[0][1].pack(p, val)
             return
 
@@ -230,8 +225,8 @@ class struct(struct_base):
                 print("packing", nm, typ, str(member_val))
             typ.pack(p, member_val)
 
-    def unpack(self, up):
-        if self.single_elem:
+    def unpack(self, up, unpack_single=False):
+        if self.single_elem and unpack_single:
             return self.elt_list[0][1].unpack(up)
         return self(**{nm: typ.unpack(up) for nm, typ in self.elt_list})
 
@@ -240,18 +235,23 @@ class linked_list(struct):
     """Pack and unpack an XDR linked list as a Python list."""
 
     def type_hint(self) -> str:
-        return f"typing.List[{super().type_hint()}]"
+        # If we're a single elem list-like struct we just
+        # (un)pack the bare value
+        val_name = self.val_base_class.__name__
+        if self.single_elem:
+            val_name = f"typing.Union[{self.elt_list[0][1].type_hint()}, {val_name}]"
+        return f"typing.List[{val_name}]"
 
-    def pack(self, p, val_list):
+    def pack(self, p, val_list, unpack_single=True):
         for val in val_list:
             p.pack_bool(True)
-            super().pack(p, val)
+            super().pack(p, val, unpack_single)
         p.pack_bool(False)
 
-    def unpack(self, up):
+    def unpack(self, up, unpack_single=True):
         elem_list = []
         while up.unpack_bool():
-            elem_list.append(super().unpack(up))
+            elem_list.append(super().unpack(up, unpack_single))
         return elem_list
 
 
@@ -261,18 +261,25 @@ class union(packable):
     switch_name, and I use it for that reason, rather than because the
     data member is private."""
 
-    def __init__(self, union_name, switch_decl, union_dict):
+    def __init__(self, union_name, switch_decl, switch_name, union_dict, from_parser=False):
         super().__init__()
         self.name = union_name
         self.switch_decl: packable = switch_decl
+        self.switch_name: str = switch_name
         self.union_dict: typing.Dict[typing.Any, packable] = union_dict
         self.def_typ = self.union_dict.get(None, None)
+        self.val_base_class: typing.Optional[typing.Type] = None
+        self.from_parser = from_parser
 
     @property
     def is_simple_option(self):
         """check if the union is basically just a fancy opt_data"""
         type_hints = {k: v.type_hint() for k, v in self.union_dict.items()}
         return len(type_hints) == 2 and type_hints.get(False, "") == "None"
+
+    @property
+    def val_name(self):
+        return "v_" + self.name
 
     def _sw_val_to_typ(self, sw_val):
         """Get the type descriptor for the arm of the union specified by
@@ -287,6 +294,10 @@ class union(packable):
         type_values = list(type_hints.values())
         if self.is_simple_option:
             return f"typing.Optional[{type_hints[True]}]"
+        if self.val_base_class:
+            return self.val_base_class.__name__
+        if self.from_parser:
+            return self.val_name
         type_str = f"typing.Tuple[{self.switch_decl.type_hint()}, "
 
         # Might still be able to make just the type hint shorter
@@ -317,6 +328,8 @@ class union(packable):
                 return self.union_dict[True].unpack(up)
             return None
         unpacked = self._sw_val_to_typ(sw_val).unpack(up)
+        if self.val_base_class:
+            return self.val_base_class(sw_val, unpacked)
         return sw_val, unpacked
 
 

@@ -243,15 +243,19 @@ class Ctx:
     def finish_struct_vals(self):
         buf = ""
         for nm, typ in self.type_mapping.items():
-            if not isinstance(typ, rpchelp.struct_base):
-                continue
-            self.exportable.append(typ.val_name)
-            buf += f"@dataclass\nclass {typ.val_name}(rpchelp.struct_val_base):\n"
-            for el_nm, el_typ in typ.elt_list:
-                buf += f"\t{el_nm}: {el_typ.type_hint()}\n"
-            if not typ.elt_list:
-                buf += "\tpass\n"
-            buf += f"\n\n{typ.name}.val_base_class = {typ.val_name}\n\n\n"
+            if isinstance(typ, rpchelp.struct_base):
+                self.exportable.append(typ.val_name)
+                buf += f"@dataclass\nclass {typ.val_name}(rpchelp.struct_val_base):\n"
+                for el_nm, el_typ in typ.elt_list:
+                    buf += f"\t{el_nm}: {el_typ.type_hint()}\n"
+                buf += f"\n\n{typ.name}.val_base_class = {typ.val_name}\n\n\n"
+            if isinstance(typ, rpchelp.union):
+                self.exportable.append(typ.val_name)
+                buf += f"@dataclass\nclass {typ.val_name}(rpchelp.struct_val_base):\n"
+                buf += f"\t{typ.switch_name}: {typ.switch_decl.type_hint()}\n"
+                # TODO: discriminated union type hints somehow???
+                buf += f"\tval: typing.Union[{', '.join(x.type_hint() for x in typ.union_dict.values())}]\n"
+                buf += f"\n\n{typ.name}.val_base_class = {typ.val_name}\n\n\n"
         return buf
 
     def finish_progs(self):
@@ -488,9 +492,10 @@ class UnionBody(Node):
         Node.__init__(self)
 
     def to_str(self, ctx):
-        return "rpchelp.union('%s', %s, {%s})" % (
+        return "rpchelp.union('%s', %s, '%s', {%s}, from_parser=True)" % (
             self.name,
             self.sw_decl.typ.to_str(ctx),
+            self.sw_decl.ident,
             self.body.to_str(ctx))
 
 

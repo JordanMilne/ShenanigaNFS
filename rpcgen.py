@@ -100,7 +100,6 @@ and look around for an updated IDL specification.
 import abc
 import itertools
 import sys
-import time
 
 import typing
 from ply import lex
@@ -987,9 +986,7 @@ def test(s, fn):
     hoister = StructHoistingVisitor(ctx)
     ast.visit(hoister)
 
-    header = "# Auto-generated at %s from %s\n" % (
-            time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime()), fn
-    )
+    header = "# Auto-generated from IDL file\n"
     src = """import abc
 from dataclasses import dataclass
 import typing

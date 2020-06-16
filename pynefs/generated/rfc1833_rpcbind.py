@@ -1,4 +1,4 @@
-# Auto-generated at Tue, 16 Jun 2020 17:03:10 +0000 from pynefs/idl/rfc1833_rpcbind.x
+# Auto-generated from IDL file
 
 import abc
 from dataclasses import dataclass

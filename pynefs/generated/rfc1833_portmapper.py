@@ -1,4 +1,4 @@
-# Auto-generated at Tue, 16 Jun 2020 17:03:02 +0000 from pynefs/idl/rfc1833_portmapper.x
+# Auto-generated from IDL file
 
 import abc
 from dataclasses import dataclass

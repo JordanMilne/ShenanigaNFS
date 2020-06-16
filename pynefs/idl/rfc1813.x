@@ -72,9 +72,9 @@ struct specdata3 {
      uint32     specdata2;
 };
 
-struct nfs_fh3 {
-   opaque       data<NFS3_FHSIZE>;
-};
+/* JM: This used to be a single-elem struct, just renamed all
+ * its uses to disambiguate. */
+typedef opaque nfs_fh3<NFS3_FHSIZE>;
 
 struct nfstime3 {
    uint32   seconds;
@@ -124,7 +124,7 @@ struct wcc_data {
 };
 union post_op_fh3 switch (bool handle_follows) {
 case TRUE:
-     nfs_fh3  handle;
+     nfs_fh3  obj_handle;
 case FALSE:
      void;
 };
@@ -187,7 +187,7 @@ struct sattr3 {
 };
 
 struct diropargs3 {
-   nfs_fh3     dir;
+   nfs_fh3     dir_handle;
    filename3   name;
 };
 
@@ -264,7 +264,7 @@ program NFS_PROGRAM {
 } = 100003;
 
 struct GETATTR3args {
-   nfs_fh3  object;
+   nfs_fh3  obj_handle;
 };
 
 struct GETATTR3resok {
@@ -286,7 +286,7 @@ case FALSE:
 };
 
 struct SETATTR3args {
-   nfs_fh3      object;
+   nfs_fh3      obj_handle;
    sattr3       new_attributes;
    sattrguard3  guard;
 };
@@ -312,7 +312,7 @@ struct LOOKUP3args {
 };
 
 struct LOOKUP3resok {
-     nfs_fh3      object;
+     nfs_fh3      obj_handle;
      post_op_attr obj_attributes;
      post_op_attr dir_attributes;
 };
@@ -337,7 +337,7 @@ const ACCESS3_DELETE  = 0x0010;
 const ACCESS3_EXECUTE = 0x0020;
 
 struct ACCESS3args {
-     nfs_fh3  object;
+     nfs_fh3  obj_handle;
      uint32   access;
 };
 
@@ -359,7 +359,7 @@ default:
 
 
 struct READLINK3args {
-     nfs_fh3  symlink;
+     nfs_fh3  symlink_handle;
 };
 
 struct READLINK3resok {
@@ -379,7 +379,7 @@ default:
 };
 
 struct READ3args {
-     nfs_fh3  file;
+     nfs_fh3  file_handle;
      offset3  offset;
      count3   count;
 };
@@ -410,7 +410,7 @@ enum stable_how {
 };
 
 struct WRITE3args {
-     nfs_fh3     file;
+     nfs_fh3     file_handle;
      offset3     offset;
      count3      count;
      stable_how  stable;
@@ -457,7 +457,7 @@ struct CREATE3args {
 };
 
 struct CREATE3resok {
-     post_op_fh3   obj;
+     post_op_fh3   obj_handle;
      post_op_attr  obj_attributes;
      wcc_data      dir_wcc;
 };
@@ -480,7 +480,7 @@ struct MKDIR3args {
 };
 
 struct MKDIR3resok {
-     post_op_fh3   obj;
+     post_op_fh3   obj_handle;
      post_op_attr  obj_attributes;
      wcc_data      dir_wcc;
 };
@@ -509,7 +509,7 @@ struct SYMLINK3args {
 };
 
 struct SYMLINK3resok {
-     post_op_fh3   obj;
+     post_op_fh3   obj_handle;
      post_op_attr  obj_attributes;
      wcc_data      dir_wcc;
 };
@@ -550,7 +550,7 @@ struct MKNOD3args {
 };
 
 struct MKNOD3resok {
-     post_op_fh3   obj;
+     post_op_fh3   obj_handle;
      post_op_attr  obj_attributes;
      wcc_data      dir_wcc;
 };
@@ -630,7 +630,7 @@ default:
 
 
 struct LINK3args {
-     nfs_fh3     file;
+     nfs_fh3     file_handle;
      diropargs3  link;
 };
 
@@ -653,7 +653,7 @@ default:
 
 
 struct READDIR3args {
-     nfs_fh3      dir;
+     nfs_fh3      dir_handle;
      cookie3      cookie;
      cookieverf3  cookieverf;
      count3       count;
@@ -689,7 +689,7 @@ default:
 };
 
 struct READDIRPLUS3args {
-     nfs_fh3      dir;
+     nfs_fh3      dir_handle;
      cookie3      cookie;
      cookieverf3  cookieverf;
      count3       dircount;
@@ -729,7 +729,7 @@ default:
 
 
 struct FSSTAT3args {
-     nfs_fh3   fsroot;
+     nfs_fh3   fsroot_handle;
 };
 
 struct FSSTAT3resok {
@@ -761,7 +761,7 @@ const FSF3_HOMOGENEOUS = 0x0008;
 const FSF3_CANSETTIME  = 0x0010;
 
 struct FSINFO3args {
-     nfs_fh3   fsroot;
+     nfs_fh3   fsroot_handle;
 };
 
 struct FSINFO3resok {
@@ -791,7 +791,7 @@ default:
 
 
 struct PATHCONF3args {
-     nfs_fh3   object;
+     nfs_fh3   obj_handle;
 };
 
 struct PATHCONF3resok {
@@ -817,7 +817,7 @@ default:
 
 
 struct COMMIT3args {
-     nfs_fh3    file;
+     nfs_fh3    file_handle;
      offset3    offset;
      count3     count;
 };

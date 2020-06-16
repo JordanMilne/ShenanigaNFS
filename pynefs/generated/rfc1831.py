@@ -1,4 +1,4 @@
-# Auto-generated at Tue, 16 Jun 2020 16:56:31 +0000 from pynefs/idl/rfc1831.x
+# Auto-generated from IDL file
 
 import abc
 from dataclasses import dataclass

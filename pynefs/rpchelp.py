@@ -211,11 +211,16 @@ class struct(struct_base):
     def single_elem(self):
         return len(self.elt_list) == 1
 
-    def type_hint(self) -> str:
-        return self.val_base_class.__name__
+    def type_hint(self, want_single=False) -> str:
+        # If we're a single elem struct (like a linked list) we just
+        # (un)pack the bare value
+        val_name = self.val_base_class.__name__
+        if self.single_elem and want_single:
+            return f"typing.Union[{self.elt_list[0][1].type_hint()}, {val_name}]"
+        return val_name
 
-    def pack(self, p, val, unpack_single=False):
-        if self.single_elem and unpack_single:
+    def pack(self, p, val, want_single=False):
+        if self.single_elem and want_single:
             self.elt_list[0][1].pack(p, val)
             return
 
@@ -225,8 +230,8 @@ class struct(struct_base):
                 print("packing", nm, typ, str(member_val))
             typ.pack(p, member_val)
 
-    def unpack(self, up, unpack_single=False):
-        if self.single_elem and unpack_single:
+    def unpack(self, up, want_single=False):
+        if self.single_elem and want_single:
             return self.elt_list[0][1].unpack(up)
         return self(**{nm: typ.unpack(up) for nm, typ in self.elt_list})
 
@@ -234,24 +239,19 @@ class struct(struct_base):
 class linked_list(struct):
     """Pack and unpack an XDR linked list as a Python list."""
 
-    def type_hint(self) -> str:
-        # If we're a single elem list-like struct we just
-        # (un)pack the bare value
-        val_name = self.val_base_class.__name__
-        if self.single_elem:
-            val_name = f"typing.Union[{self.elt_list[0][1].type_hint()}, {val_name}]"
-        return f"typing.List[{val_name}]"
+    def type_hint(self, want_single=True) -> str:
+        return f"typing.List[{super().type_hint(want_single)}]"
 
-    def pack(self, p, val_list, unpack_single=True):
+    def pack(self, p, val_list, want_single=True):
         for val in val_list:
             p.pack_bool(True)
-            super().pack(p, val, unpack_single)
+            super().pack(p, val, want_single)
         p.pack_bool(False)
 
-    def unpack(self, up, unpack_single=True):
+    def unpack(self, up, want_single=True):
         elem_list = []
         while up.unpack_bool():
-            elem_list.append(super().unpack(up, unpack_single))
+            elem_list.append(super().unpack(up, want_single))
         return elem_list
 
 

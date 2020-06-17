@@ -32,6 +32,7 @@
 # of the copyright holder.
 
 import abc
+import dataclasses
 import random
 import typing
 import xdrlib
@@ -299,6 +300,8 @@ class union(packable):
             if val is not None:
                 self.union_dict[True].pack(p, val)
             return
+        if dataclasses.is_dataclass(val):
+            val = getattr(val, self.switch_name), getattr(val, "val")
         sw_val, data = val
         self.switch_decl.pack(p, sw_val)
         typ = self._sw_val_to_typ(sw_val)

@@ -93,4 +93,9 @@ class TCPClient(rpchelp.BaseClient):
         self.pack_args(proc_id, args, packer)
         await self.transport.write_msg(msg, packer.get_buffer())
         reply, reply_body = await self.transport.read_msg()
-        print(reply, reply_body)
+
+        if reply.body.val.stat != MSG_ACCEPTED:
+            raise Exception("Reply indicated error!")
+        unpacker = xdrlib.Unpacker(reply_body)
+        print(reply)
+        print(self.unpack_return(proc_id, unpacker))

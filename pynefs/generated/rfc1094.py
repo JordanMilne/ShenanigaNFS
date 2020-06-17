@@ -469,58 +469,58 @@ class NFS_PROGRAM_2_CLIENT(rpchelp.BaseClient):
 	}
 
 	async def NULL(self, arg_0: None) -> None:
-		yield self.send_call(0, [arg_0])
+		return await self.send_call(0, [arg_0])
 
 	async def GETATTR(self, arg_0: bytes) -> v_attrstat:
-		yield self.send_call(1, [arg_0])
+		return await self.send_call(1, [arg_0])
 
 	async def SETATTR(self, arg_0: v_sattrargs) -> v_attrstat:
-		yield self.send_call(2, [arg_0])
+		return await self.send_call(2, [arg_0])
 
 	async def ROOT(self, arg_0: None) -> None:
-		yield self.send_call(3, [arg_0])
+		return await self.send_call(3, [arg_0])
 
 	async def LOOKUP(self, arg_0: v_diropargs) -> v_diropres:
-		yield self.send_call(4, [arg_0])
+		return await self.send_call(4, [arg_0])
 
 	async def READLINK(self, arg_0: bytes) -> v_readlinkres:
-		yield self.send_call(5, [arg_0])
+		return await self.send_call(5, [arg_0])
 
 	async def READ(self, arg_0: v_readargs) -> v_readres:
-		yield self.send_call(6, [arg_0])
+		return await self.send_call(6, [arg_0])
 
 	async def WRITECACHE(self, arg_0: None) -> None:
-		yield self.send_call(7, [arg_0])
+		return await self.send_call(7, [arg_0])
 
 	async def WRITE(self, arg_0: v_writeargs) -> v_attrstat:
-		yield self.send_call(8, [arg_0])
+		return await self.send_call(8, [arg_0])
 
 	async def CREATE(self, arg_0: v_createargs) -> v_diropres:
-		yield self.send_call(9, [arg_0])
+		return await self.send_call(9, [arg_0])
 
 	async def REMOVE(self, arg_0: v_diropargs) -> int:
-		yield self.send_call(10, [arg_0])
+		return await self.send_call(10, [arg_0])
 
 	async def RENAME(self, arg_0: v_renameargs) -> int:
-		yield self.send_call(11, [arg_0])
+		return await self.send_call(11, [arg_0])
 
 	async def LINK(self, arg_0: v_linkargs) -> int:
-		yield self.send_call(12, [arg_0])
+		return await self.send_call(12, [arg_0])
 
 	async def SYMLINK(self, arg_0: v_symlinkargs) -> int:
-		yield self.send_call(13, [arg_0])
+		return await self.send_call(13, [arg_0])
 
 	async def MKDIR(self, arg_0: v_createargs) -> v_diropres:
-		yield self.send_call(14, [arg_0])
+		return await self.send_call(14, [arg_0])
 
 	async def RMDIR(self, arg_0: v_diropargs) -> int:
-		yield self.send_call(15, [arg_0])
+		return await self.send_call(15, [arg_0])
 
 	async def READDIR(self, arg_0: v_readdirargs) -> v_readdirres:
-		yield self.send_call(16, [arg_0])
+		return await self.send_call(16, [arg_0])
 
 	async def STATFS(self, arg_0: bytes) -> v_statfsres:
-		yield self.send_call(17, [arg_0])
+		return await self.send_call(17, [arg_0])
 
 
 class MOUNTPROG_1_SERVER(rpchelp.Server):
@@ -573,22 +573,22 @@ class MOUNTPROG_1_CLIENT(rpchelp.BaseClient):
 	}
 
 	async def NULL(self, arg_0: None) -> None:
-		yield self.send_call(0, [arg_0])
+		return await self.send_call(0, [arg_0])
 
 	async def MNT(self, arg_0: bytes) -> v_fhstatus:
-		yield self.send_call(1, [arg_0])
+		return await self.send_call(1, [arg_0])
 
 	async def DUMP(self, arg_0: None) -> typing.List[v_mountlist]:
-		yield self.send_call(2, [arg_0])
+		return await self.send_call(2, [arg_0])
 
 	async def UMNT(self, arg_0: bytes) -> None:
-		yield self.send_call(3, [arg_0])
+		return await self.send_call(3, [arg_0])
 
 	async def UMNTALL(self, arg_0: None) -> None:
-		yield self.send_call(4, [arg_0])
+		return await self.send_call(4, [arg_0])
 
 	async def EXPORT(self, arg_0: None) -> typing.List[v_exportlist]:
-		yield self.send_call(5, [arg_0])
+		return await self.send_call(5, [arg_0])
 
 
 __all__ = ['v_timeval', 'v_fattr', 'v_sattr', 'v_attrstat', 'v_diropargs', 'v_diropres_diropok', 'v_diropres', 'v_statfsres_info', 'v_statfsres', 'v_readdirargs', 'v_entry', 'v_readdirres_readdirok', 'v_readdirres', 'v_symlinkargs', 'v_linkargs', 'v_renameargs', 'v_createargs', 'v_writeargs', 'v_readargs', 'v_attrdat', 'v_readres', 'v_readlinkres', 'v_sattrargs', 'v_fhstatus', 'v_mountlist', 'v_grouplist', 'v_exportlist', 'NFS_PROGRAM_2_SERVER', 'MOUNTPROG_1_SERVER', 'TRUE', 'FALSE', 'NFS_OK', 'NFSERR_PERM', 'NFSERR_NOENT', 'NFSERR_IO', 'NFSERR_NXIO', 'NFSERR_ACCES', 'NFSERR_EXIST', 'NFSERR_NODEV', 'NFSERR_NOTDIR', 'NFSERR_ISDIR', 'NFSERR_FBIG', 'NFSERR_NOSPC', 'NFSERR_ROFS', 'NFSERR_NAMETOOLONG', 'NFSERR_NOTEMPTY', 'NFSERR_DQUOT', 'NFSERR_STALE', 'NFSERR_WFLUSH', 'NFNON', 'NFREG', 'NFDIR', 'NFBLK', 'NFCHR', 'NFLNK', 'MAXDATA', 'MAXPATHLEN', 'MAXNAMLEN', 'COOKIESIZE', 'FHSIZE', 'MNTPATHLEN']

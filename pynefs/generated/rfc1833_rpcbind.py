@@ -289,31 +289,31 @@ class RPCBPROG_3_CLIENT(rpchelp.BaseClient):
 	}
 
 	async def NULL(self, arg_0: None) -> None:
-		yield self.send_call(0, [arg_0])
+		return await self.send_call(0, [arg_0])
 
 	async def SET(self, arg_0: v_rpcb) -> bool:
-		yield self.send_call(1, [arg_0])
+		return await self.send_call(1, [arg_0])
 
 	async def UNSET(self, arg_0: v_rpcb) -> bool:
-		yield self.send_call(2, [arg_0])
+		return await self.send_call(2, [arg_0])
 
 	async def GETADDR(self, arg_0: v_rpcb) -> bytes:
-		yield self.send_call(3, [arg_0])
+		return await self.send_call(3, [arg_0])
 
 	async def DUMP(self, arg_0: None) -> typing.List[typing.Union[v_rpcb, v_rp__list]]:
-		yield self.send_call(4, [arg_0])
+		return await self.send_call(4, [arg_0])
 
 	async def CALLIT(self, arg_0: v_rpcb_rmtcallargs) -> v_rpcb_rmtcallres:
-		yield self.send_call(5, [arg_0])
+		return await self.send_call(5, [arg_0])
 
 	async def GETTIME(self, arg_0: None) -> int:
-		yield self.send_call(6, [arg_0])
+		return await self.send_call(6, [arg_0])
 
 	async def UADDR2TADDR(self, arg_0: bytes) -> v_netbuf:
-		yield self.send_call(7, [arg_0])
+		return await self.send_call(7, [arg_0])
 
 	async def TADDR2UADDR(self, arg_0: v_netbuf) -> bytes:
-		yield self.send_call(8, [arg_0])
+		return await self.send_call(8, [arg_0])
 
 
 class RPCBPROG_4_CLIENT(rpchelp.BaseClient):
@@ -336,43 +336,43 @@ class RPCBPROG_4_CLIENT(rpchelp.BaseClient):
 	}
 
 	async def NULL(self, arg_0: None) -> None:
-		yield self.send_call(0, [arg_0])
+		return await self.send_call(0, [arg_0])
 
 	async def SET(self, arg_0: v_rpcb) -> bool:
-		yield self.send_call(1, [arg_0])
+		return await self.send_call(1, [arg_0])
 
 	async def UNSET(self, arg_0: v_rpcb) -> bool:
-		yield self.send_call(2, [arg_0])
+		return await self.send_call(2, [arg_0])
 
 	async def GETADDR(self, arg_0: v_rpcb) -> bytes:
-		yield self.send_call(3, [arg_0])
+		return await self.send_call(3, [arg_0])
 
 	async def DUMP(self, arg_0: None) -> typing.List[typing.Union[v_rpcb, v_rp__list]]:
-		yield self.send_call(4, [arg_0])
+		return await self.send_call(4, [arg_0])
 
 	async def BCAST(self, arg_0: v_rpcb_rmtcallargs) -> v_rpcb_rmtcallres:
-		yield self.send_call(5, [arg_0])
+		return await self.send_call(5, [arg_0])
 
 	async def GETTIME(self, arg_0: None) -> int:
-		yield self.send_call(6, [arg_0])
+		return await self.send_call(6, [arg_0])
 
 	async def UADDR2TADDR(self, arg_0: bytes) -> v_netbuf:
-		yield self.send_call(7, [arg_0])
+		return await self.send_call(7, [arg_0])
 
 	async def TADDR2UADDR(self, arg_0: v_netbuf) -> bytes:
-		yield self.send_call(8, [arg_0])
+		return await self.send_call(8, [arg_0])
 
 	async def GETVERSADDR(self, arg_0: v_rpcb) -> bytes:
-		yield self.send_call(9, [arg_0])
+		return await self.send_call(9, [arg_0])
 
 	async def INDIRECT(self, arg_0: v_rpcb_rmtcallargs) -> v_rpcb_rmtcallres:
-		yield self.send_call(10, [arg_0])
+		return await self.send_call(10, [arg_0])
 
 	async def GETADDRLIST(self, arg_0: v_rpcb) -> typing.List[typing.Union[v_rpcb_entry, v_rpcb_entry_list]]:
-		yield self.send_call(11, [arg_0])
+		return await self.send_call(11, [arg_0])
 
 	async def GETSTAT(self, arg_0: None) -> typing.List[v_rpcb_stat]:
-		yield self.send_call(12, [arg_0])
+		return await self.send_call(12, [arg_0])
 
 
 __all__ = ['v_rpcb', 'v_rp__list', 'v_rp__list', 'v_rpcb_rmtcallargs', 'v_rpcb_rmtcallres', 'v_rpcb_entry', 'v_rpcb_entry_list', 'v_rpcbs_addrlist', 'v_rpcbs_rmtcalllist', 'v_rpcb_stat', 'v_netbuf', 'RPCBPROG_3_SERVER', 'RPCBPROG_4_SERVER', 'TRUE', 'FALSE', 'RPCB_PORT', 'rpcb_highproc_2', 'rpcb_highproc_3', 'rpcb_highproc_4', 'RPCBSTAT_HIGHPROC', 'RPCBVERS_STAT', 'RPCBVERS_4_STAT', 'RPCBVERS_3_STAT', 'RPCBVERS_2_STAT']

@@ -32,6 +32,7 @@
 # of the copyright holder.
 
 import abc
+import random
 import typing
 import xdrlib
 
@@ -430,12 +431,43 @@ class Server:
     def register(self, transport_server):
         transport_server.register(self.prog, self.vers, self)
 
-    def handle_proc_call(self, proc_id, transport):
+    def handle_proc_call(self, proc_id, unpacker: xdrlib.Unpacker) -> bytes:
         proc = self.procs[proc_id]
         if proc is None:
             raise NotImplementedError()
 
-        argl = [arg_type.unpack(transport.unpacker)
+        argl = [arg_type.unpack(unpacker)
                 for arg_type in proc.arg_types]
         rv = self.get_handler(proc_id)(*argl)
-        proc.ret_type.pack(transport.packer, rv)
+
+        packer = xdrlib.Packer()
+        proc.ret_type.pack(packer, rv)
+        return packer.get_buffer()
+
+
+class BaseClient(abc.ABC):
+    prog: int
+    vers: int
+    procs: typing.Dict[int, Proc]
+
+    def pack_args(self, proc_id: int, args: typing.List[typing.Any], packer: xdrlib.Packer):
+        arg_specs = self.procs[proc_id].arg_types
+        if len(args) != len(arg_specs):
+            raise ValueError("Wrong number of arguments!")
+
+        for spec, arg in zip(arg_specs, args):
+            spec.pack(packer, arg)
+
+    def unpack_return(self, proc_id: int, unpacker: xdrlib.Unpacker):
+        return self.procs[proc_id].ret_type.unpack(unpacker)
+
+    def gen_xid(self) -> int:
+        return random.getrandbits(32)
+
+    @abc.abstractmethod
+    async def connect(self):
+        pass
+
+    @abc.abstractmethod
+    async def send_call(self, proc_id: int, args: typing.List[typing.Any], xid: typing.Optional[int] = None):
+        pass

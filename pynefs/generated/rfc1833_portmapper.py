@@ -58,7 +58,7 @@ call_result.val_base_class = v_call_result
 
 
 
-class PMAP_PROG_2(rpchelp.Server):
+class PMAP_PROG_2_SERVER(rpchelp.Server):
 	prog = 100000
 	vers = 2
 	procs = {
@@ -95,4 +95,35 @@ class PMAP_PROG_2(rpchelp.Server):
 		pass
 
 
-__all__ = ['v_mapping', 'v_pmaplist', 'v_call_args', 'v_call_result', 'PMAP_PROG_2', 'TRUE', 'FALSE', 'PMAP_PORT', 'IPPROTO_TCP', 'IPPROTO_UDP']
+class PMAP_PROG_2_CLIENT(rpchelp.BaseClient):
+	prog = 100000
+	vers = 2
+	procs = {
+		0: rpchelp.Proc('NULL', rpchelp.r_void, [rpchelp.r_void]),
+		1: rpchelp.Proc('SET', rpchelp.r_bool, [mapping]),
+		2: rpchelp.Proc('UNSET', rpchelp.r_bool, [mapping]),
+		3: rpchelp.Proc('GETPORT', rpchelp.r_uint, [mapping]),
+		4: rpchelp.Proc('DUMP', pmaplist, [rpchelp.r_void]),
+		5: rpchelp.Proc('CALLIT', call_result, [call_args]),
+	}
+
+	async def NULL(self, arg_0: None) -> None:
+		yield self.send_call(0, [arg_0])
+
+	async def SET(self, arg_0: v_mapping) -> bool:
+		yield self.send_call(1, [arg_0])
+
+	async def UNSET(self, arg_0: v_mapping) -> bool:
+		yield self.send_call(2, [arg_0])
+
+	async def GETPORT(self, arg_0: v_mapping) -> int:
+		yield self.send_call(3, [arg_0])
+
+	async def DUMP(self, arg_0: None) -> typing.List[typing.Union[v_mapping, v_pmaplist]]:
+		yield self.send_call(4, [arg_0])
+
+	async def CALLIT(self, arg_0: v_call_args) -> v_call_result:
+		yield self.send_call(5, [arg_0])
+
+
+__all__ = ['v_mapping', 'v_pmaplist', 'v_call_args', 'v_call_result', 'PMAP_PROG_2_SERVER', 'TRUE', 'FALSE', 'PMAP_PORT', 'IPPROTO_TCP', 'IPPROTO_UDP']

@@ -41,7 +41,7 @@ reject_stat = rpchelp.r_int
 auth_stat = rpchelp.r_int
 call_body = rpchelp.struct('call_body', [('rpcvers', rpchelp.r_uint), ('prog', rpchelp.r_uint), ('vers', rpchelp.r_uint), ('proc', rpchelp.r_uint), ('cred', opaque_auth), ('verf', opaque_auth)])
 mismatch_info = rpchelp.struct('mismatch_info', [('low', rpchelp.r_uint), ('high', rpchelp.r_uint)])
-reply_data = rpchelp.union('reply_data', accept_stat, 'stat', {SUCCESS: rpchelp.opaque(rpchelp.fixed, 0), PROG_MISMATCH: mismatch_info, None: rpchelp.r_void}, from_parser=True)
+reply_data = rpchelp.union('reply_data', accept_stat, 'stat', {SUCCESS: rpchelp.r_void, PROG_MISMATCH: mismatch_info, None: rpchelp.r_void}, from_parser=True)
 accepted_reply = rpchelp.struct('accepted_reply', [('verf', opaque_auth), ('data', reply_data)])
 rejected_reply_mismatch_info = rpchelp.struct('rejected_reply_mismatch_info', [('low', rpchelp.r_uint), ('high', rpchelp.r_uint)])
 rejected_reply = rpchelp.union('rejected_reply', reject_stat, 'stat', {RPC_MISMATCH: rejected_reply_mismatch_info, AUTH_ERROR: auth_stat}, from_parser=True)
@@ -94,7 +94,7 @@ mismatch_info.val_base_class = v_mismatch_info
 @dataclass
 class v_reply_data(rpchelp.struct_val_base):
 	stat: int
-	val: typing.Union[bytes, v_mismatch_info, None]
+	val: typing.Union[None, v_mismatch_info, None]
 
 
 reply_data.val_base_class = v_reply_data

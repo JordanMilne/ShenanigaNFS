@@ -259,11 +259,13 @@ class Ctx:
 
     def finish_progs(self):
         return "\n".join("\n".join(
-            [p.str_one_vers(self, vers) for vers in p.versions.children]) for p in self.progs)
+            [p.str_one_vers(self, vers) for vers in p.versions.children] +
+            [p.str_one_vers(self, vers, as_client=True) for vers in p.versions.children]
+        ) for p in self.progs)
 
     def finish_exports(self):
         prog_names = list(itertools.chain(*[[
-            f"{p.ident}_{vers.version_id}" for vers in p.versions.children
+            f"{p.ident}_{vers.version_id}_SERVER" for vers in p.versions.children
         ] for p in self.progs]))
         return f"__all__ = {repr(self.exportable + prog_names + list(self.const_mapping.keys()))}"
 
@@ -596,8 +598,10 @@ class Program(Node):
         self.versions = versions
         self.program_id = program_id
 
-    def str_one_vers(self, ctx, vers):
-        class_decl = '\n\nclass %s_%s(rpchelp.Server):' % (self.ident, vers.version_id)
+    def str_one_vers(self, ctx, vers, as_client=False):
+        base_class = "BaseClient" if as_client else "Server"
+        class_suffix = "CLIENT" if as_client else "SERVER"
+        class_decl = f'\n\nclass {self.ident}_{vers.version_id}_{class_suffix}(rpchelp.{base_class}):'
         prog = 'prog = %s' % (self.program_id,)
         vers_str = 'vers = %s' % (vers.version_id,)
         procs_str = "procs = {\n"
@@ -613,12 +617,18 @@ class Program(Node):
             return ctx.type_mapping[p_typ.val]
 
         for proc in vers.proc_defs.children:
-            funcs_str += "\t@abc.abstractmethod\n"
-            funcs_str += f"\tdef {proc.ident}(self"
+            if not as_client:
+                funcs_str += "\t@abc.abstractmethod\n"
+            funcs_str += f"\t{'async ' if as_client else ''}def {proc.ident}(self"
             for i, parm_type in enumerate(proc.parm_list.children):
                 funcs_str += f", arg_{i}: {_get_type(parm_type).type_hint()}"
             funcs_str += f") -> {_get_type(proc.ret_type).type_hint()}:\n"
-            funcs_str += "\t\tpass\n\n"
+            if as_client:
+                arg_list = ', '.join(f"arg_{i}" for i in range(len(proc.parm_list.children)))
+                funcs_str += f"\t\tyield self.send_call({proc.proc_id}, [{arg_list}])\n\n"
+            else:
+                funcs_str += "\t\tpass\n\n"
+
         funcs_str = funcs_str.strip()
         return "\n\t".join([class_decl, prog, vers_str, procs_str, funcs_str])
 

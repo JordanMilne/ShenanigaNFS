@@ -75,7 +75,8 @@
      union reply_data switch (accept_stat stat) {
      case SUCCESS:
         /* JM: presumably means fixed string spanning the rest of the payload? */
-        opaque results[0];
+        /* opaque results[0];*/
+        void;
         /*
          * procedure-specific results start here
          */

@@ -1270,13 +1270,15 @@ exportlist.val_base_class = v_exportlist
 
 
 
+from pynefs import rpc
 
 
-class NFS_PROGRAM_3_SERVER(rpchelp.Server):
+
+class NFS_PROGRAM_3_SERVER(rpc.Server):
 	prog = 100003
 	vers = 3
 	procs = {
-		0: rpchelp.Proc('NULL', rpchelp.r_void, [rpchelp.r_void]),
+		0: rpchelp.Proc('NULL', rpchelp.r_void, []),
 		1: rpchelp.Proc('GETATTR', GETATTR3res, [GETATTR3args]),
 		2: rpchelp.Proc('SETATTR', SETATTR3res, [SETATTR3args]),
 		3: rpchelp.Proc('LOOKUP', LOOKUP3res, [LOOKUP3args]),
@@ -1301,7 +1303,7 @@ class NFS_PROGRAM_3_SERVER(rpchelp.Server):
 	}
 
 	@abc.abstractmethod
-	def NULL(self, arg_0: None) -> None:
+	def NULL(self) -> None:
 		pass
 
 	@abc.abstractmethod
@@ -1389,11 +1391,11 @@ class NFS_PROGRAM_3_SERVER(rpchelp.Server):
 		pass
 
 
-class NFS_PROGRAM_3_CLIENT(rpchelp.BaseClient):
+class NFS_PROGRAM_3_CLIENT(rpc.BaseClient):
 	prog = 100003
 	vers = 3
 	procs = {
-		0: rpchelp.Proc('NULL', rpchelp.r_void, [rpchelp.r_void]),
+		0: rpchelp.Proc('NULL', rpchelp.r_void, []),
 		1: rpchelp.Proc('GETATTR', GETATTR3res, [GETATTR3args]),
 		2: rpchelp.Proc('SETATTR', SETATTR3res, [SETATTR3args]),
 		3: rpchelp.Proc('LOOKUP', LOOKUP3res, [LOOKUP3args]),
@@ -1417,87 +1419,87 @@ class NFS_PROGRAM_3_CLIENT(rpchelp.BaseClient):
 		21: rpchelp.Proc('COMMIT', COMMIT3res, [COMMIT3args]),
 	}
 
-	async def NULL(self, arg_0: None) -> None:
-		return await self.send_call(0, [arg_0])
+	async def NULL(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[None]]:
+		return await self.send_call(0, [])
 
-	async def GETATTR(self, arg_0: v_GETATTR3args) -> v_GETATTR3res:
+	async def GETATTR(self, arg_0: v_GETATTR3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_GETATTR3res]]:
 		return await self.send_call(1, [arg_0])
 
-	async def SETATTR(self, arg_0: v_SETATTR3args) -> v_SETATTR3res:
+	async def SETATTR(self, arg_0: v_SETATTR3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_SETATTR3res]]:
 		return await self.send_call(2, [arg_0])
 
-	async def LOOKUP(self, arg_0: v_LOOKUP3args) -> v_LOOKUP3res:
+	async def LOOKUP(self, arg_0: v_LOOKUP3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_LOOKUP3res]]:
 		return await self.send_call(3, [arg_0])
 
-	async def ACCESS(self, arg_0: v_ACCESS3args) -> v_ACCESS3res:
+	async def ACCESS(self, arg_0: v_ACCESS3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_ACCESS3res]]:
 		return await self.send_call(4, [arg_0])
 
-	async def READLINK(self, arg_0: v_READLINK3args) -> v_READLINK3res:
+	async def READLINK(self, arg_0: v_READLINK3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_READLINK3res]]:
 		return await self.send_call(5, [arg_0])
 
-	async def READ(self, arg_0: v_READ3args) -> v_READ3res:
+	async def READ(self, arg_0: v_READ3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_READ3res]]:
 		return await self.send_call(6, [arg_0])
 
-	async def WRITE(self, arg_0: v_WRITE3args) -> v_WRITE3res:
+	async def WRITE(self, arg_0: v_WRITE3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_WRITE3res]]:
 		return await self.send_call(7, [arg_0])
 
-	async def CREATE(self, arg_0: v_CREATE3args) -> v_CREATE3res:
+	async def CREATE(self, arg_0: v_CREATE3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_CREATE3res]]:
 		return await self.send_call(8, [arg_0])
 
-	async def MKDIR(self, arg_0: v_MKDIR3args) -> v_MKDIR3res:
+	async def MKDIR(self, arg_0: v_MKDIR3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_MKDIR3res]]:
 		return await self.send_call(9, [arg_0])
 
-	async def SYMLINK(self, arg_0: v_SYMLINK3args) -> v_SYMLINK3res:
+	async def SYMLINK(self, arg_0: v_SYMLINK3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_SYMLINK3res]]:
 		return await self.send_call(10, [arg_0])
 
-	async def MKNOD(self, arg_0: v_MKNOD3args) -> v_MKNOD3res:
+	async def MKNOD(self, arg_0: v_MKNOD3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_MKNOD3res]]:
 		return await self.send_call(11, [arg_0])
 
-	async def REMOVE(self, arg_0: v_REMOVE3args) -> v_REMOVE3res:
+	async def REMOVE(self, arg_0: v_REMOVE3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_REMOVE3res]]:
 		return await self.send_call(12, [arg_0])
 
-	async def RMDIR(self, arg_0: v_RMDIR3args) -> v_RMDIR3res:
+	async def RMDIR(self, arg_0: v_RMDIR3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_RMDIR3res]]:
 		return await self.send_call(13, [arg_0])
 
-	async def RENAME(self, arg_0: v_RENAME3args) -> v_RENAME3res:
+	async def RENAME(self, arg_0: v_RENAME3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_RENAME3res]]:
 		return await self.send_call(14, [arg_0])
 
-	async def LINK(self, arg_0: v_LINK3args) -> v_LINK3res:
+	async def LINK(self, arg_0: v_LINK3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_LINK3res]]:
 		return await self.send_call(15, [arg_0])
 
-	async def READDIR(self, arg_0: v_READDIR3args) -> v_READDIR3res:
+	async def READDIR(self, arg_0: v_READDIR3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_READDIR3res]]:
 		return await self.send_call(16, [arg_0])
 
-	async def READDIRPLUS(self, arg_0: v_READDIRPLUS3args) -> v_READDIRPLUS3res:
+	async def READDIRPLUS(self, arg_0: v_READDIRPLUS3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_READDIRPLUS3res]]:
 		return await self.send_call(17, [arg_0])
 
-	async def FSSTAT(self, arg_0: v_FSSTAT3args) -> v_FSSTAT3res:
+	async def FSSTAT(self, arg_0: v_FSSTAT3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_FSSTAT3res]]:
 		return await self.send_call(18, [arg_0])
 
-	async def FSINFO(self, arg_0: v_FSINFO3args) -> v_FSINFO3res:
+	async def FSINFO(self, arg_0: v_FSINFO3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_FSINFO3res]]:
 		return await self.send_call(19, [arg_0])
 
-	async def PATHCONF(self, arg_0: v_PATHCONF3args) -> v_PATHCONF3res:
+	async def PATHCONF(self, arg_0: v_PATHCONF3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_PATHCONF3res]]:
 		return await self.send_call(20, [arg_0])
 
-	async def COMMIT(self, arg_0: v_COMMIT3args) -> v_COMMIT3res:
+	async def COMMIT(self, arg_0: v_COMMIT3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_COMMIT3res]]:
 		return await self.send_call(21, [arg_0])
 
 
-class MOUNT_PROGRAM_3_SERVER(rpchelp.Server):
+class MOUNT_PROGRAM_3_SERVER(rpc.Server):
 	prog = 100005
 	vers = 3
 	procs = {
-		0: rpchelp.Proc('NULL', rpchelp.r_void, [rpchelp.r_void]),
+		0: rpchelp.Proc('NULL', rpchelp.r_void, []),
 		1: rpchelp.Proc('MNT', mountres3, [dirpath]),
-		2: rpchelp.Proc('DUMP', mountlist, [rpchelp.r_void]),
+		2: rpchelp.Proc('DUMP', mountlist, []),
 		3: rpchelp.Proc('UMNT', rpchelp.r_void, [dirpath]),
-		4: rpchelp.Proc('UMNTALL', rpchelp.r_void, [rpchelp.r_void]),
-		5: rpchelp.Proc('EXPORT', exportlist, [rpchelp.r_void]),
+		4: rpchelp.Proc('UMNTALL', rpchelp.r_void, []),
+		5: rpchelp.Proc('EXPORT', exportlist, []),
 	}
 
 	@abc.abstractmethod
-	def NULL(self, arg_0: None) -> None:
+	def NULL(self) -> None:
 		pass
 
 	@abc.abstractmethod
@@ -1505,7 +1507,7 @@ class MOUNT_PROGRAM_3_SERVER(rpchelp.Server):
 		pass
 
 	@abc.abstractmethod
-	def DUMP(self, arg_0: None) -> typing.List[v_mountlist]:
+	def DUMP(self) -> typing.List[v_mountlist]:
 		pass
 
 	@abc.abstractmethod
@@ -1513,43 +1515,43 @@ class MOUNT_PROGRAM_3_SERVER(rpchelp.Server):
 		pass
 
 	@abc.abstractmethod
-	def UMNTALL(self, arg_0: None) -> None:
+	def UMNTALL(self) -> None:
 		pass
 
 	@abc.abstractmethod
-	def EXPORT(self, arg_0: None) -> typing.List[v_exportlist]:
+	def EXPORT(self) -> typing.List[v_exportlist]:
 		pass
 
 
-class MOUNT_PROGRAM_3_CLIENT(rpchelp.BaseClient):
+class MOUNT_PROGRAM_3_CLIENT(rpc.BaseClient):
 	prog = 100005
 	vers = 3
 	procs = {
-		0: rpchelp.Proc('NULL', rpchelp.r_void, [rpchelp.r_void]),
+		0: rpchelp.Proc('NULL', rpchelp.r_void, []),
 		1: rpchelp.Proc('MNT', mountres3, [dirpath]),
-		2: rpchelp.Proc('DUMP', mountlist, [rpchelp.r_void]),
+		2: rpchelp.Proc('DUMP', mountlist, []),
 		3: rpchelp.Proc('UMNT', rpchelp.r_void, [dirpath]),
-		4: rpchelp.Proc('UMNTALL', rpchelp.r_void, [rpchelp.r_void]),
-		5: rpchelp.Proc('EXPORT', exportlist, [rpchelp.r_void]),
+		4: rpchelp.Proc('UMNTALL', rpchelp.r_void, []),
+		5: rpchelp.Proc('EXPORT', exportlist, []),
 	}
 
-	async def NULL(self, arg_0: None) -> None:
-		return await self.send_call(0, [arg_0])
+	async def NULL(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[None]]:
+		return await self.send_call(0, [])
 
-	async def MNT(self, arg_0: bytes) -> v_mountres3:
+	async def MNT(self, arg_0: bytes) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_mountres3]]:
 		return await self.send_call(1, [arg_0])
 
-	async def DUMP(self, arg_0: None) -> typing.List[v_mountlist]:
-		return await self.send_call(2, [arg_0])
+	async def DUMP(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[typing.List[v_mountlist]]]:
+		return await self.send_call(2, [])
 
-	async def UMNT(self, arg_0: bytes) -> None:
+	async def UMNT(self, arg_0: bytes) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[None]]:
 		return await self.send_call(3, [arg_0])
 
-	async def UMNTALL(self, arg_0: None) -> None:
-		return await self.send_call(4, [arg_0])
+	async def UMNTALL(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[None]]:
+		return await self.send_call(4, [])
 
-	async def EXPORT(self, arg_0: None) -> typing.List[v_exportlist]:
-		return await self.send_call(5, [arg_0])
+	async def EXPORT(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[typing.List[v_exportlist]]]:
+		return await self.send_call(5, [])
 
 
 __all__ = ['v_specdata3', 'v_nfstime3', 'v_fattr3', 'v_post_op_attr', 'v_wcc_attr', 'v_pre_op_attr', 'v_wcc_data', 'v_post_op_fh3', 'v_set_mode3', 'v_set_uid3', 'v_set_gid3', 'v_set_size3', 'v_set_atime', 'v_set_mtime', 'v_sattr3', 'v_diropargs3', 'v_GETATTR3args', 'v_GETATTR3resok', 'v_GETATTR3res', 'v_sattrguard3', 'v_SETATTR3args', 'v_SETATTR3resok', 'v_SETATTR3resfail', 'v_SETATTR3res', 'v_LOOKUP3args', 'v_LOOKUP3resok', 'v_LOOKUP3resfail', 'v_LOOKUP3res', 'v_ACCESS3args', 'v_ACCESS3resok', 'v_ACCESS3resfail', 'v_ACCESS3res', 'v_READLINK3args', 'v_READLINK3resok', 'v_READLINK3resfail', 'v_READLINK3res', 'v_READ3args', 'v_READ3resok', 'v_READ3resfail', 'v_READ3res', 'v_WRITE3args', 'v_WRITE3resok', 'v_WRITE3resfail', 'v_WRITE3res', 'v_createhow3', 'v_CREATE3args', 'v_CREATE3resok', 'v_CREATE3resfail', 'v_CREATE3res', 'v_MKDIR3args', 'v_MKDIR3resok', 'v_MKDIR3resfail', 'v_MKDIR3res', 'v_symlinkdata3', 'v_SYMLINK3args', 'v_SYMLINK3resok', 'v_SYMLINK3resfail', 'v_SYMLINK3res', 'v_devicedata3', 'v_mknoddata3', 'v_MKNOD3args', 'v_MKNOD3resok', 'v_MKNOD3resfail', 'v_MKNOD3res', 'v_REMOVE3args', 'v_REMOVE3resok', 'v_REMOVE3resfail', 'v_REMOVE3res', 'v_RMDIR3args', 'v_RMDIR3resok', 'v_RMDIR3resfail', 'v_RMDIR3res', 'v_RENAME3args', 'v_RENAME3resok', 'v_RENAME3resfail', 'v_RENAME3res', 'v_LINK3args', 'v_LINK3resok', 'v_LINK3resfail', 'v_LINK3res', 'v_READDIR3args', 'v_entry3', 'v_dirlist3', 'v_READDIR3resok', 'v_READDIR3resfail', 'v_READDIR3res', 'v_READDIRPLUS3args', 'v_entryplus3', 'v_dirlistplus3', 'v_READDIRPLUS3resok', 'v_READDIRPLUS3resfail', 'v_READDIRPLUS3res', 'v_FSSTAT3args', 'v_FSSTAT3resok', 'v_FSSTAT3resfail', 'v_FSSTAT3res', 'v_FSINFO3args', 'v_FSINFO3resok', 'v_FSINFO3resfail', 'v_FSINFO3res', 'v_PATHCONF3args', 'v_PATHCONF3resok', 'v_PATHCONF3resfail', 'v_PATHCONF3res', 'v_COMMIT3args', 'v_COMMIT3resok', 'v_COMMIT3resfail', 'v_COMMIT3res', 'v_mountres3_ok', 'v_mountres3', 'v_mountlist', 'v_grouplist', 'v_exportlist', 'NFS_PROGRAM_3_SERVER', 'MOUNT_PROGRAM_3_SERVER', 'TRUE', 'FALSE', 'NFS3_OK', 'NFS3ERR_PERM', 'NFS3ERR_NOENT', 'NFS3ERR_IO', 'NFS3ERR_NXIO', 'NFS3ERR_ACCES', 'NFS3ERR_EXIST', 'NFS3ERR_XDEV', 'NFS3ERR_NODEV', 'NFS3ERR_NOTDIR', 'NFS3ERR_ISDIR', 'NFS3ERR_INVAL', 'NFS3ERR_FBIG', 'NFS3ERR_NOSPC', 'NFS3ERR_ROFS', 'NFS3ERR_MLINK', 'NFS3ERR_NAMETOOLONG', 'NFS3ERR_NOTEMPTY', 'NFS3ERR_DQUOT', 'NFS3ERR_STALE', 'NFS3ERR_REMOTE', 'NFS3ERR_BADHANDLE', 'NFS3ERR_NOT_SYNC', 'NFS3ERR_BAD_COOKIE', 'NFS3ERR_NOTSUPP', 'NFS3ERR_TOOSMALL', 'NFS3ERR_SERVERFAULT', 'NFS3ERR_BADTYPE', 'NFS3ERR_JUKEBOX', 'NF3REG', 'NF3DIR', 'NF3BLK', 'NF3CHR', 'NF3LNK', 'NF3SOCK', 'NF3FIFO', 'DONT_CHANGE', 'SET_TO_SERVER_TIME', 'SET_TO_CLIENT_TIME', 'UNSTABLE', 'DATA_SYNC', 'FILE_SYNC', 'UNCHECKED', 'GUARDED', 'EXCLUSIVE', 'MNT3_OK', 'MNT3ERR_PERM', 'MNT3ERR_NOENT', 'MNT3ERR_IO', 'MNT3ERR_ACCES', 'MNT3ERR_NOTDIR', 'MNT3ERR_INVAL', 'MNT3ERR_NAMETOOLONG', 'MNT3ERR_NOTSUPP', 'MNT3ERR_SERVERFAULT', 'NFS3_FHSIZE', 'NFS3_COOKIEVERFSIZE', 'NFS3_CREATEVERFSIZE', 'NFS3_WRITEVERFSIZE', 'ACCESS3_READ', 'ACCESS3_LOOKUP', 'ACCESS3_MODIFY', 'ACCESS3_EXTEND', 'ACCESS3_DELETE', 'ACCESS3_EXECUTE', 'FSF3_LINK', 'FSF3_SYMLINK', 'FSF3_HOMOGENEOUS', 'FSF3_CANSETTIME', 'MNTPATHLEN', 'MNTNAMLEN', 'FHSIZE3']

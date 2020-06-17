@@ -147,25 +147,27 @@ netbuf.val_base_class = v_netbuf
 
 
 
+from pynefs import rpc
 
 
-class RPCBPROG_3_SERVER(rpchelp.Server):
+
+class RPCBPROG_3_SERVER(rpc.Server):
 	prog = 100000
 	vers = 3
 	procs = {
-		0: rpchelp.Proc('NULL', rpchelp.r_void, [rpchelp.r_void]),
+		0: rpchelp.Proc('NULL', rpchelp.r_void, []),
 		1: rpchelp.Proc('SET', rpchelp.r_bool, [rpcb]),
 		2: rpchelp.Proc('UNSET', rpchelp.r_bool, [rpcb]),
 		3: rpchelp.Proc('GETADDR', rpchelp.r_string, [rpcb]),
-		4: rpchelp.Proc('DUMP', rpcblist, [rpchelp.r_void]),
+		4: rpchelp.Proc('DUMP', rpcblist, []),
 		5: rpchelp.Proc('CALLIT', rpcb_rmtcallres, [rpcb_rmtcallargs]),
-		6: rpchelp.Proc('GETTIME', rpchelp.r_uint, [rpchelp.r_void]),
+		6: rpchelp.Proc('GETTIME', rpchelp.r_uint, []),
 		7: rpchelp.Proc('UADDR2TADDR', netbuf, [rpchelp.r_string]),
 		8: rpchelp.Proc('TADDR2UADDR', rpchelp.r_string, [netbuf]),
 	}
 
 	@abc.abstractmethod
-	def NULL(self, arg_0: None) -> None:
+	def NULL(self) -> None:
 		pass
 
 	@abc.abstractmethod
@@ -181,7 +183,7 @@ class RPCBPROG_3_SERVER(rpchelp.Server):
 		pass
 
 	@abc.abstractmethod
-	def DUMP(self, arg_0: None) -> typing.List[typing.Union[v_rpcb, v_rp__list]]:
+	def DUMP(self) -> typing.List[typing.Union[v_rpcb, v_rp__list]]:
 		pass
 
 	@abc.abstractmethod
@@ -189,7 +191,7 @@ class RPCBPROG_3_SERVER(rpchelp.Server):
 		pass
 
 	@abc.abstractmethod
-	def GETTIME(self, arg_0: None) -> int:
+	def GETTIME(self) -> int:
 		pass
 
 	@abc.abstractmethod
@@ -201,27 +203,27 @@ class RPCBPROG_3_SERVER(rpchelp.Server):
 		pass
 
 
-class RPCBPROG_4_SERVER(rpchelp.Server):
+class RPCBPROG_4_SERVER(rpc.Server):
 	prog = 100000
 	vers = 4
 	procs = {
-		0: rpchelp.Proc('NULL', rpchelp.r_void, [rpchelp.r_void]),
+		0: rpchelp.Proc('NULL', rpchelp.r_void, []),
 		1: rpchelp.Proc('SET', rpchelp.r_bool, [rpcb]),
 		2: rpchelp.Proc('UNSET', rpchelp.r_bool, [rpcb]),
 		3: rpchelp.Proc('GETADDR', rpchelp.r_string, [rpcb]),
-		4: rpchelp.Proc('DUMP', rpcblist, [rpchelp.r_void]),
+		4: rpchelp.Proc('DUMP', rpcblist, []),
 		5: rpchelp.Proc('BCAST', rpcb_rmtcallres, [rpcb_rmtcallargs]),
-		6: rpchelp.Proc('GETTIME', rpchelp.r_uint, [rpchelp.r_void]),
+		6: rpchelp.Proc('GETTIME', rpchelp.r_uint, []),
 		7: rpchelp.Proc('UADDR2TADDR', netbuf, [rpchelp.r_string]),
 		8: rpchelp.Proc('TADDR2UADDR', rpchelp.r_string, [netbuf]),
 		9: rpchelp.Proc('GETVERSADDR', rpchelp.r_string, [rpcb]),
 		10: rpchelp.Proc('INDIRECT', rpcb_rmtcallres, [rpcb_rmtcallargs]),
 		11: rpchelp.Proc('GETADDRLIST', rpcb_entry_list, [rpcb]),
-		12: rpchelp.Proc('GETSTAT', rpcb_stat_byvers, [rpchelp.r_void]),
+		12: rpchelp.Proc('GETSTAT', rpcb_stat_byvers, []),
 	}
 
 	@abc.abstractmethod
-	def NULL(self, arg_0: None) -> None:
+	def NULL(self) -> None:
 		pass
 
 	@abc.abstractmethod
@@ -237,7 +239,7 @@ class RPCBPROG_4_SERVER(rpchelp.Server):
 		pass
 
 	@abc.abstractmethod
-	def DUMP(self, arg_0: None) -> typing.List[typing.Union[v_rpcb, v_rp__list]]:
+	def DUMP(self) -> typing.List[typing.Union[v_rpcb, v_rp__list]]:
 		pass
 
 	@abc.abstractmethod
@@ -245,7 +247,7 @@ class RPCBPROG_4_SERVER(rpchelp.Server):
 		pass
 
 	@abc.abstractmethod
-	def GETTIME(self, arg_0: None) -> int:
+	def GETTIME(self) -> int:
 		pass
 
 	@abc.abstractmethod
@@ -269,110 +271,110 @@ class RPCBPROG_4_SERVER(rpchelp.Server):
 		pass
 
 	@abc.abstractmethod
-	def GETSTAT(self, arg_0: None) -> typing.List[v_rpcb_stat]:
+	def GETSTAT(self) -> typing.List[v_rpcb_stat]:
 		pass
 
 
-class RPCBPROG_3_CLIENT(rpchelp.BaseClient):
+class RPCBPROG_3_CLIENT(rpc.BaseClient):
 	prog = 100000
 	vers = 3
 	procs = {
-		0: rpchelp.Proc('NULL', rpchelp.r_void, [rpchelp.r_void]),
+		0: rpchelp.Proc('NULL', rpchelp.r_void, []),
 		1: rpchelp.Proc('SET', rpchelp.r_bool, [rpcb]),
 		2: rpchelp.Proc('UNSET', rpchelp.r_bool, [rpcb]),
 		3: rpchelp.Proc('GETADDR', rpchelp.r_string, [rpcb]),
-		4: rpchelp.Proc('DUMP', rpcblist, [rpchelp.r_void]),
+		4: rpchelp.Proc('DUMP', rpcblist, []),
 		5: rpchelp.Proc('CALLIT', rpcb_rmtcallres, [rpcb_rmtcallargs]),
-		6: rpchelp.Proc('GETTIME', rpchelp.r_uint, [rpchelp.r_void]),
+		6: rpchelp.Proc('GETTIME', rpchelp.r_uint, []),
 		7: rpchelp.Proc('UADDR2TADDR', netbuf, [rpchelp.r_string]),
 		8: rpchelp.Proc('TADDR2UADDR', rpchelp.r_string, [netbuf]),
 	}
 
-	async def NULL(self, arg_0: None) -> None:
-		return await self.send_call(0, [arg_0])
+	async def NULL(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[None]]:
+		return await self.send_call(0, [])
 
-	async def SET(self, arg_0: v_rpcb) -> bool:
+	async def SET(self, arg_0: v_rpcb) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[bool]]:
 		return await self.send_call(1, [arg_0])
 
-	async def UNSET(self, arg_0: v_rpcb) -> bool:
+	async def UNSET(self, arg_0: v_rpcb) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[bool]]:
 		return await self.send_call(2, [arg_0])
 
-	async def GETADDR(self, arg_0: v_rpcb) -> bytes:
+	async def GETADDR(self, arg_0: v_rpcb) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[bytes]]:
 		return await self.send_call(3, [arg_0])
 
-	async def DUMP(self, arg_0: None) -> typing.List[typing.Union[v_rpcb, v_rp__list]]:
-		return await self.send_call(4, [arg_0])
+	async def DUMP(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[typing.List[typing.Union[v_rpcb, v_rp__list]]]]:
+		return await self.send_call(4, [])
 
-	async def CALLIT(self, arg_0: v_rpcb_rmtcallargs) -> v_rpcb_rmtcallres:
+	async def CALLIT(self, arg_0: v_rpcb_rmtcallargs) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_rpcb_rmtcallres]]:
 		return await self.send_call(5, [arg_0])
 
-	async def GETTIME(self, arg_0: None) -> int:
-		return await self.send_call(6, [arg_0])
+	async def GETTIME(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[int]]:
+		return await self.send_call(6, [])
 
-	async def UADDR2TADDR(self, arg_0: bytes) -> v_netbuf:
+	async def UADDR2TADDR(self, arg_0: bytes) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_netbuf]]:
 		return await self.send_call(7, [arg_0])
 
-	async def TADDR2UADDR(self, arg_0: v_netbuf) -> bytes:
+	async def TADDR2UADDR(self, arg_0: v_netbuf) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[bytes]]:
 		return await self.send_call(8, [arg_0])
 
 
-class RPCBPROG_4_CLIENT(rpchelp.BaseClient):
+class RPCBPROG_4_CLIENT(rpc.BaseClient):
 	prog = 100000
 	vers = 4
 	procs = {
-		0: rpchelp.Proc('NULL', rpchelp.r_void, [rpchelp.r_void]),
+		0: rpchelp.Proc('NULL', rpchelp.r_void, []),
 		1: rpchelp.Proc('SET', rpchelp.r_bool, [rpcb]),
 		2: rpchelp.Proc('UNSET', rpchelp.r_bool, [rpcb]),
 		3: rpchelp.Proc('GETADDR', rpchelp.r_string, [rpcb]),
-		4: rpchelp.Proc('DUMP', rpcblist, [rpchelp.r_void]),
+		4: rpchelp.Proc('DUMP', rpcblist, []),
 		5: rpchelp.Proc('BCAST', rpcb_rmtcallres, [rpcb_rmtcallargs]),
-		6: rpchelp.Proc('GETTIME', rpchelp.r_uint, [rpchelp.r_void]),
+		6: rpchelp.Proc('GETTIME', rpchelp.r_uint, []),
 		7: rpchelp.Proc('UADDR2TADDR', netbuf, [rpchelp.r_string]),
 		8: rpchelp.Proc('TADDR2UADDR', rpchelp.r_string, [netbuf]),
 		9: rpchelp.Proc('GETVERSADDR', rpchelp.r_string, [rpcb]),
 		10: rpchelp.Proc('INDIRECT', rpcb_rmtcallres, [rpcb_rmtcallargs]),
 		11: rpchelp.Proc('GETADDRLIST', rpcb_entry_list, [rpcb]),
-		12: rpchelp.Proc('GETSTAT', rpcb_stat_byvers, [rpchelp.r_void]),
+		12: rpchelp.Proc('GETSTAT', rpcb_stat_byvers, []),
 	}
 
-	async def NULL(self, arg_0: None) -> None:
-		return await self.send_call(0, [arg_0])
+	async def NULL(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[None]]:
+		return await self.send_call(0, [])
 
-	async def SET(self, arg_0: v_rpcb) -> bool:
+	async def SET(self, arg_0: v_rpcb) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[bool]]:
 		return await self.send_call(1, [arg_0])
 
-	async def UNSET(self, arg_0: v_rpcb) -> bool:
+	async def UNSET(self, arg_0: v_rpcb) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[bool]]:
 		return await self.send_call(2, [arg_0])
 
-	async def GETADDR(self, arg_0: v_rpcb) -> bytes:
+	async def GETADDR(self, arg_0: v_rpcb) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[bytes]]:
 		return await self.send_call(3, [arg_0])
 
-	async def DUMP(self, arg_0: None) -> typing.List[typing.Union[v_rpcb, v_rp__list]]:
-		return await self.send_call(4, [arg_0])
+	async def DUMP(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[typing.List[typing.Union[v_rpcb, v_rp__list]]]]:
+		return await self.send_call(4, [])
 
-	async def BCAST(self, arg_0: v_rpcb_rmtcallargs) -> v_rpcb_rmtcallres:
+	async def BCAST(self, arg_0: v_rpcb_rmtcallargs) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_rpcb_rmtcallres]]:
 		return await self.send_call(5, [arg_0])
 
-	async def GETTIME(self, arg_0: None) -> int:
-		return await self.send_call(6, [arg_0])
+	async def GETTIME(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[int]]:
+		return await self.send_call(6, [])
 
-	async def UADDR2TADDR(self, arg_0: bytes) -> v_netbuf:
+	async def UADDR2TADDR(self, arg_0: bytes) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_netbuf]]:
 		return await self.send_call(7, [arg_0])
 
-	async def TADDR2UADDR(self, arg_0: v_netbuf) -> bytes:
+	async def TADDR2UADDR(self, arg_0: v_netbuf) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[bytes]]:
 		return await self.send_call(8, [arg_0])
 
-	async def GETVERSADDR(self, arg_0: v_rpcb) -> bytes:
+	async def GETVERSADDR(self, arg_0: v_rpcb) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[bytes]]:
 		return await self.send_call(9, [arg_0])
 
-	async def INDIRECT(self, arg_0: v_rpcb_rmtcallargs) -> v_rpcb_rmtcallres:
+	async def INDIRECT(self, arg_0: v_rpcb_rmtcallargs) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_rpcb_rmtcallres]]:
 		return await self.send_call(10, [arg_0])
 
-	async def GETADDRLIST(self, arg_0: v_rpcb) -> typing.List[typing.Union[v_rpcb_entry, v_rpcb_entry_list]]:
+	async def GETADDRLIST(self, arg_0: v_rpcb) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[typing.List[typing.Union[v_rpcb_entry, v_rpcb_entry_list]]]]:
 		return await self.send_call(11, [arg_0])
 
-	async def GETSTAT(self, arg_0: None) -> typing.List[v_rpcb_stat]:
-		return await self.send_call(12, [arg_0])
+	async def GETSTAT(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[typing.List[v_rpcb_stat]]]:
+		return await self.send_call(12, [])
 
 
 __all__ = ['v_rpcb', 'v_rp__list', 'v_rp__list', 'v_rpcb_rmtcallargs', 'v_rpcb_rmtcallres', 'v_rpcb_entry', 'v_rpcb_entry_list', 'v_rpcbs_addrlist', 'v_rpcbs_rmtcalllist', 'v_rpcb_stat', 'v_netbuf', 'RPCBPROG_3_SERVER', 'RPCBPROG_4_SERVER', 'TRUE', 'FALSE', 'RPCB_PORT', 'rpcb_highproc_2', 'rpcb_highproc_3', 'rpcb_highproc_4', 'RPCBSTAT_HIGHPROC', 'RPCBVERS_STAT', 'RPCBVERS_4_STAT', 'RPCBVERS_3_STAT', 'RPCBVERS_2_STAT']

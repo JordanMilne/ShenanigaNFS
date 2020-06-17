@@ -345,20 +345,22 @@ exportlist.val_base_class = v_exportlist
 
 
 
+from pynefs import rpc
 
 
-class NFS_PROGRAM_2_SERVER(rpchelp.Server):
+
+class NFS_PROGRAM_2_SERVER(rpc.Server):
 	prog = 100003
 	vers = 2
 	procs = {
-		0: rpchelp.Proc('NULL', rpchelp.r_void, [rpchelp.r_void]),
+		0: rpchelp.Proc('NULL', rpchelp.r_void, []),
 		1: rpchelp.Proc('GETATTR', attrstat, [fhandle]),
 		2: rpchelp.Proc('SETATTR', attrstat, [sattrargs]),
-		3: rpchelp.Proc('ROOT', rpchelp.r_void, [rpchelp.r_void]),
+		3: rpchelp.Proc('ROOT', rpchelp.r_void, []),
 		4: rpchelp.Proc('LOOKUP', diropres, [diropargs]),
 		5: rpchelp.Proc('READLINK', readlinkres, [fhandle]),
 		6: rpchelp.Proc('READ', readres, [readargs]),
-		7: rpchelp.Proc('WRITECACHE', rpchelp.r_void, [rpchelp.r_void]),
+		7: rpchelp.Proc('WRITECACHE', rpchelp.r_void, []),
 		8: rpchelp.Proc('WRITE', attrstat, [writeargs]),
 		9: rpchelp.Proc('CREATE', diropres, [createargs]),
 		10: rpchelp.Proc('REMOVE', stat, [diropargs]),
@@ -372,7 +374,7 @@ class NFS_PROGRAM_2_SERVER(rpchelp.Server):
 	}
 
 	@abc.abstractmethod
-	def NULL(self, arg_0: None) -> None:
+	def NULL(self) -> None:
 		pass
 
 	@abc.abstractmethod
@@ -384,7 +386,7 @@ class NFS_PROGRAM_2_SERVER(rpchelp.Server):
 		pass
 
 	@abc.abstractmethod
-	def ROOT(self, arg_0: None) -> None:
+	def ROOT(self) -> None:
 		pass
 
 	@abc.abstractmethod
@@ -400,7 +402,7 @@ class NFS_PROGRAM_2_SERVER(rpchelp.Server):
 		pass
 
 	@abc.abstractmethod
-	def WRITECACHE(self, arg_0: None) -> None:
+	def WRITECACHE(self) -> None:
 		pass
 
 	@abc.abstractmethod
@@ -444,18 +446,18 @@ class NFS_PROGRAM_2_SERVER(rpchelp.Server):
 		pass
 
 
-class NFS_PROGRAM_2_CLIENT(rpchelp.BaseClient):
+class NFS_PROGRAM_2_CLIENT(rpc.BaseClient):
 	prog = 100003
 	vers = 2
 	procs = {
-		0: rpchelp.Proc('NULL', rpchelp.r_void, [rpchelp.r_void]),
+		0: rpchelp.Proc('NULL', rpchelp.r_void, []),
 		1: rpchelp.Proc('GETATTR', attrstat, [fhandle]),
 		2: rpchelp.Proc('SETATTR', attrstat, [sattrargs]),
-		3: rpchelp.Proc('ROOT', rpchelp.r_void, [rpchelp.r_void]),
+		3: rpchelp.Proc('ROOT', rpchelp.r_void, []),
 		4: rpchelp.Proc('LOOKUP', diropres, [diropargs]),
 		5: rpchelp.Proc('READLINK', readlinkres, [fhandle]),
 		6: rpchelp.Proc('READ', readres, [readargs]),
-		7: rpchelp.Proc('WRITECACHE', rpchelp.r_void, [rpchelp.r_void]),
+		7: rpchelp.Proc('WRITECACHE', rpchelp.r_void, []),
 		8: rpchelp.Proc('WRITE', attrstat, [writeargs]),
 		9: rpchelp.Proc('CREATE', diropres, [createargs]),
 		10: rpchelp.Proc('REMOVE', stat, [diropargs]),
@@ -468,75 +470,75 @@ class NFS_PROGRAM_2_CLIENT(rpchelp.BaseClient):
 		17: rpchelp.Proc('STATFS', statfsres, [fhandle]),
 	}
 
-	async def NULL(self, arg_0: None) -> None:
-		return await self.send_call(0, [arg_0])
+	async def NULL(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[None]]:
+		return await self.send_call(0, [])
 
-	async def GETATTR(self, arg_0: bytes) -> v_attrstat:
+	async def GETATTR(self, arg_0: bytes) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_attrstat]]:
 		return await self.send_call(1, [arg_0])
 
-	async def SETATTR(self, arg_0: v_sattrargs) -> v_attrstat:
+	async def SETATTR(self, arg_0: v_sattrargs) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_attrstat]]:
 		return await self.send_call(2, [arg_0])
 
-	async def ROOT(self, arg_0: None) -> None:
-		return await self.send_call(3, [arg_0])
+	async def ROOT(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[None]]:
+		return await self.send_call(3, [])
 
-	async def LOOKUP(self, arg_0: v_diropargs) -> v_diropres:
+	async def LOOKUP(self, arg_0: v_diropargs) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_diropres]]:
 		return await self.send_call(4, [arg_0])
 
-	async def READLINK(self, arg_0: bytes) -> v_readlinkres:
+	async def READLINK(self, arg_0: bytes) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_readlinkres]]:
 		return await self.send_call(5, [arg_0])
 
-	async def READ(self, arg_0: v_readargs) -> v_readres:
+	async def READ(self, arg_0: v_readargs) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_readres]]:
 		return await self.send_call(6, [arg_0])
 
-	async def WRITECACHE(self, arg_0: None) -> None:
-		return await self.send_call(7, [arg_0])
+	async def WRITECACHE(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[None]]:
+		return await self.send_call(7, [])
 
-	async def WRITE(self, arg_0: v_writeargs) -> v_attrstat:
+	async def WRITE(self, arg_0: v_writeargs) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_attrstat]]:
 		return await self.send_call(8, [arg_0])
 
-	async def CREATE(self, arg_0: v_createargs) -> v_diropres:
+	async def CREATE(self, arg_0: v_createargs) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_diropres]]:
 		return await self.send_call(9, [arg_0])
 
-	async def REMOVE(self, arg_0: v_diropargs) -> int:
+	async def REMOVE(self, arg_0: v_diropargs) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[int]]:
 		return await self.send_call(10, [arg_0])
 
-	async def RENAME(self, arg_0: v_renameargs) -> int:
+	async def RENAME(self, arg_0: v_renameargs) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[int]]:
 		return await self.send_call(11, [arg_0])
 
-	async def LINK(self, arg_0: v_linkargs) -> int:
+	async def LINK(self, arg_0: v_linkargs) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[int]]:
 		return await self.send_call(12, [arg_0])
 
-	async def SYMLINK(self, arg_0: v_symlinkargs) -> int:
+	async def SYMLINK(self, arg_0: v_symlinkargs) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[int]]:
 		return await self.send_call(13, [arg_0])
 
-	async def MKDIR(self, arg_0: v_createargs) -> v_diropres:
+	async def MKDIR(self, arg_0: v_createargs) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_diropres]]:
 		return await self.send_call(14, [arg_0])
 
-	async def RMDIR(self, arg_0: v_diropargs) -> int:
+	async def RMDIR(self, arg_0: v_diropargs) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[int]]:
 		return await self.send_call(15, [arg_0])
 
-	async def READDIR(self, arg_0: v_readdirargs) -> v_readdirres:
+	async def READDIR(self, arg_0: v_readdirargs) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_readdirres]]:
 		return await self.send_call(16, [arg_0])
 
-	async def STATFS(self, arg_0: bytes) -> v_statfsres:
+	async def STATFS(self, arg_0: bytes) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_statfsres]]:
 		return await self.send_call(17, [arg_0])
 
 
-class MOUNTPROG_1_SERVER(rpchelp.Server):
+class MOUNTPROG_1_SERVER(rpc.Server):
 	prog = 100005
 	vers = 1
 	procs = {
-		0: rpchelp.Proc('NULL', rpchelp.r_void, [rpchelp.r_void]),
+		0: rpchelp.Proc('NULL', rpchelp.r_void, []),
 		1: rpchelp.Proc('MNT', fhstatus, [dirpath]),
-		2: rpchelp.Proc('DUMP', mountlist, [rpchelp.r_void]),
+		2: rpchelp.Proc('DUMP', mountlist, []),
 		3: rpchelp.Proc('UMNT', rpchelp.r_void, [dirpath]),
-		4: rpchelp.Proc('UMNTALL', rpchelp.r_void, [rpchelp.r_void]),
-		5: rpchelp.Proc('EXPORT', exportlist, [rpchelp.r_void]),
+		4: rpchelp.Proc('UMNTALL', rpchelp.r_void, []),
+		5: rpchelp.Proc('EXPORT', exportlist, []),
 	}
 
 	@abc.abstractmethod
-	def NULL(self, arg_0: None) -> None:
+	def NULL(self) -> None:
 		pass
 
 	@abc.abstractmethod
@@ -544,7 +546,7 @@ class MOUNTPROG_1_SERVER(rpchelp.Server):
 		pass
 
 	@abc.abstractmethod
-	def DUMP(self, arg_0: None) -> typing.List[v_mountlist]:
+	def DUMP(self) -> typing.List[v_mountlist]:
 		pass
 
 	@abc.abstractmethod
@@ -552,43 +554,43 @@ class MOUNTPROG_1_SERVER(rpchelp.Server):
 		pass
 
 	@abc.abstractmethod
-	def UMNTALL(self, arg_0: None) -> None:
+	def UMNTALL(self) -> None:
 		pass
 
 	@abc.abstractmethod
-	def EXPORT(self, arg_0: None) -> typing.List[v_exportlist]:
+	def EXPORT(self) -> typing.List[v_exportlist]:
 		pass
 
 
-class MOUNTPROG_1_CLIENT(rpchelp.BaseClient):
+class MOUNTPROG_1_CLIENT(rpc.BaseClient):
 	prog = 100005
 	vers = 1
 	procs = {
-		0: rpchelp.Proc('NULL', rpchelp.r_void, [rpchelp.r_void]),
+		0: rpchelp.Proc('NULL', rpchelp.r_void, []),
 		1: rpchelp.Proc('MNT', fhstatus, [dirpath]),
-		2: rpchelp.Proc('DUMP', mountlist, [rpchelp.r_void]),
+		2: rpchelp.Proc('DUMP', mountlist, []),
 		3: rpchelp.Proc('UMNT', rpchelp.r_void, [dirpath]),
-		4: rpchelp.Proc('UMNTALL', rpchelp.r_void, [rpchelp.r_void]),
-		5: rpchelp.Proc('EXPORT', exportlist, [rpchelp.r_void]),
+		4: rpchelp.Proc('UMNTALL', rpchelp.r_void, []),
+		5: rpchelp.Proc('EXPORT', exportlist, []),
 	}
 
-	async def NULL(self, arg_0: None) -> None:
-		return await self.send_call(0, [arg_0])
+	async def NULL(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[None]]:
+		return await self.send_call(0, [])
 
-	async def MNT(self, arg_0: bytes) -> v_fhstatus:
+	async def MNT(self, arg_0: bytes) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_fhstatus]]:
 		return await self.send_call(1, [arg_0])
 
-	async def DUMP(self, arg_0: None) -> typing.List[v_mountlist]:
-		return await self.send_call(2, [arg_0])
+	async def DUMP(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[typing.List[v_mountlist]]]:
+		return await self.send_call(2, [])
 
-	async def UMNT(self, arg_0: bytes) -> None:
+	async def UMNT(self, arg_0: bytes) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[None]]:
 		return await self.send_call(3, [arg_0])
 
-	async def UMNTALL(self, arg_0: None) -> None:
-		return await self.send_call(4, [arg_0])
+	async def UMNTALL(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[None]]:
+		return await self.send_call(4, [])
 
-	async def EXPORT(self, arg_0: None) -> typing.List[v_exportlist]:
-		return await self.send_call(5, [arg_0])
+	async def EXPORT(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[typing.List[v_exportlist]]]:
+		return await self.send_call(5, [])
 
 
 __all__ = ['v_timeval', 'v_fattr', 'v_sattr', 'v_attrstat', 'v_diropargs', 'v_diropres_diropok', 'v_diropres', 'v_statfsres_info', 'v_statfsres', 'v_readdirargs', 'v_entry', 'v_readdirres_readdirok', 'v_readdirres', 'v_symlinkargs', 'v_linkargs', 'v_renameargs', 'v_createargs', 'v_writeargs', 'v_readargs', 'v_attrdat', 'v_readres', 'v_readlinkres', 'v_sattrargs', 'v_fhstatus', 'v_mountlist', 'v_grouplist', 'v_exportlist', 'NFS_PROGRAM_2_SERVER', 'MOUNTPROG_1_SERVER', 'TRUE', 'FALSE', 'NFS_OK', 'NFSERR_PERM', 'NFSERR_NOENT', 'NFSERR_IO', 'NFSERR_NXIO', 'NFSERR_ACCES', 'NFSERR_EXIST', 'NFSERR_NODEV', 'NFSERR_NOTDIR', 'NFSERR_ISDIR', 'NFSERR_FBIG', 'NFSERR_NOSPC', 'NFSERR_ROFS', 'NFSERR_NAMETOOLONG', 'NFSERR_NOTEMPTY', 'NFSERR_DQUOT', 'NFSERR_STALE', 'NFSERR_WFLUSH', 'NFNON', 'NFREG', 'NFDIR', 'NFBLK', 'NFCHR', 'NFLNK', 'MAXDATA', 'MAXPATHLEN', 'MAXNAMLEN', 'COOKIESIZE', 'FHSIZE', 'MNTPATHLEN']

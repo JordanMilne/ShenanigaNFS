@@ -258,12 +258,17 @@ class Ctx:
         return buf
 
     def finish_progs(self):
+        if self.progs:
+            # Make sure this doesn't get printed for rfc1831 so we
+            # don't get weird circular imports.
+            print("from pynefs import rpc\n")
         return "\n".join("\n".join(
             [p.str_one_vers(self, vers) for vers in p.versions.children] +
             [p.str_one_vers(self, vers, as_client=True) for vers in p.versions.children]
         ) for p in self.progs)
 
     def finish_exports(self):
+        # TODO: unscrew this. add client.
         prog_names = list(itertools.chain(*[[
             f"{p.ident}_{vers.version_id}_SERVER" for vers in p.versions.children
         ] for p in self.progs]))
@@ -601,11 +606,12 @@ class Program(Node):
     def str_one_vers(self, ctx, vers, as_client=False):
         base_class = "BaseClient" if as_client else "Server"
         class_suffix = "CLIENT" if as_client else "SERVER"
-        class_decl = f'\n\nclass {self.ident}_{vers.version_id}_{class_suffix}(rpchelp.{base_class}):'
+        class_decl = f'\n\nclass {self.ident}_{vers.version_id}_{class_suffix}(rpc.{base_class}):'
         prog = 'prog = %s' % (self.program_id,)
         vers_str = 'vers = %s' % (vers.version_id,)
         procs_str = "procs = {\n"
         for proc in vers.proc_defs.children:
+            proc.simplify_parms()
             procs_str += f"\t\t{proc.proc_id}: {proc.to_str(ctx)},\n"
         procs_str += "\t}\n"
 
@@ -622,7 +628,11 @@ class Program(Node):
             funcs_str += f"\t{'async ' if as_client else ''}def {proc.ident}(self"
             for i, parm_type in enumerate(proc.parm_list.children):
                 funcs_str += f", arg_{i}: {_get_type(parm_type).type_hint()}"
-            funcs_str += f") -> {_get_type(proc.ret_type).type_hint()}:\n"
+            ret_type_hint = _get_type(proc.ret_type).type_hint()
+            if as_client:
+                funcs_str += f") -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[{ret_type_hint}]]:\n"
+            else:
+                funcs_str += f") -> {ret_type_hint}:\n"
             if as_client:
                 arg_list = ', '.join(f"arg_{i}" for i in range(len(proc.parm_list.children)))
                 funcs_str += f"\t\treturn await self.send_call({proc.proc_id}, [{arg_list}])\n\n"
@@ -657,6 +667,14 @@ class Procedure(Node):
         self.ret_type = ret_type
         self.parm_list = parm_list
         self.proc_id = proc_id
+
+    def simplify_parms(self):
+        if len(self.parm_list.children) != 1:
+            return
+        if self.parm_list.children[0].val != "void":
+            return
+        # Single void param is the same as no params
+        self.parm_list.children.clear()
 
     def to_str(self, ctx):
         return "rpchelp.Proc('%s', %s, [%s])" % (self.ident, self.ret_type.to_str(ctx), self.parm_list.to_str(ctx))

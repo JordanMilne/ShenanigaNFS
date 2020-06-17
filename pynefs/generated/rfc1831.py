@@ -1,5 +1,4 @@
 # Auto-generated from IDL file
-
 import abc
 from dataclasses import dataclass
 import typing
@@ -48,10 +47,12 @@ rejected_reply = rpchelp.union('rejected_reply', reject_stat, 'stat', {RPC_MISMA
 reply_body = rpchelp.union('reply_body', reply_stat, 'stat', {MSG_ACCEPTED: accepted_reply, MSG_DENIED: rejected_reply}, from_parser=True)
 rpc_body = rpchelp.union('rpc_body', msg_type, 'mtype', {CALL: call_body, REPLY: reply_body}, from_parser=True)
 rpc_msg = rpchelp.struct('rpc_msg', [('xid', rpchelp.r_uint), ('header', rpc_body)])
+
+
 @dataclass
 class v_opaque_auth(rpchelp.struct_val_base):
-	flavor: int
-	body: bytes
+    flavor: int
+    body: bytes
 
 
 opaque_auth.val_base_class = v_opaque_auth
@@ -59,11 +60,11 @@ opaque_auth.val_base_class = v_opaque_auth
 
 @dataclass
 class v_authsys_parms(rpchelp.struct_val_base):
-	stamp: int
-	machinename: bytes
-	uid: int
-	gid: int
-	gids: typing.List[int]
+    stamp: int
+    machinename: bytes
+    uid: int
+    gid: int
+    gids: typing.List[int]
 
 
 authsys_parms.val_base_class = v_authsys_parms
@@ -71,12 +72,12 @@ authsys_parms.val_base_class = v_authsys_parms
 
 @dataclass
 class v_call_body(rpchelp.struct_val_base):
-	rpcvers: int
-	prog: int
-	vers: int
-	proc: int
-	cred: v_opaque_auth
-	verf: v_opaque_auth
+    rpcvers: int
+    prog: int
+    vers: int
+    proc: int
+    cred: v_opaque_auth
+    verf: v_opaque_auth
 
 
 call_body.val_base_class = v_call_body
@@ -84,8 +85,8 @@ call_body.val_base_class = v_call_body
 
 @dataclass
 class v_mismatch_info(rpchelp.struct_val_base):
-	low: int
-	high: int
+    low: int
+    high: int
 
 
 mismatch_info.val_base_class = v_mismatch_info
@@ -93,8 +94,8 @@ mismatch_info.val_base_class = v_mismatch_info
 
 @dataclass
 class v_reply_data(rpchelp.struct_val_base):
-	stat: int
-	val: typing.Union[None, v_mismatch_info, None]
+    stat: int
+    val: typing.Union[None, v_mismatch_info, None]
 
 
 reply_data.val_base_class = v_reply_data
@@ -102,8 +103,8 @@ reply_data.val_base_class = v_reply_data
 
 @dataclass
 class v_accepted_reply(rpchelp.struct_val_base):
-	verf: v_opaque_auth
-	data: v_reply_data
+    verf: v_opaque_auth
+    data: v_reply_data
 
 
 accepted_reply.val_base_class = v_accepted_reply
@@ -111,8 +112,8 @@ accepted_reply.val_base_class = v_accepted_reply
 
 @dataclass
 class v_rejected_reply_mismatch_info(rpchelp.struct_val_base):
-	low: int
-	high: int
+    low: int
+    high: int
 
 
 rejected_reply_mismatch_info.val_base_class = v_rejected_reply_mismatch_info
@@ -120,8 +121,8 @@ rejected_reply_mismatch_info.val_base_class = v_rejected_reply_mismatch_info
 
 @dataclass
 class v_rejected_reply(rpchelp.struct_val_base):
-	stat: int
-	val: typing.Union[v_rejected_reply_mismatch_info, int]
+    stat: int
+    val: typing.Union[v_rejected_reply_mismatch_info, int]
 
 
 rejected_reply.val_base_class = v_rejected_reply
@@ -129,8 +130,8 @@ rejected_reply.val_base_class = v_rejected_reply
 
 @dataclass
 class v_reply_body(rpchelp.struct_val_base):
-	stat: int
-	val: typing.Union[v_accepted_reply, v_rejected_reply]
+    stat: int
+    val: typing.Union[v_accepted_reply, v_rejected_reply]
 
 
 reply_body.val_base_class = v_reply_body
@@ -138,8 +139,8 @@ reply_body.val_base_class = v_reply_body
 
 @dataclass
 class v_rpc_body(rpchelp.struct_val_base):
-	mtype: int
-	val: typing.Union[v_call_body, v_reply_body]
+    mtype: int
+    val: typing.Union[v_call_body, v_reply_body]
 
 
 rpc_body.val_base_class = v_rpc_body
@@ -147,13 +148,11 @@ rpc_body.val_base_class = v_rpc_body
 
 @dataclass
 class v_rpc_msg(rpchelp.struct_val_base):
-	xid: int
-	header: v_rpc_body
+    xid: int
+    header: v_rpc_body
 
 
 rpc_msg.val_base_class = v_rpc_msg
-
-
 
 
 

@@ -102,6 +102,8 @@ import itertools
 import sys
 
 import typing
+from io import StringIO
+
 from ply import lex
 from ply import yacc
 
@@ -258,11 +260,12 @@ class Ctx:
         return buf
 
     def finish_progs(self):
+        val = ""
         if self.progs:
             # Make sure this doesn't get printed for rfc1831 so we
             # don't get weird circular imports.
-            print("from pynefs import rpc\n")
-        return "\n".join("\n".join(
+            val = "from pynefs import rpc\n"
+        return val + "\n".join("\n".join(
             [p.str_one_vers(self, vers) for vers in p.versions.children] +
             [p.str_one_vers(self, vers, as_client=True) for vers in p.versions.children]
         ) for p in self.progs)
@@ -1034,12 +1037,16 @@ FALSE = False
     exec(src, globals(), src_locals)
     ctx.collect_types(src_locals)
 
-    print(header)
-    print(src)
-    print(ctx.finish_struct_vals())
-    print(ctx.finish_progs())
-    print("\n")
-    print(ctx.finish_exports())
+    s = StringIO()
+    s.write(header)
+    s.write(src)
+    s.write("\n\n\n")
+    s.write(ctx.finish_struct_vals())
+    s.write(ctx.finish_progs())
+    s.write("\n\n")
+    s.write(ctx.finish_exports())
+
+    print(s.getvalue().replace("\t", " " * 4))
 
 
 def main():

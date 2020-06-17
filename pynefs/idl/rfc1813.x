@@ -533,13 +533,13 @@ struct devicedata3 {
 
 union mknoddata3 switch (ftype3 type) {
 case NF3CHR:
-     devicedata3  device;
+     devicedata3  chr_device;
 case NF3BLK:
-     devicedata3  device;
+     devicedata3  blk_device;
 case NF3SOCK:
-     sattr3       pipe_attributes;
+     sattr3       sock_pipe_attributes;
 case NF3FIFO:
-     sattr3       pipe_attributes;
+     sattr3       fifo_pipe_attributes;
 default:
      void;
 };

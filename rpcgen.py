@@ -254,8 +254,17 @@ class Ctx:
                 self.exportable.append(typ.val_name)
                 buf += f"@dataclass\nclass {typ.val_name}(rpchelp.struct_val_base):\n"
                 buf += f"\t{typ.switch_name}: {typ.switch_decl.type_hint()}\n"
-                # TODO: discriminated union type hints somehow???
-                buf += f"\tval: typing.Union[{', '.join(x.type_hint() for x in typ.union_dict.values())}]\n"
+                seen_members = {}
+                for member_name, member_typ in typ.union_dict.values():
+                    if member_name is None and member_typ == rpchelp.r_void:
+                        continue
+                    if member_name in seen_members:
+                        # case fallthrough in union, this is fine.
+                        if member_typ == seen_members[member_name]:
+                            continue
+                        raise ValueError(f"Union member collision in {typ.val_name}.{member_name}!")
+                    seen_members[member_name] = member_typ
+                    buf += f"\t{member_name}: typing.Optional[{member_typ.type_hint()}] = None\n"
                 buf += f"\n\n{typ.name}.val_base_class = {typ.val_name}\n\n\n"
         return buf
 
@@ -516,7 +525,7 @@ class UnionElt(Node):
 
     def to_str(self, ctx):
         typestr = self.decl.to_str(ctx)
-        return "%s: %s" % (self.val, typestr)
+        return "%s: (%r, %s)" % (self.val, self.decl.ident, typestr)
     # We ignore self.decl.ident.  Not needed for current union
     # implementation, because we can assign the data to '_data',
     # because the type goes with the object bound to '_data',

@@ -41,7 +41,7 @@ class UnpackedRPCMsg(typing.Generic[T]):
     def success(self):
         if self.msg.header.mtype != REPLY:
             raise ValueError("Tried to check success of function message?")
-        return self.msg.header.val.stat == MSG_ACCEPTED
+        return self.msg.header.rbody.stat == MSG_ACCEPTED
 
 
 class Server:
@@ -183,7 +183,7 @@ class TCPClient(BaseClient):
 
         msg = v_rpc_msg(
             xid=xid,
-            header=v_rpc_body(mtype=CALL, val=v_call_body(
+            header=v_rpc_body(mtype=CALL, cbody=v_call_body(
                 rpcvers=2,
                 prog=self.prog,
                 vers=self.vers,
@@ -205,6 +205,6 @@ class TCPClient(BaseClient):
         # should return a Future and pump messages instead?
         reply, reply_body = await self.transport.read_msg()
 
-        if reply.header.val.stat != MSG_ACCEPTED:
+        if reply.header.rbody.stat != MSG_ACCEPTED:
             return UnpackedRPCMsg(reply, None)
         return UnpackedRPCMsg(reply, self.unpack_return(proc_id, reply_body))

@@ -254,15 +254,15 @@ class union(packable):
         self.name = union_name
         self.switch_decl: packable = switch_decl
         self.switch_name: str = switch_name
-        self.union_dict: typing.Dict[typing.Any, packable] = union_dict
-        self.def_typ = self.union_dict.get(None, None)
+        self.union_dict: typing.Dict[typing.Any, typing.Tuple[str, packable]] = union_dict
+        self.def_typ = self.union_dict.get(None, (None, None))
         self.val_base_class: typing.Optional[typing.Type] = None
         self.from_parser = from_parser
 
     @property
     def is_simple_option(self):
         """check if the union is basically just a fancy opt_data"""
-        type_hints = {k: v.type_hint() for k, v in self.union_dict.items()}
+        type_hints = {k: v[1].type_hint() for k, v in self.union_dict.items()}
         return len(type_hints) == 2 and type_hints.get(False, "") == "None"
 
     @property
@@ -272,16 +272,16 @@ class union(packable):
     def _sw_val_to_typ(self, sw_val):
         """Get the type descriptor for the arm of the union specified by
         sw_val."""
-        typ = self.union_dict.get(sw_val, self.def_typ)
+        typ = self.union_dict.get(sw_val, self.def_typ)[1]
         if typ is None:  # no default clause
             raise BadUnionSwitchException(sw_val)
         return typ
 
     def type_hint(self) -> str:
-        type_hints = {k: v.type_hint() for k, v in self.union_dict.items()}
+        type_hints = {k: (v[0], v[1].type_hint()) for k, v in self.union_dict.items()}
         type_values = list(type_hints.values())
         if self.is_simple_option:
-            return f"typing.Optional[{type_hints[True]}]"
+            return f"typing.Optional[{type_hints[True][1]}]"
         if self.val_base_class:
             return self.val_base_class.__name__
         if self.from_parser:
@@ -298,11 +298,14 @@ class union(packable):
         if self.is_simple_option:
             p.pack_bool(val is not None)
             if val is not None:
-                self.union_dict[True].pack(p, val)
+                self.union_dict[True][1].pack(p, val)
             return
         if dataclasses.is_dataclass(val):
-            val = getattr(val, self.switch_name), getattr(val, "val")
-        sw_val, data = val
+            sw_val = getattr(val, self.switch_name)
+            name = self.union_dict.get(sw_val, self.def_typ)[0]
+            data = getattr(val, name)
+        else:
+            sw_val, data = val
         self.switch_decl.pack(p, sw_val)
         typ = self._sw_val_to_typ(sw_val)
         typ.pack(p, data)
@@ -311,11 +314,15 @@ class union(packable):
         sw_val = self.switch_decl.unpack(up)
         if self.is_simple_option:
             if sw_val:
-                return self.union_dict[True].unpack(up)
+                return self.union_dict[True][1].unpack(up)
             return None
         unpacked = self._sw_val_to_typ(sw_val).unpack(up)
         if self.val_base_class:
-            return self.val_base_class(sw_val, unpacked)
+            name = self.union_dict.get(sw_val, self.def_typ)[0]
+            val_dict = {}
+            if unpacked is not None:
+                val_dict[name] = unpacked
+            return self.val_base_class(sw_val, **val_dict)
         return sw_val, unpacked
 
 

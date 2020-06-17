@@ -136,6 +136,9 @@ class BaseTransport(abc.ABC):
 
 
 class TCPTransport(BaseTransport):
+    # 100KB, larger than UDP would allow anyway?
+    MAX_MSG_BYTES = 100_000
+
     def __init__(self, reader: StreamReader, writer: StreamWriter):
         self.reader = reader
         self.writer = writer
@@ -149,10 +152,14 @@ class TCPTransport(BaseTransport):
     async def read_msg_bytes(self) -> bytes:
         last_frag = False
         msg_bytes = BytesIO()
+        total_len = 0
         while not last_frag:
             frag_header = struct.unpack("!L", await self.reader.readexactly(4))[0]
             last_frag = frag_header & (1 << 31)
             frag_len = frag_header & (~(1 << 31))
+            total_len += frag_len
+            if total_len > self.MAX_MSG_BYTES:
+                raise ValueError(f"Overly large RPC message! {total_len}, {frag_len}")
             msg_bytes.write(await self.reader.readexactly(frag_len))
         return msg_bytes.getvalue()
 

@@ -47,7 +47,7 @@ rejected_reply_mismatch_info = rpchelp.struct('rejected_reply_mismatch_info', [(
 rejected_reply = rpchelp.union('rejected_reply', reject_stat, 'stat', {RPC_MISMATCH: rejected_reply_mismatch_info, AUTH_ERROR: auth_stat}, from_parser=True)
 reply_body = rpchelp.union('reply_body', reply_stat, 'stat', {MSG_ACCEPTED: accepted_reply, MSG_DENIED: rejected_reply}, from_parser=True)
 rpc_body = rpchelp.union('rpc_body', msg_type, 'mtype', {CALL: call_body, REPLY: reply_body}, from_parser=True)
-rpc_msg = rpchelp.struct('rpc_msg', [('xid', rpchelp.r_uint), ('body', rpc_body)])
+rpc_msg = rpchelp.struct('rpc_msg', [('xid', rpchelp.r_uint), ('header', rpc_body)])
 @dataclass
 class v_opaque_auth(rpchelp.struct_val_base):
 	flavor: int
@@ -148,7 +148,7 @@ rpc_body.val_base_class = v_rpc_body
 @dataclass
 class v_rpc_msg(rpchelp.struct_val_base):
 	xid: int
-	body: v_rpc_body
+	header: v_rpc_body
 
 
 rpc_msg.val_base_class = v_rpc_msg

@@ -121,5 +121,6 @@
 
       struct rpc_msg {
          unsigned int xid;
-         rpc_body body;
+         /* JM: renamed. Why is it called "body" if it's part of the headers? */
+         rpc_body header;
       };

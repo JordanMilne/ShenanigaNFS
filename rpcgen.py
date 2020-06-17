@@ -630,7 +630,7 @@ class Program(Node):
                 funcs_str += f", arg_{i}: {_get_type(parm_type).type_hint()}"
             ret_type_hint = _get_type(proc.ret_type).type_hint()
             if as_client:
-                funcs_str += f") -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[{ret_type_hint}]]:\n"
+                funcs_str += f") -> rpc.UnpackedRPCMsg[{ret_type_hint}]:\n"
             else:
                 funcs_str += f") -> {ret_type_hint}:\n"
             if as_client:

@@ -13,6 +13,37 @@ from pynefs.generated.rfc1831 import *
 from pynefs.generated.rfc1831 import rpc_msg
 
 
+T = typing.TypeVar("T")
+
+
+class UnpackedRPCMsg(typing.Generic[T]):
+    def __init__(self, msg: v_rpc_msg, body: T):
+        self.msg = msg
+        self.body: typing.Optional[T] = body
+
+    @property
+    def xid(self) -> int:
+        return self.msg.xid
+
+    @xid.setter
+    def xid(self, v):
+        self.msg.xid = v
+
+    @property
+    def header(self):
+        return self.msg.header
+
+    @header.setter
+    def header(self, v):
+        self.msg.header = v
+
+    @property
+    def success(self):
+        if self.msg.header.mtype != REPLY:
+            raise ValueError("Tried to check success of function message?")
+        return self.msg.header.val.stat == MSG_ACCEPTED
+
+
 class Server:
     """Base class for rpcgen-created server classes.  Unpack arguments,
     dispatch to appropriate procedure, and pack return value.  Check,
@@ -78,7 +109,7 @@ class BaseClient(abc.ABC):
     @abc.abstractmethod
     async def send_call(self, proc_id: int,
                         args: typing.List[typing.Any],
-                        xid: typing.Optional[int] = None) -> typing.Tuple[v_rpc_msg, typing.Any]:
+                        xid: typing.Optional[int] = None) -> UnpackedRPCMsg[T]:
         pass
 
 
@@ -137,15 +168,15 @@ class TCPClient(BaseClient):
 
     async def send_call(self, proc_id: int,
                         args: typing.List[typing.Any],
-                        xid: typing.Optional[int] = None) -> typing.Tuple[v_rpc_msg, typing.Any]:
+                        xid: typing.Optional[int] = None) -> UnpackedRPCMsg[T]:
         if xid is None:
             xid = self.gen_xid()
         if not self.transport:
             await self.connect()
 
         msg = v_rpc_msg(
-            xid,
-            v_rpc_body(mtype=CALL, val=v_call_body(
+            xid=xid,
+            header=v_rpc_body(mtype=CALL, val=v_call_body(
                 rpcvers=2,
                 prog=self.prog,
                 vers=self.vers,
@@ -167,6 +198,6 @@ class TCPClient(BaseClient):
         # should return a Future and pump messages instead?
         reply, reply_body = await self.transport.read_msg()
 
-        if reply.body.val.stat != MSG_ACCEPTED:
-            return reply, None
-        return reply, self.unpack_return(proc_id, reply_body)
+        if reply.header.val.stat != MSG_ACCEPTED:
+            return UnpackedRPCMsg(reply, None)
+        return UnpackedRPCMsg(reply, self.unpack_return(proc_id, reply_body))

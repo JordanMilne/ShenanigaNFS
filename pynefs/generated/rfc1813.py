@@ -1419,70 +1419,70 @@ class NFS_PROGRAM_3_CLIENT(rpc.BaseClient):
 		21: rpchelp.Proc('COMMIT', COMMIT3res, [COMMIT3args]),
 	}
 
-	async def NULL(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[None]]:
+	async def NULL(self) -> rpc.UnpackedRPCMsg[None]:
 		return await self.send_call(0, [])
 
-	async def GETATTR(self, arg_0: v_GETATTR3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_GETATTR3res]]:
+	async def GETATTR(self, arg_0: v_GETATTR3args) -> rpc.UnpackedRPCMsg[v_GETATTR3res]:
 		return await self.send_call(1, [arg_0])
 
-	async def SETATTR(self, arg_0: v_SETATTR3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_SETATTR3res]]:
+	async def SETATTR(self, arg_0: v_SETATTR3args) -> rpc.UnpackedRPCMsg[v_SETATTR3res]:
 		return await self.send_call(2, [arg_0])
 
-	async def LOOKUP(self, arg_0: v_LOOKUP3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_LOOKUP3res]]:
+	async def LOOKUP(self, arg_0: v_LOOKUP3args) -> rpc.UnpackedRPCMsg[v_LOOKUP3res]:
 		return await self.send_call(3, [arg_0])
 
-	async def ACCESS(self, arg_0: v_ACCESS3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_ACCESS3res]]:
+	async def ACCESS(self, arg_0: v_ACCESS3args) -> rpc.UnpackedRPCMsg[v_ACCESS3res]:
 		return await self.send_call(4, [arg_0])
 
-	async def READLINK(self, arg_0: v_READLINK3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_READLINK3res]]:
+	async def READLINK(self, arg_0: v_READLINK3args) -> rpc.UnpackedRPCMsg[v_READLINK3res]:
 		return await self.send_call(5, [arg_0])
 
-	async def READ(self, arg_0: v_READ3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_READ3res]]:
+	async def READ(self, arg_0: v_READ3args) -> rpc.UnpackedRPCMsg[v_READ3res]:
 		return await self.send_call(6, [arg_0])
 
-	async def WRITE(self, arg_0: v_WRITE3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_WRITE3res]]:
+	async def WRITE(self, arg_0: v_WRITE3args) -> rpc.UnpackedRPCMsg[v_WRITE3res]:
 		return await self.send_call(7, [arg_0])
 
-	async def CREATE(self, arg_0: v_CREATE3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_CREATE3res]]:
+	async def CREATE(self, arg_0: v_CREATE3args) -> rpc.UnpackedRPCMsg[v_CREATE3res]:
 		return await self.send_call(8, [arg_0])
 
-	async def MKDIR(self, arg_0: v_MKDIR3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_MKDIR3res]]:
+	async def MKDIR(self, arg_0: v_MKDIR3args) -> rpc.UnpackedRPCMsg[v_MKDIR3res]:
 		return await self.send_call(9, [arg_0])
 
-	async def SYMLINK(self, arg_0: v_SYMLINK3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_SYMLINK3res]]:
+	async def SYMLINK(self, arg_0: v_SYMLINK3args) -> rpc.UnpackedRPCMsg[v_SYMLINK3res]:
 		return await self.send_call(10, [arg_0])
 
-	async def MKNOD(self, arg_0: v_MKNOD3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_MKNOD3res]]:
+	async def MKNOD(self, arg_0: v_MKNOD3args) -> rpc.UnpackedRPCMsg[v_MKNOD3res]:
 		return await self.send_call(11, [arg_0])
 
-	async def REMOVE(self, arg_0: v_REMOVE3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_REMOVE3res]]:
+	async def REMOVE(self, arg_0: v_REMOVE3args) -> rpc.UnpackedRPCMsg[v_REMOVE3res]:
 		return await self.send_call(12, [arg_0])
 
-	async def RMDIR(self, arg_0: v_RMDIR3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_RMDIR3res]]:
+	async def RMDIR(self, arg_0: v_RMDIR3args) -> rpc.UnpackedRPCMsg[v_RMDIR3res]:
 		return await self.send_call(13, [arg_0])
 
-	async def RENAME(self, arg_0: v_RENAME3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_RENAME3res]]:
+	async def RENAME(self, arg_0: v_RENAME3args) -> rpc.UnpackedRPCMsg[v_RENAME3res]:
 		return await self.send_call(14, [arg_0])
 
-	async def LINK(self, arg_0: v_LINK3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_LINK3res]]:
+	async def LINK(self, arg_0: v_LINK3args) -> rpc.UnpackedRPCMsg[v_LINK3res]:
 		return await self.send_call(15, [arg_0])
 
-	async def READDIR(self, arg_0: v_READDIR3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_READDIR3res]]:
+	async def READDIR(self, arg_0: v_READDIR3args) -> rpc.UnpackedRPCMsg[v_READDIR3res]:
 		return await self.send_call(16, [arg_0])
 
-	async def READDIRPLUS(self, arg_0: v_READDIRPLUS3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_READDIRPLUS3res]]:
+	async def READDIRPLUS(self, arg_0: v_READDIRPLUS3args) -> rpc.UnpackedRPCMsg[v_READDIRPLUS3res]:
 		return await self.send_call(17, [arg_0])
 
-	async def FSSTAT(self, arg_0: v_FSSTAT3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_FSSTAT3res]]:
+	async def FSSTAT(self, arg_0: v_FSSTAT3args) -> rpc.UnpackedRPCMsg[v_FSSTAT3res]:
 		return await self.send_call(18, [arg_0])
 
-	async def FSINFO(self, arg_0: v_FSINFO3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_FSINFO3res]]:
+	async def FSINFO(self, arg_0: v_FSINFO3args) -> rpc.UnpackedRPCMsg[v_FSINFO3res]:
 		return await self.send_call(19, [arg_0])
 
-	async def PATHCONF(self, arg_0: v_PATHCONF3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_PATHCONF3res]]:
+	async def PATHCONF(self, arg_0: v_PATHCONF3args) -> rpc.UnpackedRPCMsg[v_PATHCONF3res]:
 		return await self.send_call(20, [arg_0])
 
-	async def COMMIT(self, arg_0: v_COMMIT3args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_COMMIT3res]]:
+	async def COMMIT(self, arg_0: v_COMMIT3args) -> rpc.UnpackedRPCMsg[v_COMMIT3res]:
 		return await self.send_call(21, [arg_0])
 
 
@@ -1535,22 +1535,22 @@ class MOUNT_PROGRAM_3_CLIENT(rpc.BaseClient):
 		5: rpchelp.Proc('EXPORT', exportlist, []),
 	}
 
-	async def NULL(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[None]]:
+	async def NULL(self) -> rpc.UnpackedRPCMsg[None]:
 		return await self.send_call(0, [])
 
-	async def MNT(self, arg_0: bytes) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_mountres3]]:
+	async def MNT(self, arg_0: bytes) -> rpc.UnpackedRPCMsg[v_mountres3]:
 		return await self.send_call(1, [arg_0])
 
-	async def DUMP(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[typing.List[v_mountlist]]]:
+	async def DUMP(self) -> rpc.UnpackedRPCMsg[typing.List[v_mountlist]]:
 		return await self.send_call(2, [])
 
-	async def UMNT(self, arg_0: bytes) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[None]]:
+	async def UMNT(self, arg_0: bytes) -> rpc.UnpackedRPCMsg[None]:
 		return await self.send_call(3, [arg_0])
 
-	async def UMNTALL(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[None]]:
+	async def UMNTALL(self) -> rpc.UnpackedRPCMsg[None]:
 		return await self.send_call(4, [])
 
-	async def EXPORT(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[typing.List[v_exportlist]]]:
+	async def EXPORT(self) -> rpc.UnpackedRPCMsg[typing.List[v_exportlist]]:
 		return await self.send_call(5, [])
 
 

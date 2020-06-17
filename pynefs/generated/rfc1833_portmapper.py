@@ -109,22 +109,22 @@ class PMAP_PROG_2_CLIENT(rpc.BaseClient):
 		5: rpchelp.Proc('CALLIT', call_result, [call_args]),
 	}
 
-	async def NULL(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[None]]:
+	async def NULL(self) -> rpc.UnpackedRPCMsg[None]:
 		return await self.send_call(0, [])
 
-	async def SET(self, arg_0: v_mapping) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[bool]]:
+	async def SET(self, arg_0: v_mapping) -> rpc.UnpackedRPCMsg[bool]:
 		return await self.send_call(1, [arg_0])
 
-	async def UNSET(self, arg_0: v_mapping) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[bool]]:
+	async def UNSET(self, arg_0: v_mapping) -> rpc.UnpackedRPCMsg[bool]:
 		return await self.send_call(2, [arg_0])
 
-	async def GETPORT(self, arg_0: v_mapping) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[int]]:
+	async def GETPORT(self, arg_0: v_mapping) -> rpc.UnpackedRPCMsg[int]:
 		return await self.send_call(3, [arg_0])
 
-	async def DUMP(self) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[typing.List[typing.Union[v_mapping, v_pmaplist]]]]:
+	async def DUMP(self) -> rpc.UnpackedRPCMsg[typing.List[typing.Union[v_mapping, v_pmaplist]]]:
 		return await self.send_call(4, [])
 
-	async def CALLIT(self, arg_0: v_call_args) -> typing.Tuple[rpc.v_rpc_msg, typing.Optional[v_call_result]]:
+	async def CALLIT(self, arg_0: v_call_args) -> rpc.UnpackedRPCMsg[v_call_result]:
 		return await self.send_call(5, [arg_0])
 
 

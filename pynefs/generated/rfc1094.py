@@ -37,8 +37,32 @@ MAXNAMLEN = 255
 COOKIESIZE = 4
 FHSIZE = 32
 nfsdata = rpchelp.opaque(rpchelp.var, MAXDATA)
-stat = rpchelp.r_int
-ftype = rpchelp.r_int
+class stat(rpchelp.enum):
+    NFS_OK = 0
+    NFSERR_PERM = 1
+    NFSERR_NOENT = 2
+    NFSERR_IO = 5
+    NFSERR_NXIO = 6
+    NFSERR_ACCES = 13
+    NFSERR_EXIST = 17
+    NFSERR_NODEV = 19
+    NFSERR_NOTDIR = 20
+    NFSERR_ISDIR = 21
+    NFSERR_FBIG = 27
+    NFSERR_NOSPC = 28
+    NFSERR_ROFS = 30
+    NFSERR_NAMETOOLONG = 63
+    NFSERR_NOTEMPTY = 66
+    NFSERR_DQUOT = 69
+    NFSERR_STALE = 70
+    NFSERR_WFLUSH = 99
+class ftype(rpchelp.enum):
+    NFNON = 0
+    NFREG = 1
+    NFDIR = 2
+    NFBLK = 3
+    NFCHR = 4
+    NFLNK = 5
 fhandle = rpchelp.opaque(rpchelp.fixed, FHSIZE)
 timeval = rpchelp.struct('timeval', [('seconds', rpchelp.r_uint), ('useconds', rpchelp.r_uint)])
 fattr = rpchelp.struct('fattr', [('type', ftype), ('mode', rpchelp.r_uint), ('nlink', rpchelp.r_uint), ('uid', rpchelp.r_uint), ('gid', rpchelp.r_uint), ('size', rpchelp.r_uint), ('blocksize', rpchelp.r_uint), ('rdev', rpchelp.r_uint), ('blocks', rpchelp.r_uint), ('fsid', rpchelp.r_uint), ('fileid', rpchelp.r_uint), ('atime', timeval), ('mtime', timeval), ('ctime', timeval)])
@@ -87,7 +111,7 @@ timeval.val_base_class = v_timeval
 
 @dataclass
 class v_fattr(rpchelp.struct_val_base):
-    type: int
+    type: ftype
     mode: int
     nlink: int
     uid: int
@@ -121,7 +145,7 @@ sattr.val_base_class = v_sattr
 
 @dataclass
 class v_attrstat(rpchelp.struct_val_base):
-    status: int
+    status: stat
     attributes: typing.Optional[v_fattr] = None
 
 
@@ -148,7 +172,7 @@ diropres_diropok.val_base_class = v_diropres_diropok
 
 @dataclass
 class v_diropres(rpchelp.struct_val_base):
-    status: int
+    status: stat
     diropok: typing.Optional[v_diropres_diropok] = None
 
 
@@ -169,7 +193,7 @@ statfsres_info.val_base_class = v_statfsres_info
 
 @dataclass
 class v_statfsres(rpchelp.struct_val_base):
-    status: int
+    status: stat
     info: typing.Optional[v_statfsres_info] = None
 
 
@@ -207,7 +231,7 @@ readdirres_readdirok.val_base_class = v_readdirres_readdirok
 
 @dataclass
 class v_readdirres(rpchelp.struct_val_base):
-    status: int
+    status: stat
     readdirok: typing.Optional[v_readdirres_readdirok] = None
 
 
@@ -285,7 +309,7 @@ attrdat.val_base_class = v_attrdat
 
 @dataclass
 class v_readres(rpchelp.struct_val_base):
-    status: int
+    status: stat
     attr_and_data: typing.Optional[v_attrdat] = None
 
 
@@ -294,7 +318,7 @@ readres.val_base_class = v_readres
 
 @dataclass
 class v_readlinkres(rpchelp.struct_val_base):
-    status: int
+    status: stat
     data: typing.Optional[bytes] = None
 
 
@@ -413,19 +437,19 @@ class NFS_PROGRAM_2_SERVER(rpc.Server):
         pass
 
     @abc.abstractmethod
-    def REMOVE(self, arg_0: v_diropargs) -> int:
+    def REMOVE(self, arg_0: v_diropargs) -> stat:
         pass
 
     @abc.abstractmethod
-    def RENAME(self, arg_0: v_renameargs) -> int:
+    def RENAME(self, arg_0: v_renameargs) -> stat:
         pass
 
     @abc.abstractmethod
-    def LINK(self, arg_0: v_linkargs) -> int:
+    def LINK(self, arg_0: v_linkargs) -> stat:
         pass
 
     @abc.abstractmethod
-    def SYMLINK(self, arg_0: v_symlinkargs) -> int:
+    def SYMLINK(self, arg_0: v_symlinkargs) -> stat:
         pass
 
     @abc.abstractmethod
@@ -433,7 +457,7 @@ class NFS_PROGRAM_2_SERVER(rpc.Server):
         pass
 
     @abc.abstractmethod
-    def RMDIR(self, arg_0: v_diropargs) -> int:
+    def RMDIR(self, arg_0: v_diropargs) -> stat:
         pass
 
     @abc.abstractmethod
@@ -499,22 +523,22 @@ class NFS_PROGRAM_2_CLIENT(rpc.BaseClient):
     async def CREATE(self, arg_0: v_createargs) -> rpc.UnpackedRPCMsg[v_diropres]:
         return await self.send_call(9, [arg_0])
 
-    async def REMOVE(self, arg_0: v_diropargs) -> rpc.UnpackedRPCMsg[int]:
+    async def REMOVE(self, arg_0: v_diropargs) -> rpc.UnpackedRPCMsg[stat]:
         return await self.send_call(10, [arg_0])
 
-    async def RENAME(self, arg_0: v_renameargs) -> rpc.UnpackedRPCMsg[int]:
+    async def RENAME(self, arg_0: v_renameargs) -> rpc.UnpackedRPCMsg[stat]:
         return await self.send_call(11, [arg_0])
 
-    async def LINK(self, arg_0: v_linkargs) -> rpc.UnpackedRPCMsg[int]:
+    async def LINK(self, arg_0: v_linkargs) -> rpc.UnpackedRPCMsg[stat]:
         return await self.send_call(12, [arg_0])
 
-    async def SYMLINK(self, arg_0: v_symlinkargs) -> rpc.UnpackedRPCMsg[int]:
+    async def SYMLINK(self, arg_0: v_symlinkargs) -> rpc.UnpackedRPCMsg[stat]:
         return await self.send_call(13, [arg_0])
 
     async def MKDIR(self, arg_0: v_createargs) -> rpc.UnpackedRPCMsg[v_diropres]:
         return await self.send_call(14, [arg_0])
 
-    async def RMDIR(self, arg_0: v_diropargs) -> rpc.UnpackedRPCMsg[int]:
+    async def RMDIR(self, arg_0: v_diropargs) -> rpc.UnpackedRPCMsg[stat]:
         return await self.send_call(15, [arg_0])
 
     async def READDIR(self, arg_0: v_readdirargs) -> rpc.UnpackedRPCMsg[v_readdirres]:
@@ -591,4 +615,4 @@ class MOUNTPROG_1_CLIENT(rpc.BaseClient):
     async def EXPORT(self) -> rpc.UnpackedRPCMsg[typing.List[v_exportlist]]:
         return await self.send_call(5, [])
 
-__all__ = ['v_timeval', 'v_fattr', 'v_sattr', 'v_attrstat', 'v_diropargs', 'v_diropres_diropok', 'v_diropres', 'v_statfsres_info', 'v_statfsres', 'v_readdirargs', 'v_entry', 'v_readdirres_readdirok', 'v_readdirres', 'v_symlinkargs', 'v_linkargs', 'v_renameargs', 'v_createargs', 'v_writeargs', 'v_readargs', 'v_attrdat', 'v_readres', 'v_readlinkres', 'v_sattrargs', 'v_fhstatus', 'v_mountlist', 'v_grouplist', 'v_exportlist', 'NFS_PROGRAM_2_SERVER', 'MOUNTPROG_1_SERVER', 'TRUE', 'FALSE', 'NFS_OK', 'NFSERR_PERM', 'NFSERR_NOENT', 'NFSERR_IO', 'NFSERR_NXIO', 'NFSERR_ACCES', 'NFSERR_EXIST', 'NFSERR_NODEV', 'NFSERR_NOTDIR', 'NFSERR_ISDIR', 'NFSERR_FBIG', 'NFSERR_NOSPC', 'NFSERR_ROFS', 'NFSERR_NAMETOOLONG', 'NFSERR_NOTEMPTY', 'NFSERR_DQUOT', 'NFSERR_STALE', 'NFSERR_WFLUSH', 'NFNON', 'NFREG', 'NFDIR', 'NFBLK', 'NFCHR', 'NFLNK', 'MAXDATA', 'MAXPATHLEN', 'MAXNAMLEN', 'COOKIESIZE', 'FHSIZE', 'MNTPATHLEN']
+__all__ = ['stat', 'ftype', 'v_timeval', 'v_fattr', 'v_sattr', 'v_attrstat', 'v_diropargs', 'v_diropres_diropok', 'v_diropres', 'v_statfsres_info', 'v_statfsres', 'v_readdirargs', 'v_entry', 'v_readdirres_readdirok', 'v_readdirres', 'v_symlinkargs', 'v_linkargs', 'v_renameargs', 'v_createargs', 'v_writeargs', 'v_readargs', 'v_attrdat', 'v_readres', 'v_readlinkres', 'v_sattrargs', 'v_fhstatus', 'v_mountlist', 'v_grouplist', 'v_exportlist', 'NFS_PROGRAM_2_SERVER', 'MOUNTPROG_1_SERVER', 'TRUE', 'FALSE', 'NFS_OK', 'NFSERR_PERM', 'NFSERR_NOENT', 'NFSERR_IO', 'NFSERR_NXIO', 'NFSERR_ACCES', 'NFSERR_EXIST', 'NFSERR_NODEV', 'NFSERR_NOTDIR', 'NFSERR_ISDIR', 'NFSERR_FBIG', 'NFSERR_NOSPC', 'NFSERR_ROFS', 'NFSERR_NAMETOOLONG', 'NFSERR_NOTEMPTY', 'NFSERR_DQUOT', 'NFSERR_STALE', 'NFSERR_WFLUSH', 'NFNON', 'NFREG', 'NFDIR', 'NFBLK', 'NFCHR', 'NFLNK', 'MAXDATA', 'MAXPATHLEN', 'MAXNAMLEN', 'COOKIESIZE', 'FHSIZE', 'MNTPATHLEN']

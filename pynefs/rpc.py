@@ -183,28 +183,31 @@ class TCPClient(BaseClient):
 
         msg = v_rpc_msg(
             xid=xid,
-            header=v_rpc_body(mtype=CALL, cbody=v_call_body(
-                rpcvers=2,
-                prog=self.prog,
-                vers=self.vers,
-                proc=proc_id,
-                # always null auth for now
-                cred=v_opaque_auth(
-                    flavor=AUTH_NONE,
-                    body=b""
-                ),
-                verf=v_opaque_auth(
-                    flavor=AUTH_NONE,
-                    body=b""
-                ),
-            ))
+            header=v_rpc_body(
+                mtype=msg_type.CALL,
+                cbody=v_call_body(
+                    rpcvers=2,
+                    prog=self.prog,
+                    vers=self.vers,
+                    proc=proc_id,
+                    # always null auth for now
+                    cred=v_opaque_auth(
+                        flavor=auth_flavor.AUTH_NONE,
+                        body=b""
+                    ),
+                    verf=v_opaque_auth(
+                        flavor=auth_flavor.AUTH_NONE,
+                        body=b""
+                    ),
+                )
+            )
         )
         await self.transport.write_msg(msg, self.pack_args(proc_id, args))
 
         # TODO: Almost definitely bad, no guarantee reply immediately follows.
         # should return a Future and pump messages instead?
         reply, reply_body = await self.transport.read_msg()
-
-        if reply.header.rbody.stat != MSG_ACCEPTED:
+        assert(reply.header.mtype == REPLY)
+        if reply.header.rbody.stat != reply_stat.MSG_ACCEPTED:
             return UnpackedRPCMsg(reply, None)
         return UnpackedRPCMsg(reply, self.unpack_return(proc_id, reply_body))

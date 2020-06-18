@@ -83,8 +83,44 @@ size3 = uint64
 offset3 = uint64
 mode3 = uint32
 count3 = uint32
-nfsstat3 = rpchelp.r_int
-ftype3 = rpchelp.r_int
+class nfsstat3(rpchelp.enum):
+    NFS3_OK = 0
+    NFS3ERR_PERM = 1
+    NFS3ERR_NOENT = 2
+    NFS3ERR_IO = 5
+    NFS3ERR_NXIO = 6
+    NFS3ERR_ACCES = 13
+    NFS3ERR_EXIST = 17
+    NFS3ERR_XDEV = 18
+    NFS3ERR_NODEV = 19
+    NFS3ERR_NOTDIR = 20
+    NFS3ERR_ISDIR = 21
+    NFS3ERR_INVAL = 22
+    NFS3ERR_FBIG = 27
+    NFS3ERR_NOSPC = 28
+    NFS3ERR_ROFS = 30
+    NFS3ERR_MLINK = 31
+    NFS3ERR_NAMETOOLONG = 63
+    NFS3ERR_NOTEMPTY = 66
+    NFS3ERR_DQUOT = 69
+    NFS3ERR_STALE = 70
+    NFS3ERR_REMOTE = 71
+    NFS3ERR_BADHANDLE = 10001
+    NFS3ERR_NOT_SYNC = 10002
+    NFS3ERR_BAD_COOKIE = 10003
+    NFS3ERR_NOTSUPP = 10004
+    NFS3ERR_TOOSMALL = 10005
+    NFS3ERR_SERVERFAULT = 10006
+    NFS3ERR_BADTYPE = 10007
+    NFS3ERR_JUKEBOX = 10008
+class ftype3(rpchelp.enum):
+    NF3REG = 1
+    NF3DIR = 2
+    NF3BLK = 3
+    NF3CHR = 4
+    NF3LNK = 5
+    NF3SOCK = 6
+    NF3FIFO = 7
 specdata3 = rpchelp.struct('specdata3', [('specdata1', uint32), ('specdata2', uint32)])
 nfs_fh3 = rpchelp.opaque(rpchelp.var, NFS3_FHSIZE)
 nfstime3 = rpchelp.struct('nfstime3', [('seconds', uint32), ('nseconds', uint32)])
@@ -94,7 +130,10 @@ wcc_attr = rpchelp.struct('wcc_attr', [('size', size3), ('mtime', nfstime3), ('c
 pre_op_attr = rpchelp.union('pre_op_attr', rpchelp.r_bool, 'attributes_follow', {TRUE: ('attributes', wcc_attr), FALSE: (None, rpchelp.r_void)}, from_parser=True)
 wcc_data = rpchelp.struct('wcc_data', [('before', pre_op_attr), ('after', post_op_attr)])
 post_op_fh3 = rpchelp.union('post_op_fh3', rpchelp.r_bool, 'handle_follows', {TRUE: ('obj_handle', nfs_fh3), FALSE: (None, rpchelp.r_void)}, from_parser=True)
-time_how = rpchelp.r_int
+class time_how(rpchelp.enum):
+    DONT_CHANGE = 0
+    SET_TO_SERVER_TIME = 1
+    SET_TO_CLIENT_TIME = 2
 set_mode3 = rpchelp.union('set_mode3', rpchelp.r_bool, 'set_it', {TRUE: ('mode', mode3), None: (None, rpchelp.r_void)}, from_parser=True)
 set_uid3 = rpchelp.union('set_uid3', rpchelp.r_bool, 'set_it', {TRUE: ('uid', uid3), None: (None, rpchelp.r_void)}, from_parser=True)
 set_gid3 = rpchelp.union('set_gid3', rpchelp.r_bool, 'set_it', {TRUE: ('gid', gid3), None: (None, rpchelp.r_void)}, from_parser=True)
@@ -134,12 +173,18 @@ READ3args = rpchelp.struct('READ3args', [('file_handle', nfs_fh3), ('offset', of
 READ3resok = rpchelp.struct('READ3resok', [('file_attributes', post_op_attr), ('count', count3), ('eof', rpchelp.r_bool), ('data', rpchelp.opaque(rpchelp.var, None))])
 READ3resfail = rpchelp.struct('READ3resfail', [('file_attributes', post_op_attr)])
 READ3res = rpchelp.union('READ3res', nfsstat3, 'status', {NFS3_OK: ('resok', READ3resok), None: ('resfail', READ3resfail)}, from_parser=True)
-stable_how = rpchelp.r_int
+class stable_how(rpchelp.enum):
+    UNSTABLE = 0
+    DATA_SYNC = 1
+    FILE_SYNC = 2
 WRITE3args = rpchelp.struct('WRITE3args', [('file_handle', nfs_fh3), ('offset', offset3), ('count', count3), ('stable', stable_how), ('data', rpchelp.opaque(rpchelp.var, None))])
 WRITE3resok = rpchelp.struct('WRITE3resok', [('file_wcc', wcc_data), ('count', count3), ('committed', stable_how), ('verf', writeverf3)])
 WRITE3resfail = rpchelp.struct('WRITE3resfail', [('file_wcc', wcc_data)])
 WRITE3res = rpchelp.union('WRITE3res', nfsstat3, 'status', {NFS3_OK: ('resok', WRITE3resok), None: ('resfail', WRITE3resfail)}, from_parser=True)
-createmode3 = rpchelp.r_int
+class createmode3(rpchelp.enum):
+    UNCHECKED = 0
+    GUARDED = 1
+    EXCLUSIVE = 2
 createhow3 = rpchelp.union('createhow3', createmode3, 'mode', {UNCHECKED: ('obj_attributes', sattr3), GUARDED: ('obj_attributes', sattr3), EXCLUSIVE: ('verf', createverf3)}, from_parser=True)
 CREATE3args = rpchelp.struct('CREATE3args', [('where', diropargs3), ('how', createhow3)])
 CREATE3resok = rpchelp.struct('CREATE3resok', [('obj_handle', post_op_fh3), ('obj_attributes', post_op_attr), ('dir_wcc', wcc_data)])
@@ -214,7 +259,17 @@ FHSIZE3 = 64
 fhandle3 = rpchelp.opaque(rpchelp.var, FHSIZE3)
 dirpath = rpchelp.string(rpchelp.var, MNTPATHLEN)
 name = rpchelp.string(rpchelp.var, MNTNAMLEN)
-mountstat3 = rpchelp.r_int
+class mountstat3(rpchelp.enum):
+    MNT3_OK = 0
+    MNT3ERR_PERM = 1
+    MNT3ERR_NOENT = 2
+    MNT3ERR_IO = 5
+    MNT3ERR_ACCES = 13
+    MNT3ERR_NOTDIR = 20
+    MNT3ERR_INVAL = 22
+    MNT3ERR_NAMETOOLONG = 63
+    MNT3ERR_NOTSUPP = 10004
+    MNT3ERR_SERVERFAULT = 10006
 mountres3_ok = rpchelp.struct('mountres3_ok', [('fhandle', fhandle3), ('auth_flavors', rpchelp.arr(rpchelp.r_int, rpchelp.var, None))])
 mountres3 = rpchelp.union('mountres3', mountstat3, 'fhs_status', {MNT3_OK: ('mountinfo', mountres3_ok), None: (None, rpchelp.r_void)}, from_parser=True)
 mountlist = rpchelp.linked_list('mountlist', [('hostname', name), ('directory', dirpath)])
@@ -242,7 +297,7 @@ nfstime3.val_base_class = v_nfstime3
 
 @dataclass
 class v_fattr3(rpchelp.struct_val_base):
-    type: int
+    type: ftype3
     mode: int
     nlink: int
     uid: int
@@ -344,7 +399,7 @@ set_size3.val_base_class = v_set_size3
 
 @dataclass
 class v_set_atime(rpchelp.struct_val_base):
-    set_it: int
+    set_it: time_how
     atime: typing.Optional[v_nfstime3] = None
 
 
@@ -353,7 +408,7 @@ set_atime.val_base_class = v_set_atime
 
 @dataclass
 class v_set_mtime(rpchelp.struct_val_base):
-    set_it: int
+    set_it: time_how
     mtime: typing.Optional[v_nfstime3] = None
 
 
@@ -400,7 +455,7 @@ GETATTR3resok.val_base_class = v_GETATTR3resok
 
 @dataclass
 class v_GETATTR3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_GETATTR3resok] = None
 
 
@@ -444,7 +499,7 @@ SETATTR3resfail.val_base_class = v_SETATTR3resfail
 
 @dataclass
 class v_SETATTR3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_SETATTR3resok] = None
     resfail: typing.Optional[v_SETATTR3resfail] = None
 
@@ -480,7 +535,7 @@ LOOKUP3resfail.val_base_class = v_LOOKUP3resfail
 
 @dataclass
 class v_LOOKUP3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_LOOKUP3resok] = None
     resfail: typing.Optional[v_LOOKUP3resfail] = None
 
@@ -516,7 +571,7 @@ ACCESS3resfail.val_base_class = v_ACCESS3resfail
 
 @dataclass
 class v_ACCESS3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_ACCESS3resok] = None
     resfail: typing.Optional[v_ACCESS3resfail] = None
 
@@ -551,7 +606,7 @@ READLINK3resfail.val_base_class = v_READLINK3resfail
 
 @dataclass
 class v_READLINK3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_READLINK3resok] = None
     resfail: typing.Optional[v_READLINK3resfail] = None
 
@@ -590,7 +645,7 @@ READ3resfail.val_base_class = v_READ3resfail
 
 @dataclass
 class v_READ3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_READ3resok] = None
     resfail: typing.Optional[v_READ3resfail] = None
 
@@ -603,7 +658,7 @@ class v_WRITE3args(rpchelp.struct_val_base):
     file_handle: bytes
     offset: int
     count: int
-    stable: int
+    stable: stable_how
     data: bytes
 
 
@@ -614,7 +669,7 @@ WRITE3args.val_base_class = v_WRITE3args
 class v_WRITE3resok(rpchelp.struct_val_base):
     file_wcc: v_wcc_data
     count: int
-    committed: int
+    committed: stable_how
     verf: bytes
 
 
@@ -631,7 +686,7 @@ WRITE3resfail.val_base_class = v_WRITE3resfail
 
 @dataclass
 class v_WRITE3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_WRITE3resok] = None
     resfail: typing.Optional[v_WRITE3resfail] = None
 
@@ -641,7 +696,7 @@ WRITE3res.val_base_class = v_WRITE3res
 
 @dataclass
 class v_createhow3(rpchelp.struct_val_base):
-    mode: int
+    mode: createmode3
     obj_attributes: typing.Optional[v_sattr3] = None
     verf: typing.Optional[bytes] = None
 
@@ -678,7 +733,7 @@ CREATE3resfail.val_base_class = v_CREATE3resfail
 
 @dataclass
 class v_CREATE3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_CREATE3resok] = None
     resfail: typing.Optional[v_CREATE3resfail] = None
 
@@ -715,7 +770,7 @@ MKDIR3resfail.val_base_class = v_MKDIR3resfail
 
 @dataclass
 class v_MKDIR3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_MKDIR3resok] = None
     resfail: typing.Optional[v_MKDIR3resfail] = None
 
@@ -761,7 +816,7 @@ SYMLINK3resfail.val_base_class = v_SYMLINK3resfail
 
 @dataclass
 class v_SYMLINK3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_SYMLINK3resok] = None
     resfail: typing.Optional[v_SYMLINK3resfail] = None
 
@@ -780,7 +835,7 @@ devicedata3.val_base_class = v_devicedata3
 
 @dataclass
 class v_mknoddata3(rpchelp.struct_val_base):
-    type: int
+    type: ftype3
     chr_device: typing.Optional[v_devicedata3] = None
     blk_device: typing.Optional[v_devicedata3] = None
     sock_pipe_attributes: typing.Optional[v_sattr3] = None
@@ -819,7 +874,7 @@ MKNOD3resfail.val_base_class = v_MKNOD3resfail
 
 @dataclass
 class v_MKNOD3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_MKNOD3resok] = None
     resfail: typing.Optional[v_MKNOD3resfail] = None
 
@@ -853,7 +908,7 @@ REMOVE3resfail.val_base_class = v_REMOVE3resfail
 
 @dataclass
 class v_REMOVE3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_REMOVE3resok] = None
     resfail: typing.Optional[v_REMOVE3resfail] = None
 
@@ -887,7 +942,7 @@ RMDIR3resfail.val_base_class = v_RMDIR3resfail
 
 @dataclass
 class v_RMDIR3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_RMDIR3resok] = None
     resfail: typing.Optional[v_RMDIR3resfail] = None
 
@@ -924,7 +979,7 @@ RENAME3resfail.val_base_class = v_RENAME3resfail
 
 @dataclass
 class v_RENAME3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_RENAME3resok] = None
     resfail: typing.Optional[v_RENAME3resfail] = None
 
@@ -961,7 +1016,7 @@ LINK3resfail.val_base_class = v_LINK3resfail
 
 @dataclass
 class v_LINK3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_LINK3resok] = None
     resfail: typing.Optional[v_LINK3resfail] = None
 
@@ -1019,7 +1074,7 @@ READDIR3resfail.val_base_class = v_READDIR3resfail
 
 @dataclass
 class v_READDIR3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_READDIR3resok] = None
     resfail: typing.Optional[v_READDIR3resfail] = None
 
@@ -1080,7 +1135,7 @@ READDIRPLUS3resfail.val_base_class = v_READDIRPLUS3resfail
 
 @dataclass
 class v_READDIRPLUS3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_READDIRPLUS3resok] = None
     resfail: typing.Optional[v_READDIRPLUS3resfail] = None
 
@@ -1121,7 +1176,7 @@ FSSTAT3resfail.val_base_class = v_FSSTAT3resfail
 
 @dataclass
 class v_FSSTAT3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_FSSTAT3resok] = None
     resfail: typing.Optional[v_FSSTAT3resfail] = None
 
@@ -1165,7 +1220,7 @@ FSINFO3resfail.val_base_class = v_FSINFO3resfail
 
 @dataclass
 class v_FSINFO3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_FSINFO3resok] = None
     resfail: typing.Optional[v_FSINFO3resfail] = None
 
@@ -1205,7 +1260,7 @@ PATHCONF3resfail.val_base_class = v_PATHCONF3resfail
 
 @dataclass
 class v_PATHCONF3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_PATHCONF3resok] = None
     resfail: typing.Optional[v_PATHCONF3resfail] = None
 
@@ -1242,7 +1297,7 @@ COMMIT3resfail.val_base_class = v_COMMIT3resfail
 
 @dataclass
 class v_COMMIT3res(rpchelp.struct_val_base):
-    status: int
+    status: nfsstat3
     resok: typing.Optional[v_COMMIT3resok] = None
     resfail: typing.Optional[v_COMMIT3resfail] = None
 
@@ -1261,7 +1316,7 @@ mountres3_ok.val_base_class = v_mountres3_ok
 
 @dataclass
 class v_mountres3(rpchelp.struct_val_base):
-    fhs_status: int
+    fhs_status: mountstat3
     mountinfo: typing.Optional[v_mountres3_ok] = None
 
 
@@ -1576,4 +1631,4 @@ class MOUNT_PROGRAM_3_CLIENT(rpc.BaseClient):
     async def EXPORT(self) -> rpc.UnpackedRPCMsg[typing.List[v_exportlist]]:
         return await self.send_call(5, [])
 
-__all__ = ['v_specdata3', 'v_nfstime3', 'v_fattr3', 'v_post_op_attr', 'v_wcc_attr', 'v_pre_op_attr', 'v_wcc_data', 'v_post_op_fh3', 'v_set_mode3', 'v_set_uid3', 'v_set_gid3', 'v_set_size3', 'v_set_atime', 'v_set_mtime', 'v_sattr3', 'v_diropargs3', 'v_GETATTR3args', 'v_GETATTR3resok', 'v_GETATTR3res', 'v_sattrguard3', 'v_SETATTR3args', 'v_SETATTR3resok', 'v_SETATTR3resfail', 'v_SETATTR3res', 'v_LOOKUP3args', 'v_LOOKUP3resok', 'v_LOOKUP3resfail', 'v_LOOKUP3res', 'v_ACCESS3args', 'v_ACCESS3resok', 'v_ACCESS3resfail', 'v_ACCESS3res', 'v_READLINK3args', 'v_READLINK3resok', 'v_READLINK3resfail', 'v_READLINK3res', 'v_READ3args', 'v_READ3resok', 'v_READ3resfail', 'v_READ3res', 'v_WRITE3args', 'v_WRITE3resok', 'v_WRITE3resfail', 'v_WRITE3res', 'v_createhow3', 'v_CREATE3args', 'v_CREATE3resok', 'v_CREATE3resfail', 'v_CREATE3res', 'v_MKDIR3args', 'v_MKDIR3resok', 'v_MKDIR3resfail', 'v_MKDIR3res', 'v_symlinkdata3', 'v_SYMLINK3args', 'v_SYMLINK3resok', 'v_SYMLINK3resfail', 'v_SYMLINK3res', 'v_devicedata3', 'v_mknoddata3', 'v_MKNOD3args', 'v_MKNOD3resok', 'v_MKNOD3resfail', 'v_MKNOD3res', 'v_REMOVE3args', 'v_REMOVE3resok', 'v_REMOVE3resfail', 'v_REMOVE3res', 'v_RMDIR3args', 'v_RMDIR3resok', 'v_RMDIR3resfail', 'v_RMDIR3res', 'v_RENAME3args', 'v_RENAME3resok', 'v_RENAME3resfail', 'v_RENAME3res', 'v_LINK3args', 'v_LINK3resok', 'v_LINK3resfail', 'v_LINK3res', 'v_READDIR3args', 'v_entry3', 'v_dirlist3', 'v_READDIR3resok', 'v_READDIR3resfail', 'v_READDIR3res', 'v_READDIRPLUS3args', 'v_entryplus3', 'v_dirlistplus3', 'v_READDIRPLUS3resok', 'v_READDIRPLUS3resfail', 'v_READDIRPLUS3res', 'v_FSSTAT3args', 'v_FSSTAT3resok', 'v_FSSTAT3resfail', 'v_FSSTAT3res', 'v_FSINFO3args', 'v_FSINFO3resok', 'v_FSINFO3resfail', 'v_FSINFO3res', 'v_PATHCONF3args', 'v_PATHCONF3resok', 'v_PATHCONF3resfail', 'v_PATHCONF3res', 'v_COMMIT3args', 'v_COMMIT3resok', 'v_COMMIT3resfail', 'v_COMMIT3res', 'v_mountres3_ok', 'v_mountres3', 'v_mountlist', 'v_grouplist', 'v_exportlist', 'NFS_PROGRAM_3_SERVER', 'MOUNT_PROGRAM_3_SERVER', 'TRUE', 'FALSE', 'NFS3_OK', 'NFS3ERR_PERM', 'NFS3ERR_NOENT', 'NFS3ERR_IO', 'NFS3ERR_NXIO', 'NFS3ERR_ACCES', 'NFS3ERR_EXIST', 'NFS3ERR_XDEV', 'NFS3ERR_NODEV', 'NFS3ERR_NOTDIR', 'NFS3ERR_ISDIR', 'NFS3ERR_INVAL', 'NFS3ERR_FBIG', 'NFS3ERR_NOSPC', 'NFS3ERR_ROFS', 'NFS3ERR_MLINK', 'NFS3ERR_NAMETOOLONG', 'NFS3ERR_NOTEMPTY', 'NFS3ERR_DQUOT', 'NFS3ERR_STALE', 'NFS3ERR_REMOTE', 'NFS3ERR_BADHANDLE', 'NFS3ERR_NOT_SYNC', 'NFS3ERR_BAD_COOKIE', 'NFS3ERR_NOTSUPP', 'NFS3ERR_TOOSMALL', 'NFS3ERR_SERVERFAULT', 'NFS3ERR_BADTYPE', 'NFS3ERR_JUKEBOX', 'NF3REG', 'NF3DIR', 'NF3BLK', 'NF3CHR', 'NF3LNK', 'NF3SOCK', 'NF3FIFO', 'DONT_CHANGE', 'SET_TO_SERVER_TIME', 'SET_TO_CLIENT_TIME', 'UNSTABLE', 'DATA_SYNC', 'FILE_SYNC', 'UNCHECKED', 'GUARDED', 'EXCLUSIVE', 'MNT3_OK', 'MNT3ERR_PERM', 'MNT3ERR_NOENT', 'MNT3ERR_IO', 'MNT3ERR_ACCES', 'MNT3ERR_NOTDIR', 'MNT3ERR_INVAL', 'MNT3ERR_NAMETOOLONG', 'MNT3ERR_NOTSUPP', 'MNT3ERR_SERVERFAULT', 'NFS3_FHSIZE', 'NFS3_COOKIEVERFSIZE', 'NFS3_CREATEVERFSIZE', 'NFS3_WRITEVERFSIZE', 'ACCESS3_READ', 'ACCESS3_LOOKUP', 'ACCESS3_MODIFY', 'ACCESS3_EXTEND', 'ACCESS3_DELETE', 'ACCESS3_EXECUTE', 'FSF3_LINK', 'FSF3_SYMLINK', 'FSF3_HOMOGENEOUS', 'FSF3_CANSETTIME', 'MNTPATHLEN', 'MNTNAMLEN', 'FHSIZE3']
+__all__ = ['nfsstat3', 'ftype3', 'v_specdata3', 'v_nfstime3', 'v_fattr3', 'v_post_op_attr', 'v_wcc_attr', 'v_pre_op_attr', 'v_wcc_data', 'v_post_op_fh3', 'time_how', 'v_set_mode3', 'v_set_uid3', 'v_set_gid3', 'v_set_size3', 'v_set_atime', 'v_set_mtime', 'v_sattr3', 'v_diropargs3', 'v_GETATTR3args', 'v_GETATTR3resok', 'v_GETATTR3res', 'v_sattrguard3', 'v_SETATTR3args', 'v_SETATTR3resok', 'v_SETATTR3resfail', 'v_SETATTR3res', 'v_LOOKUP3args', 'v_LOOKUP3resok', 'v_LOOKUP3resfail', 'v_LOOKUP3res', 'v_ACCESS3args', 'v_ACCESS3resok', 'v_ACCESS3resfail', 'v_ACCESS3res', 'v_READLINK3args', 'v_READLINK3resok', 'v_READLINK3resfail', 'v_READLINK3res', 'v_READ3args', 'v_READ3resok', 'v_READ3resfail', 'v_READ3res', 'stable_how', 'v_WRITE3args', 'v_WRITE3resok', 'v_WRITE3resfail', 'v_WRITE3res', 'createmode3', 'v_createhow3', 'v_CREATE3args', 'v_CREATE3resok', 'v_CREATE3resfail', 'v_CREATE3res', 'v_MKDIR3args', 'v_MKDIR3resok', 'v_MKDIR3resfail', 'v_MKDIR3res', 'v_symlinkdata3', 'v_SYMLINK3args', 'v_SYMLINK3resok', 'v_SYMLINK3resfail', 'v_SYMLINK3res', 'v_devicedata3', 'v_mknoddata3', 'v_MKNOD3args', 'v_MKNOD3resok', 'v_MKNOD3resfail', 'v_MKNOD3res', 'v_REMOVE3args', 'v_REMOVE3resok', 'v_REMOVE3resfail', 'v_REMOVE3res', 'v_RMDIR3args', 'v_RMDIR3resok', 'v_RMDIR3resfail', 'v_RMDIR3res', 'v_RENAME3args', 'v_RENAME3resok', 'v_RENAME3resfail', 'v_RENAME3res', 'v_LINK3args', 'v_LINK3resok', 'v_LINK3resfail', 'v_LINK3res', 'v_READDIR3args', 'v_entry3', 'v_dirlist3', 'v_READDIR3resok', 'v_READDIR3resfail', 'v_READDIR3res', 'v_READDIRPLUS3args', 'v_entryplus3', 'v_dirlistplus3', 'v_READDIRPLUS3resok', 'v_READDIRPLUS3resfail', 'v_READDIRPLUS3res', 'v_FSSTAT3args', 'v_FSSTAT3resok', 'v_FSSTAT3resfail', 'v_FSSTAT3res', 'v_FSINFO3args', 'v_FSINFO3resok', 'v_FSINFO3resfail', 'v_FSINFO3res', 'v_PATHCONF3args', 'v_PATHCONF3resok', 'v_PATHCONF3resfail', 'v_PATHCONF3res', 'v_COMMIT3args', 'v_COMMIT3resok', 'v_COMMIT3resfail', 'v_COMMIT3res', 'mountstat3', 'v_mountres3_ok', 'v_mountres3', 'v_mountlist', 'v_grouplist', 'v_exportlist', 'NFS_PROGRAM_3_SERVER', 'MOUNT_PROGRAM_3_SERVER', 'TRUE', 'FALSE', 'NFS3_OK', 'NFS3ERR_PERM', 'NFS3ERR_NOENT', 'NFS3ERR_IO', 'NFS3ERR_NXIO', 'NFS3ERR_ACCES', 'NFS3ERR_EXIST', 'NFS3ERR_XDEV', 'NFS3ERR_NODEV', 'NFS3ERR_NOTDIR', 'NFS3ERR_ISDIR', 'NFS3ERR_INVAL', 'NFS3ERR_FBIG', 'NFS3ERR_NOSPC', 'NFS3ERR_ROFS', 'NFS3ERR_MLINK', 'NFS3ERR_NAMETOOLONG', 'NFS3ERR_NOTEMPTY', 'NFS3ERR_DQUOT', 'NFS3ERR_STALE', 'NFS3ERR_REMOTE', 'NFS3ERR_BADHANDLE', 'NFS3ERR_NOT_SYNC', 'NFS3ERR_BAD_COOKIE', 'NFS3ERR_NOTSUPP', 'NFS3ERR_TOOSMALL', 'NFS3ERR_SERVERFAULT', 'NFS3ERR_BADTYPE', 'NFS3ERR_JUKEBOX', 'NF3REG', 'NF3DIR', 'NF3BLK', 'NF3CHR', 'NF3LNK', 'NF3SOCK', 'NF3FIFO', 'DONT_CHANGE', 'SET_TO_SERVER_TIME', 'SET_TO_CLIENT_TIME', 'UNSTABLE', 'DATA_SYNC', 'FILE_SYNC', 'UNCHECKED', 'GUARDED', 'EXCLUSIVE', 'MNT3_OK', 'MNT3ERR_PERM', 'MNT3ERR_NOENT', 'MNT3ERR_IO', 'MNT3ERR_ACCES', 'MNT3ERR_NOTDIR', 'MNT3ERR_INVAL', 'MNT3ERR_NAMETOOLONG', 'MNT3ERR_NOTSUPP', 'MNT3ERR_SERVERFAULT', 'NFS3_FHSIZE', 'NFS3_COOKIEVERFSIZE', 'NFS3_CREATEVERFSIZE', 'NFS3_WRITEVERFSIZE', 'ACCESS3_READ', 'ACCESS3_LOOKUP', 'ACCESS3_MODIFY', 'ACCESS3_EXTEND', 'ACCESS3_DELETE', 'ACCESS3_EXECUTE', 'FSF3_LINK', 'FSF3_SYMLINK', 'FSF3_HOMOGENEOUS', 'FSF3_CANSETTIME', 'MNTPATHLEN', 'MNTNAMLEN', 'FHSIZE3']

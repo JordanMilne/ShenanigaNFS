@@ -214,12 +214,15 @@ def t_error(t):
 lexer = lex.lex()
 
 
+PACKABLE_OR_PACKABLE_CLASS = typing.Union[rpchelp.packable, typing.Type[rpchelp.packable]]
+
+
 class Ctx:
     def __init__(self):
         self.indent = 0
         self.deferred_list = []  # used for deferring nested Enum definitions
         self.progs: typing.List["Program"] = []
-        self.type_mapping: typing.Dict[str, rpchelp.packable] = {}
+        self.type_mapping: typing.Dict[str, PACKABLE_OR_PACKABLE_CLASS] = {}
         self.const_mapping: typing.Dict[str, int] = {}
         self.exportable = []
 
@@ -238,8 +241,10 @@ class Ctx:
         for name, val in type_dict.items():
             if isinstance(val, rpchelp.packable):
                 self.type_mapping[name] = val
-            if isinstance(val, int):
+            elif isinstance(val, int):
                 self.const_mapping[name] = val
+            elif isinstance(val, type) and issubclass(val, rpchelp.enum):
+                self.type_mapping[name] = val
 
     def finish_struct_vals(self):
         buf = ""
@@ -266,6 +271,8 @@ class Ctx:
                     seen_members[member_name] = member_typ
                     buf += f"\t{member_name}: typing.Optional[{member_typ.type_hint()}] = None\n"
                 buf += f"\n\n{typ.name}.val_base_class = {typ.val_name}\n\n\n"
+            if isinstance(typ, type) and issubclass(typ, rpchelp.enum):
+                self.exportable.append(typ.__name__)
         return buf
 
     def finish_progs(self):
@@ -436,11 +443,7 @@ class Enum(Node):
 
 
 class EnumList(NodeList):
-    sep = ''
-
-    def to_str(self, ctx):
-        NodeList.to_str(self, ctx)  # call for side effect of deferring defs.
-        return 'rpchelp.r_int'
+    sep = '\n'
 
 
 class EnumClause(Node):
@@ -450,8 +453,10 @@ class EnumClause(Node):
         self.val = val
 
     def to_str(self, ctx):
-        ctx.defer('%s = %s' % (self.ident, self.val))
-        return ''
+        # For now we need both a bare and enum class version, defer.
+        val = '%s = %s' % (self.ident, self.val)
+        ctx.defer(val)
+        return '\t' + val
 
 
 class Struct(Node):
@@ -526,10 +531,6 @@ class UnionElt(Node):
     def to_str(self, ctx):
         typestr = self.decl.to_str(ctx)
         return "%s: (%r, %s)" % (self.val, self.decl.ident, typestr)
-    # We ignore self.decl.ident.  Not needed for current union
-    # implementation, because we can assign the data to '_data',
-    # because the type goes with the object bound to '_data',
-    # not the declaration.
 
 
 class UnionDefElt(UnionElt):
@@ -589,9 +590,9 @@ class TypeDef(Node):
 
     def to_str(self, ctx):
         if self.decl.ident is None:
+            # a legit construction according to my reading of the grammar, but not
+            # semantically useful.
             return '# "typedef void;" encountered'
-        # a legit construction according to my reading of the grammar, but not
-        # semantically useful.
         typestr = self.decl.to_str(ctx)
         return '%s = %s' % (self.decl.ident, typestr)
 
@@ -605,7 +606,10 @@ class TypeDefCompound(Node):
         self.body = body
 
     def to_str(self, ctx):
-        return '%s = %s' % (self.ident, self.body.to_str(ctx))
+        params = (self.ident, self.body.to_str(ctx))
+        if self.typ == "enum":
+            return "class %s(rpchelp.enum):\n%s" % params
+        return '%s = %s' % params
 
 
 class Program(Node):
@@ -1043,7 +1047,11 @@ FALSE = False
     # Might be ok to construct the classes instead and give them
     # a __repr__ that will completely recreate them?
     src_locals = {}
-    exec(src, globals(), src_locals)
+    try:
+        exec(src, globals(), src_locals)
+    except:
+        print(src, file=sys.stderr)
+        raise
     ctx.collect_types(src_locals)
 
     s = StringIO()

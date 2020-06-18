@@ -30,14 +30,37 @@ AUTH_REJECTEDVERF = 4
 AUTH_TOOWEAK = 5
 AUTH_INVALIDRESP = 6
 AUTH_FAILED = 7
-auth_flavor = rpchelp.r_int
+class auth_flavor(rpchelp.enum):
+    AUTH_NONE = 0
+    AUTH_SYS = 1
+    AUTH_SHORT = 2
 opaque_auth = rpchelp.struct('opaque_auth', [('flavor', auth_flavor), ('body', rpchelp.opaque(rpchelp.var, 400))])
 authsys_parms = rpchelp.struct('authsys_parms', [('stamp', rpchelp.r_uint), ('machinename', rpchelp.string(rpchelp.var, 255)), ('uid', rpchelp.r_uint), ('gid', rpchelp.r_uint), ('gids', rpchelp.arr(rpchelp.r_uint, rpchelp.var, 16))])
-msg_type = rpchelp.r_int
-reply_stat = rpchelp.r_int
-accept_stat = rpchelp.r_int
-reject_stat = rpchelp.r_int
-auth_stat = rpchelp.r_int
+class msg_type(rpchelp.enum):
+    CALL = 0
+    REPLY = 1
+class reply_stat(rpchelp.enum):
+    MSG_ACCEPTED = 0
+    MSG_DENIED = 1
+class accept_stat(rpchelp.enum):
+    SUCCESS = 0
+    PROG_UNAVAIL = 1
+    PROG_MISMATCH = 2
+    PROC_UNAVAIL = 3
+    GARBAGE_ARGS = 4
+    SYSTEM_ERR = 5
+class reject_stat(rpchelp.enum):
+    RPC_MISMATCH = 0
+    AUTH_ERROR = 1
+class auth_stat(rpchelp.enum):
+    AUTH_OK = 0
+    AUTH_BADCRED = 1
+    AUTH_REJECTEDCRED = 2
+    AUTH_BADVERF = 3
+    AUTH_REJECTEDVERF = 4
+    AUTH_TOOWEAK = 5
+    AUTH_INVALIDRESP = 6
+    AUTH_FAILED = 7
 call_body = rpchelp.struct('call_body', [('rpcvers', rpchelp.r_uint), ('prog', rpchelp.r_uint), ('vers', rpchelp.r_uint), ('proc', rpchelp.r_uint), ('cred', opaque_auth), ('verf', opaque_auth)])
 mismatch_info = rpchelp.struct('mismatch_info', [('low', rpchelp.r_uint), ('high', rpchelp.r_uint)])
 reply_data = rpchelp.union('reply_data', accept_stat, 'stat', {SUCCESS: (None, rpchelp.r_void), PROG_MISMATCH: ('mismatch', mismatch_info), None: (None, rpchelp.r_void)}, from_parser=True)
@@ -51,7 +74,7 @@ rpc_msg = rpchelp.struct('rpc_msg', [('xid', rpchelp.r_uint), ('header', rpc_bod
 
 @dataclass
 class v_opaque_auth(rpchelp.struct_val_base):
-    flavor: int
+    flavor: auth_flavor
     body: bytes
 
 
@@ -94,7 +117,7 @@ mismatch_info.val_base_class = v_mismatch_info
 
 @dataclass
 class v_reply_data(rpchelp.struct_val_base):
-    stat: int
+    stat: accept_stat
     mismatch: typing.Optional[v_mismatch_info] = None
 
 
@@ -121,9 +144,9 @@ rejected_reply_mismatch_info.val_base_class = v_rejected_reply_mismatch_info
 
 @dataclass
 class v_rejected_reply(rpchelp.struct_val_base):
-    reject_stat: int
+    reject_stat: reject_stat
     mismatch_info: typing.Optional[v_rejected_reply_mismatch_info] = None
-    auth_stat: typing.Optional[int] = None
+    auth_stat: typing.Optional[auth_stat] = None
 
 
 rejected_reply.val_base_class = v_rejected_reply
@@ -131,7 +154,7 @@ rejected_reply.val_base_class = v_rejected_reply
 
 @dataclass
 class v_reply_body(rpchelp.struct_val_base):
-    stat: int
+    stat: reply_stat
     areply: typing.Optional[v_accepted_reply] = None
     rreply: typing.Optional[v_rejected_reply] = None
 
@@ -141,7 +164,7 @@ reply_body.val_base_class = v_reply_body
 
 @dataclass
 class v_rpc_body(rpchelp.struct_val_base):
-    mtype: int
+    mtype: msg_type
     cbody: typing.Optional[v_call_body] = None
     rbody: typing.Optional[v_reply_body] = None
 
@@ -160,4 +183,4 @@ rpc_msg.val_base_class = v_rpc_msg
 
 
 
-__all__ = ['v_opaque_auth', 'v_authsys_parms', 'v_call_body', 'v_mismatch_info', 'v_reply_data', 'v_accepted_reply', 'v_rejected_reply_mismatch_info', 'v_rejected_reply', 'v_reply_body', 'v_rpc_body', 'v_rpc_msg', 'TRUE', 'FALSE', 'AUTH_NONE', 'AUTH_SYS', 'AUTH_SHORT', 'CALL', 'REPLY', 'MSG_ACCEPTED', 'MSG_DENIED', 'SUCCESS', 'PROG_UNAVAIL', 'PROG_MISMATCH', 'PROC_UNAVAIL', 'GARBAGE_ARGS', 'SYSTEM_ERR', 'RPC_MISMATCH', 'AUTH_ERROR', 'AUTH_OK', 'AUTH_BADCRED', 'AUTH_REJECTEDCRED', 'AUTH_BADVERF', 'AUTH_REJECTEDVERF', 'AUTH_TOOWEAK', 'AUTH_INVALIDRESP', 'AUTH_FAILED']
+__all__ = ['auth_flavor', 'v_opaque_auth', 'v_authsys_parms', 'msg_type', 'reply_stat', 'accept_stat', 'reject_stat', 'auth_stat', 'v_call_body', 'v_mismatch_info', 'v_reply_data', 'v_accepted_reply', 'v_rejected_reply_mismatch_info', 'v_rejected_reply', 'v_reply_body', 'v_rpc_body', 'v_rpc_msg', 'TRUE', 'FALSE', 'AUTH_NONE', 'AUTH_SYS', 'AUTH_SHORT', 'CALL', 'REPLY', 'MSG_ACCEPTED', 'MSG_DENIED', 'SUCCESS', 'PROG_UNAVAIL', 'PROG_MISMATCH', 'PROC_UNAVAIL', 'GARBAGE_ARGS', 'SYSTEM_ERR', 'RPC_MISMATCH', 'AUTH_ERROR', 'AUTH_OK', 'AUTH_BADCRED', 'AUTH_REJECTEDCRED', 'AUTH_BADVERF', 'AUTH_REJECTEDVERF', 'AUTH_TOOWEAK', 'AUTH_INVALIDRESP', 'AUTH_FAILED']

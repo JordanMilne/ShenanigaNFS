@@ -33,6 +33,7 @@
 
 import abc
 import dataclasses
+import enum as py_enum
 import random
 import typing
 import xdrlib
@@ -50,7 +51,7 @@ class BadUnionSwitchException(Exception):
     pass
 
 
-class packable(abc.ABC):
+class packable:
     @abc.abstractmethod
     def unpack(self, up: xdrlib.Unpacker):
         pass
@@ -390,6 +391,20 @@ class base_type(packable):
         if not self.python_type:
             return "None"
         return self.python_type.__name__
+
+
+class enum(packable, py_enum.IntEnum):
+    @classmethod
+    def type_hint(cls) -> str:
+        return cls.__name__
+
+    @classmethod
+    def pack(cls, p: xdrlib.Packer, val):
+        return p.pack_int(val)
+
+    @classmethod
+    def unpack(cls, up: xdrlib.Unpacker):
+        return cls(up.unpack_int())
 
 
 # r_ prefix to avoid shadowing Python names

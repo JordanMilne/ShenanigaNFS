@@ -620,7 +620,7 @@ class Program(Node):
         self.program_id = program_id
 
     def str_one_vers(self, ctx, vers, as_client=False):
-        base_class = "BaseClient" if as_client else "Server"
+        base_class = "BaseClient" if as_client else "ProgServer"
         class_suffix = "CLIENT" if as_client else "SERVER"
         class_decl = f'\n\nclass {self.ident}_{vers.version_id}_{class_suffix}(rpc.{base_class}):'
         prog = 'prog = %s' % (self.program_id,)

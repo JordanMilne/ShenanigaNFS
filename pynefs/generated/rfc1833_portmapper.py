@@ -59,7 +59,7 @@ call_result.val_base_class = v_call_result
 from pynefs import rpc
 
 
-class PMAP_PROG_2_SERVER(rpc.Server):
+class PMAP_PROG_2_SERVER(rpc.ProgServer):
     prog = 100000
     vers = 2
     procs = {

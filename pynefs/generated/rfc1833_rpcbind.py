@@ -150,7 +150,7 @@ netbuf.val_base_class = v_netbuf
 from pynefs import rpc
 
 
-class RPCBPROG_3_SERVER(rpc.Server):
+class RPCBPROG_3_SERVER(rpc.ProgServer):
     prog = 100000
     vers = 3
     procs = {
@@ -202,7 +202,7 @@ class RPCBPROG_3_SERVER(rpc.Server):
         raise NotImplementedError()
 
 
-class RPCBPROG_4_SERVER(rpc.Server):
+class RPCBPROG_4_SERVER(rpc.ProgServer):
     prog = 100000
     vers = 4
     procs = {

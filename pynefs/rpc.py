@@ -238,40 +238,56 @@ class ConnCtx:
         self.state = {}
 
 
-class Server:
-    """Base class for rpcgen-created server classes.  Unpack arguments,
-    dispatch to appropriate procedure, and pack return value.  Check,
-    at instantiation time, whether there are any procedures defined in the
-    IDL which are both unimplemented and whose names are missing from the
-    deliberately_unimplemented member.
-    As a convenience, allows creation of transport server w/
-    create_transport_server.  In what every way the server is created,
-    you must call register."""
-    prog: int
-    vers: int
-    procs: Dict[int, rpchelp.Proc]
+class TransportServer:
+    def __init__(self):
+        self.progs: Set[ProgServer] = set()
 
-    def get_handler(self, proc_id) -> Callable:
-        return getattr(self, self.procs[proc_id].name)
+    def register_prog(self, prog: "ProgServer"):
+        self.progs.add(prog)
 
-    def register(self, transport_server):
-        transport_server.register(self.prog, self.vers, self)
+    async def handle_message(self, transport: BaseTransport, msg: SPLIT_MSG):
+        call, call_body = msg
+        if call.header.mtype == msg_type.CALL:
+            await self.handle_call(transport, call, call_body)
+        else:
+            # TODO: what's the proper error code for this?
+            err_msg = self.make_reply(call.xid, reply_stat.MSG_ACCEPTED, accept_stat.GARBAGE_ARGS)
+            await transport.write_msg(err_msg, b"")
 
-    def handle_proc_call(self, proc_id, call_body: bytes) -> bytes:
-        proc = self.procs[proc_id]
-        if proc is None:
-            raise NotImplementedError()
+    async def handle_call(self, transport: BaseTransport, call: v_rpc_msg, call_body: bytes):
+        stat: accept_stat = accept_stat.SUCCESS
+        mismatch: Optional[v_mismatch_info] = None
+        reply_body = b""
 
-        unpacker = xdrlib.Unpacker(call_body)
-        argl = [arg_type.unpack(unpacker)
-                for arg_type in proc.arg_types]
-        rv = self.get_handler(proc_id)(*argl)
+        try:
+            cbody = call.header.cbody
+            progs = [p for p in self.progs if p.prog == cbody.prog]
+            if progs:
+                vers_progs = [p for p in progs if p.vers == cbody.vers]
+                if vers_progs:
+                    reply_body = vers_progs[0].handle_proc_call(cbody.proc, call_body)
+                else:
+                    prog_versions = [p.vers for p in progs]
+                    mismatch = v_mismatch_info(min(prog_versions), max(prog_versions))
+                    stat = accept_stat.PROG_MISMATCH
+            else:
+                stat = accept_stat.PROG_UNAVAIL
 
-        packer = xdrlib.Packer()
-        proc.ret_type.pack(packer, rv)
-        return packer.get_buffer()
+        except NotImplementedError:
+            stat = accept_stat.PROC_UNAVAIL
+        except Exception:
+            reply_header = self.make_reply(call.xid, reply_stat.MSG_ACCEPTED, accept_stat.SYSTEM_ERR)
+            await transport.write_msg(reply_header, b"")
+            # Might not be able to gracefully handle this. try to kill the transport.
+            transport.close()
+            raise
 
-    def make_reply(self, xid, stat: reply_stat = 0, msg_stat: Union[accept_stat, reject_stat] = 0) -> v_rpc_msg:
+        reply_header = self.make_reply(call.xid, reply_stat.MSG_ACCEPTED, stat, mismatch)
+        await transport.write_msg(reply_header, reply_body)
+
+    @staticmethod
+    def make_reply(xid, stat: reply_stat = 0, msg_stat: Union[accept_stat, reject_stat] = 0,
+                   mismatch: Optional[v_mismatch_info] = None) -> v_rpc_msg:
         return v_rpc_msg(
             xid=xid,
             header=v_rpc_body(
@@ -285,6 +301,7 @@ class Server:
                         ),
                         data=v_reply_data(
                             stat=msg_stat,
+                            mismatch=mismatch,
                         )
                     )
                 )
@@ -292,8 +309,9 @@ class Server:
         )
 
 
-class TCPServer(Server):
+class TCPTransportServer(TransportServer):
     def __init__(self, bind_host, bind_port):
+        super().__init__()
         self.bind_host, self.bind_port = bind_host, bind_port
 
     async def start(self) -> asyncio.AbstractServer:
@@ -301,7 +319,6 @@ class TCPServer(Server):
 
     async def handle_connection(self, reader, writer):
         transport = TCPTransport(reader, writer)
-        ctx = ConnCtx()
         while not transport.closed:
             try:
                 read_ret = await asyncio.wait_for(transport.read_msg(), 1)
@@ -311,32 +328,29 @@ class TCPServer(Server):
                 transport.close()
                 break
 
-            call: v_rpc_msg = read_ret[0]
-            call_body: bytes = read_ret[1]
-
-            if call.header.mtype != msg_type.CALL:
-                # ???
-                continue
-
-            accept_err: Optional[accept_stat] = None
-
-            try:
-                await self.handle_call(transport, call, call_body)
-            except NotImplementedError:
-                accept_err = accept_stat.PROC_UNAVAIL
-            except Exception:
-                reply_header = self.make_reply(call.xid, reply_stat.MSG_ACCEPTED, accept_stat.SYSTEM_ERR)
-                await transport.write_msg(reply_header, b"")
-                # Might not be able to gracefully handle this. just close the conn.
-                transport.close()
-                raise
-
-            if accept_err:
-                reply_header = self.make_reply(call.xid, reply_stat.MSG_ACCEPTED, accept_err)
-                await transport.write_msg(reply_header, b"")
+            await self.handle_message(transport, read_ret)
         transport.close()
 
-    async def handle_call(self, transport: BaseTransport, call: v_rpc_msg, call_body: bytes):
-        reply_body = self.handle_proc_call(call.header.cbody.proc, call_body)
-        reply_header = self.make_reply(call.xid)
-        await transport.write_msg(reply_header, reply_body)
+
+class ProgServer:
+    """Base class for rpcgen-created server classes."""
+    prog: int
+    vers: int
+    procs: Dict[int, rpchelp.Proc]
+
+    def get_handler(self, proc_id) -> Callable:
+        return getattr(self, self.procs[proc_id].name)
+
+    def handle_proc_call(self, proc_id, call_body: bytes) -> bytes:
+        proc = self.procs.get(proc_id)
+        if proc is None:
+            raise NotImplementedError()
+
+        unpacker = xdrlib.Unpacker(call_body)
+        argl = [arg_type.unpack(unpacker)
+                for arg_type in proc.arg_types]
+        rv = self.get_handler(proc_id)(*argl)
+
+        packer = xdrlib.Packer()
+        proc.ret_type.pack(packer, rv)
+        return packer.get_buffer()

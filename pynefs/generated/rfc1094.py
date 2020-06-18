@@ -372,7 +372,7 @@ exportlist.val_base_class = v_exportlist
 from pynefs import rpc
 
 
-class NFS_PROGRAM_2_SERVER(rpc.Server):
+class NFS_PROGRAM_2_SERVER(rpc.ProgServer):
     prog = 100003
     vers = 2
     procs = {
@@ -548,7 +548,7 @@ class NFS_PROGRAM_2_CLIENT(rpc.BaseClient):
         return await self.send_call(17, arg_0)
 
 
-class MOUNTPROG_1_SERVER(rpc.Server):
+class MOUNTPROG_1_SERVER(rpc.ProgServer):
     prog = 100005
     vers = 1
     procs = {

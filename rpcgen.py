@@ -653,7 +653,7 @@ class Program(Node):
                 arg_list = ', '.join(f"arg_{i}" for i in range(len(proc.parm_list.children)))
                 funcs_str += f"\t\treturn await self.send_call({proc.proc_id}, {arg_list})\n\n"
             else:
-                funcs_str += "\t\tpass\n\n"
+                funcs_str += "\t\traise NotImplementedError()\n\n"
 
         funcs_str = funcs_str.strip()
         return "\n\t".join([class_decl, prog, vers_str, procs_str, funcs_str])

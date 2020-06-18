@@ -1,7 +1,6 @@
 import abc
 import asyncio
 import random
-
 import struct
 import xdrlib
 from asyncio import StreamWriter, StreamReader
@@ -40,8 +39,12 @@ class UnpackedRPCMsg(Generic[T]):
     @property
     def success(self):
         if self.msg.header.mtype != REPLY:
-            raise ValueError("Tried to check success of function message?")
-        return self.msg.header.rbody.stat == MSG_ACCEPTED
+            raise ValueError("Tried to check success of call message?")
+        if self.msg.header.rbody.stat != MSG_ACCEPTED:
+            return False
+        if self.msg.header.rbody.areply.data.stat != accept_stat.SUCCESS:
+            return False
+        return True
 
 
 SPLIT_MSG = Tuple[v_rpc_msg, bytes]
@@ -135,6 +138,12 @@ class BaseClient(abc.ABC):
             spec.pack(packer, arg)
         return packer.get_buffer()
 
+    def kill_futures(self, exc: Exception):
+        # Tell anyone awaiting that the sockets went away
+        for xid, fut in self.xid_map.items():
+            fut.set_exception(exc)
+        self.xid_map.clear()
+
     def pump_reply(self, msg: SPLIT_MSG):
         reply, reply_body = msg
         if not reply.header.mtype == msg_type.REPLY:
@@ -190,9 +199,13 @@ class BaseClient(abc.ABC):
         await self.transport.write_msg(msg, self.pack_args(proc_id, args))
 
         # TODO: timeout?
-        reply, reply_body = await fut
+        reply_msg = await fut
+        reply: v_rpc_msg = reply_msg[0]
+        reply_body: bytes = reply_msg[1]
+
         assert(reply.header.mtype == REPLY)
-        if reply.header.rbody.stat != reply_stat.MSG_ACCEPTED:
+        rbody = reply.header.rbody
+        if rbody.stat != reply_stat.MSG_ACCEPTED or rbody.areply.data.stat != accept_stat.SUCCESS:
             return UnpackedRPCMsg(reply, None)
         return UnpackedRPCMsg(reply, self.unpack_return(proc_id, reply_body))
 
@@ -201,17 +214,23 @@ class TCPClient(BaseClient):
     def __init__(self, host, port):
         super().__init__()
         self.transport = None
-        self.reader_task: Optional[asyncio.Task] = None
+        self.pump_replies_task: Optional[asyncio.Task] = None
         self.host = host
         self.port = port
 
     async def pump_replies(self):
         while self.transport and not self.transport.closed:
-            self.pump_reply(await self.transport.read_msg())
+            try:
+                self.pump_reply(await self.transport.read_msg())
+            except asyncio.IncompleteReadError as e:
+                self.transport.close()
+                self.kill_futures(e)
+        self.kill_futures(asyncio.CancelledError("Connection is closing"))
 
     async def connect(self):
+        self.kill_futures(asyncio.CancelledError("Connection is closing"))
         self.transport = TCPTransport(*await asyncio.open_connection(self.host, self.port))
-        self.reader_task = asyncio.create_task(self.pump_replies())
+        self.pump_replies_task = asyncio.create_task(self.pump_replies())
 
 
 class ConnCtx:
@@ -288,20 +307,33 @@ class TCPServer(Server):
                 read_ret = await asyncio.wait_for(transport.read_msg(), 1)
             except asyncio.TimeoutError:
                 continue
+            except asyncio.IncompleteReadError:
+                transport.close()
+                break
 
             call: v_rpc_msg = read_ret[0]
             call_body: bytes = read_ret[1]
 
-            if not call.header.mtype == msg_type.CALL:
+            if call.header.mtype != msg_type.CALL:
                 # ???
                 continue
+
+            accept_err: Optional[accept_stat] = None
+
             try:
                 await self.handle_call(transport, call, call_body)
+            except NotImplementedError:
+                accept_err = accept_stat.PROC_UNAVAIL
             except Exception:
                 reply_header = self.make_reply(call.xid, reply_stat.MSG_ACCEPTED, accept_stat.SYSTEM_ERR)
                 await transport.write_msg(reply_header, b"")
+                # Might not be able to gracefully handle this. just close the conn.
                 transport.close()
                 raise
+
+            if accept_err:
+                reply_header = self.make_reply(call.xid, reply_stat.MSG_ACCEPTED, accept_err)
+                await transport.write_msg(reply_header, b"")
         transport.close()
 
     async def handle_call(self, transport: BaseTransport, call: v_rpc_msg, call_body: bytes):

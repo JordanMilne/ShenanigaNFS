@@ -167,39 +167,39 @@ class RPCBPROG_3_SERVER(rpc.Server):
 
     @abc.abstractmethod
     def NULL(self) -> None:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def SET(self, arg_0: v_rpcb) -> bool:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def UNSET(self, arg_0: v_rpcb) -> bool:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def GETADDR(self, arg_0: v_rpcb) -> bytes:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def DUMP(self) -> typing.List[typing.Union[v_rpcb, v_rp__list]]:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def CALLIT(self, arg_0: v_rpcb_rmtcallargs) -> v_rpcb_rmtcallres:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def GETTIME(self) -> int:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def UADDR2TADDR(self, arg_0: bytes) -> v_netbuf:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def TADDR2UADDR(self, arg_0: v_netbuf) -> bytes:
-        pass
+        raise NotImplementedError()
 
 
 class RPCBPROG_4_SERVER(rpc.Server):
@@ -223,55 +223,55 @@ class RPCBPROG_4_SERVER(rpc.Server):
 
     @abc.abstractmethod
     def NULL(self) -> None:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def SET(self, arg_0: v_rpcb) -> bool:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def UNSET(self, arg_0: v_rpcb) -> bool:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def GETADDR(self, arg_0: v_rpcb) -> bytes:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def DUMP(self) -> typing.List[typing.Union[v_rpcb, v_rp__list]]:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def BCAST(self, arg_0: v_rpcb_rmtcallargs) -> v_rpcb_rmtcallres:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def GETTIME(self) -> int:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def UADDR2TADDR(self, arg_0: bytes) -> v_netbuf:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def TADDR2UADDR(self, arg_0: v_netbuf) -> bytes:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def GETVERSADDR(self, arg_0: v_rpcb) -> bytes:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def INDIRECT(self, arg_0: v_rpcb_rmtcallargs) -> v_rpcb_rmtcallres:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def GETADDRLIST(self, arg_0: v_rpcb) -> typing.List[typing.Union[v_rpcb_entry, v_rpcb_entry_list]]:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def GETSTAT(self) -> typing.List[v_rpcb_stat]:
-        pass
+        raise NotImplementedError()
 
 
 class RPCBPROG_3_CLIENT(rpc.BaseClient):

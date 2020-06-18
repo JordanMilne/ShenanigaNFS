@@ -73,27 +73,27 @@ class PMAP_PROG_2_SERVER(rpc.Server):
 
     @abc.abstractmethod
     def NULL(self) -> None:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def SET(self, arg_0: v_mapping) -> bool:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def UNSET(self, arg_0: v_mapping) -> bool:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def GETPORT(self, arg_0: v_mapping) -> int:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def DUMP(self) -> typing.List[typing.Union[v_mapping, v_pmaplist]]:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def CALLIT(self, arg_0: v_call_args) -> v_call_result:
-        pass
+        raise NotImplementedError()
 
 
 class PMAP_PROG_2_CLIENT(rpc.BaseClient):

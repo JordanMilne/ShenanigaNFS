@@ -398,75 +398,75 @@ class NFS_PROGRAM_2_SERVER(rpc.Server):
 
     @abc.abstractmethod
     def NULL(self) -> None:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def GETATTR(self, arg_0: bytes) -> v_attrstat:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def SETATTR(self, arg_0: v_sattrargs) -> v_attrstat:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def ROOT(self) -> None:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def LOOKUP(self, arg_0: v_diropargs) -> v_diropres:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def READLINK(self, arg_0: bytes) -> v_readlinkres:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def READ(self, arg_0: v_readargs) -> v_readres:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def WRITECACHE(self) -> None:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def WRITE(self, arg_0: v_writeargs) -> v_attrstat:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def CREATE(self, arg_0: v_createargs) -> v_diropres:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def REMOVE(self, arg_0: v_diropargs) -> stat:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def RENAME(self, arg_0: v_renameargs) -> stat:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def LINK(self, arg_0: v_linkargs) -> stat:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def SYMLINK(self, arg_0: v_symlinkargs) -> stat:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def MKDIR(self, arg_0: v_createargs) -> v_diropres:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def RMDIR(self, arg_0: v_diropargs) -> stat:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def READDIR(self, arg_0: v_readdirargs) -> v_readdirres:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def STATFS(self, arg_0: bytes) -> v_statfsres:
-        pass
+        raise NotImplementedError()
 
 
 class NFS_PROGRAM_2_CLIENT(rpc.BaseClient):
@@ -562,27 +562,27 @@ class MOUNTPROG_1_SERVER(rpc.Server):
 
     @abc.abstractmethod
     def NULL(self) -> None:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def MNT(self, arg_0: bytes) -> v_fhstatus:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def DUMP(self) -> typing.List[v_mountlist]:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def UMNT(self, arg_0: bytes) -> None:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def UMNTALL(self) -> None:
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def EXPORT(self) -> typing.List[v_exportlist]:
-        pass
+        raise NotImplementedError()
 
 
 class MOUNTPROG_1_CLIENT(rpc.BaseClient):

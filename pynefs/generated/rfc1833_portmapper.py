@@ -56,10 +56,10 @@ class v_call_result(rpchelp.struct_val_base):
 call_result.val_base_class = v_call_result
 
 
-from pynefs import rpc
+from pynefs import client
 
 
-class PMAP_PROG_2_SERVER(rpc.ProgServer):
+class PMAP_PROG_2_SERVER(rpchelp.Prog):
     prog = 100000
     vers = 2
     procs = {
@@ -96,7 +96,7 @@ class PMAP_PROG_2_SERVER(rpc.ProgServer):
         raise NotImplementedError()
 
 
-class PMAP_PROG_2_CLIENT(rpc.BaseClient):
+class PMAP_PROG_2_CLIENT(client.BaseClient):
     prog = 100000
     vers = 2
     procs = {
@@ -108,22 +108,22 @@ class PMAP_PROG_2_CLIENT(rpc.BaseClient):
         5: rpchelp.Proc('CALLIT', call_result, [call_args]),
     }
 
-    async def NULL(self) -> rpc.UnpackedRPCMsg[None]:
+    async def NULL(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(0, )
 
-    async def SET(self, arg_0: v_mapping) -> rpc.UnpackedRPCMsg[bool]:
+    async def SET(self, arg_0: v_mapping) -> client.UnpackedRPCMsg[bool]:
         return await self.send_call(1, arg_0)
 
-    async def UNSET(self, arg_0: v_mapping) -> rpc.UnpackedRPCMsg[bool]:
+    async def UNSET(self, arg_0: v_mapping) -> client.UnpackedRPCMsg[bool]:
         return await self.send_call(2, arg_0)
 
-    async def GETPORT(self, arg_0: v_mapping) -> rpc.UnpackedRPCMsg[int]:
+    async def GETPORT(self, arg_0: v_mapping) -> client.UnpackedRPCMsg[int]:
         return await self.send_call(3, arg_0)
 
-    async def DUMP(self) -> rpc.UnpackedRPCMsg[typing.List[typing.Union[v_mapping, v_pmaplist]]]:
+    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[typing.Union[v_mapping, v_pmaplist]]]:
         return await self.send_call(4, )
 
-    async def CALLIT(self, arg_0: v_call_args) -> rpc.UnpackedRPCMsg[v_call_result]:
+    async def CALLIT(self, arg_0: v_call_args) -> client.UnpackedRPCMsg[v_call_result]:
         return await self.send_call(5, arg_0)
 
 __all__ = ['v_mapping', 'v_pmaplist', 'v_call_args', 'v_call_result', 'PMAP_PROG_2_SERVER', 'TRUE', 'FALSE', 'PMAP_PORT', 'IPPROTO_TCP', 'IPPROTO_UDP']

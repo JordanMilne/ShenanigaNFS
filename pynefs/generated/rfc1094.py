@@ -369,10 +369,10 @@ class v_exportlist(rpchelp.struct_val_base):
 exportlist.val_base_class = v_exportlist
 
 
-from pynefs import rpc
+from pynefs import client
 
 
-class NFS_PROGRAM_2_SERVER(rpc.ProgServer):
+class NFS_PROGRAM_2_SERVER(rpchelp.Prog):
     prog = 100003
     vers = 2
     procs = {
@@ -469,7 +469,7 @@ class NFS_PROGRAM_2_SERVER(rpc.ProgServer):
         raise NotImplementedError()
 
 
-class NFS_PROGRAM_2_CLIENT(rpc.BaseClient):
+class NFS_PROGRAM_2_CLIENT(client.BaseClient):
     prog = 100003
     vers = 2
     procs = {
@@ -493,62 +493,62 @@ class NFS_PROGRAM_2_CLIENT(rpc.BaseClient):
         17: rpchelp.Proc('STATFS', statfsres, [fhandle]),
     }
 
-    async def NULL(self) -> rpc.UnpackedRPCMsg[None]:
+    async def NULL(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(0, )
 
-    async def GETATTR(self, arg_0: bytes) -> rpc.UnpackedRPCMsg[v_attrstat]:
+    async def GETATTR(self, arg_0: bytes) -> client.UnpackedRPCMsg[v_attrstat]:
         return await self.send_call(1, arg_0)
 
-    async def SETATTR(self, arg_0: v_sattrargs) -> rpc.UnpackedRPCMsg[v_attrstat]:
+    async def SETATTR(self, arg_0: v_sattrargs) -> client.UnpackedRPCMsg[v_attrstat]:
         return await self.send_call(2, arg_0)
 
-    async def ROOT(self) -> rpc.UnpackedRPCMsg[None]:
+    async def ROOT(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(3, )
 
-    async def LOOKUP(self, arg_0: v_diropargs) -> rpc.UnpackedRPCMsg[v_diropres]:
+    async def LOOKUP(self, arg_0: v_diropargs) -> client.UnpackedRPCMsg[v_diropres]:
         return await self.send_call(4, arg_0)
 
-    async def READLINK(self, arg_0: bytes) -> rpc.UnpackedRPCMsg[v_readlinkres]:
+    async def READLINK(self, arg_0: bytes) -> client.UnpackedRPCMsg[v_readlinkres]:
         return await self.send_call(5, arg_0)
 
-    async def READ(self, arg_0: v_readargs) -> rpc.UnpackedRPCMsg[v_readres]:
+    async def READ(self, arg_0: v_readargs) -> client.UnpackedRPCMsg[v_readres]:
         return await self.send_call(6, arg_0)
 
-    async def WRITECACHE(self) -> rpc.UnpackedRPCMsg[None]:
+    async def WRITECACHE(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(7, )
 
-    async def WRITE(self, arg_0: v_writeargs) -> rpc.UnpackedRPCMsg[v_attrstat]:
+    async def WRITE(self, arg_0: v_writeargs) -> client.UnpackedRPCMsg[v_attrstat]:
         return await self.send_call(8, arg_0)
 
-    async def CREATE(self, arg_0: v_createargs) -> rpc.UnpackedRPCMsg[v_diropres]:
+    async def CREATE(self, arg_0: v_createargs) -> client.UnpackedRPCMsg[v_diropres]:
         return await self.send_call(9, arg_0)
 
-    async def REMOVE(self, arg_0: v_diropargs) -> rpc.UnpackedRPCMsg[stat]:
+    async def REMOVE(self, arg_0: v_diropargs) -> client.UnpackedRPCMsg[stat]:
         return await self.send_call(10, arg_0)
 
-    async def RENAME(self, arg_0: v_renameargs) -> rpc.UnpackedRPCMsg[stat]:
+    async def RENAME(self, arg_0: v_renameargs) -> client.UnpackedRPCMsg[stat]:
         return await self.send_call(11, arg_0)
 
-    async def LINK(self, arg_0: v_linkargs) -> rpc.UnpackedRPCMsg[stat]:
+    async def LINK(self, arg_0: v_linkargs) -> client.UnpackedRPCMsg[stat]:
         return await self.send_call(12, arg_0)
 
-    async def SYMLINK(self, arg_0: v_symlinkargs) -> rpc.UnpackedRPCMsg[stat]:
+    async def SYMLINK(self, arg_0: v_symlinkargs) -> client.UnpackedRPCMsg[stat]:
         return await self.send_call(13, arg_0)
 
-    async def MKDIR(self, arg_0: v_createargs) -> rpc.UnpackedRPCMsg[v_diropres]:
+    async def MKDIR(self, arg_0: v_createargs) -> client.UnpackedRPCMsg[v_diropres]:
         return await self.send_call(14, arg_0)
 
-    async def RMDIR(self, arg_0: v_diropargs) -> rpc.UnpackedRPCMsg[stat]:
+    async def RMDIR(self, arg_0: v_diropargs) -> client.UnpackedRPCMsg[stat]:
         return await self.send_call(15, arg_0)
 
-    async def READDIR(self, arg_0: v_readdirargs) -> rpc.UnpackedRPCMsg[v_readdirres]:
+    async def READDIR(self, arg_0: v_readdirargs) -> client.UnpackedRPCMsg[v_readdirres]:
         return await self.send_call(16, arg_0)
 
-    async def STATFS(self, arg_0: bytes) -> rpc.UnpackedRPCMsg[v_statfsres]:
+    async def STATFS(self, arg_0: bytes) -> client.UnpackedRPCMsg[v_statfsres]:
         return await self.send_call(17, arg_0)
 
 
-class MOUNTPROG_1_SERVER(rpc.ProgServer):
+class MOUNTPROG_1_SERVER(rpchelp.Prog):
     prog = 100005
     vers = 1
     procs = {
@@ -585,7 +585,7 @@ class MOUNTPROG_1_SERVER(rpc.ProgServer):
         raise NotImplementedError()
 
 
-class MOUNTPROG_1_CLIENT(rpc.BaseClient):
+class MOUNTPROG_1_CLIENT(client.BaseClient):
     prog = 100005
     vers = 1
     procs = {
@@ -597,22 +597,22 @@ class MOUNTPROG_1_CLIENT(rpc.BaseClient):
         5: rpchelp.Proc('EXPORT', exportlist, []),
     }
 
-    async def NULL(self) -> rpc.UnpackedRPCMsg[None]:
+    async def NULL(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(0, )
 
-    async def MNT(self, arg_0: bytes) -> rpc.UnpackedRPCMsg[v_fhstatus]:
+    async def MNT(self, arg_0: bytes) -> client.UnpackedRPCMsg[v_fhstatus]:
         return await self.send_call(1, arg_0)
 
-    async def DUMP(self) -> rpc.UnpackedRPCMsg[typing.List[v_mountlist]]:
+    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[v_mountlist]]:
         return await self.send_call(2, )
 
-    async def UMNT(self, arg_0: bytes) -> rpc.UnpackedRPCMsg[None]:
+    async def UMNT(self, arg_0: bytes) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(3, arg_0)
 
-    async def UMNTALL(self) -> rpc.UnpackedRPCMsg[None]:
+    async def UMNTALL(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(4, )
 
-    async def EXPORT(self) -> rpc.UnpackedRPCMsg[typing.List[v_exportlist]]:
+    async def EXPORT(self) -> client.UnpackedRPCMsg[typing.List[v_exportlist]]:
         return await self.send_call(5, )
 
 __all__ = ['stat', 'ftype', 'v_timeval', 'v_fattr', 'v_sattr', 'v_attrstat', 'v_diropargs', 'v_diropres_diropok', 'v_diropres', 'v_statfsres_info', 'v_statfsres', 'v_readdirargs', 'v_entry', 'v_readdirres_readdirok', 'v_readdirres', 'v_symlinkargs', 'v_linkargs', 'v_renameargs', 'v_createargs', 'v_writeargs', 'v_readargs', 'v_attrdat', 'v_readres', 'v_readlinkres', 'v_sattrargs', 'v_fhstatus', 'v_mountlist', 'v_grouplist', 'v_exportlist', 'NFS_PROGRAM_2_SERVER', 'MOUNTPROG_1_SERVER', 'TRUE', 'FALSE', 'NFS_OK', 'NFSERR_PERM', 'NFSERR_NOENT', 'NFSERR_IO', 'NFSERR_NXIO', 'NFSERR_ACCES', 'NFSERR_EXIST', 'NFSERR_NODEV', 'NFSERR_NOTDIR', 'NFSERR_ISDIR', 'NFSERR_FBIG', 'NFSERR_NOSPC', 'NFSERR_ROFS', 'NFSERR_NAMETOOLONG', 'NFSERR_NOTEMPTY', 'NFSERR_DQUOT', 'NFSERR_STALE', 'NFSERR_WFLUSH', 'NFNON', 'NFREG', 'NFDIR', 'NFBLK', 'NFCHR', 'NFLNK', 'MAXDATA', 'MAXPATHLEN', 'MAXNAMLEN', 'COOKIESIZE', 'FHSIZE', 'MNTPATHLEN']

@@ -436,3 +436,26 @@ class Proc:
         return "Proc: %s %s %s" % (self.name, str(self.ret_type),
                                    str(self.arg_types))
 
+
+class Prog:
+    """Base class for rpcgen-created server classes."""
+    prog: int
+    vers: int
+    procs: typing.Dict[int, Proc]
+
+    def get_handler(self, proc_id) -> typing.Callable:
+        return getattr(self, self.procs[proc_id].name)
+
+    def handle_proc_call(self, proc_id, call_body: bytes) -> bytes:
+        proc = self.procs.get(proc_id)
+        if proc is None:
+            raise NotImplementedError()
+
+        unpacker = xdrlib.Unpacker(call_body)
+        argl = [arg_type.unpack(unpacker)
+                for arg_type in proc.arg_types]
+        rv = self.get_handler(proc_id)(*argl)
+
+        packer = xdrlib.Packer()
+        proc.ret_type.pack(packer, rv)
+        return packer.get_buffer()

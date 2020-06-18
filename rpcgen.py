@@ -280,7 +280,7 @@ class Ctx:
         if self.progs:
             # Make sure this doesn't get printed for rfc1831 so we
             # don't get weird circular imports.
-            val = "from pynefs import rpc\n"
+            val = "from pynefs import client\n"
         return val + "\n".join("\n".join(
             [p.str_one_vers(self, vers) for vers in p.versions.children] +
             [p.str_one_vers(self, vers, as_client=True) for vers in p.versions.children]
@@ -620,9 +620,9 @@ class Program(Node):
         self.program_id = program_id
 
     def str_one_vers(self, ctx, vers, as_client=False):
-        base_class = "BaseClient" if as_client else "ProgServer"
         class_suffix = "CLIENT" if as_client else "SERVER"
-        class_decl = f'\n\nclass {self.ident}_{vers.version_id}_{class_suffix}(rpc.{base_class}):'
+        base_class = "client.BaseClient" if as_client else "rpchelp.Prog"
+        class_decl = f'\n\nclass {self.ident}_{vers.version_id}_{class_suffix}({base_class}):'
         prog = 'prog = %s' % (self.program_id,)
         vers_str = 'vers = %s' % (vers.version_id,)
         procs_str = "procs = {\n"
@@ -646,7 +646,7 @@ class Program(Node):
                 funcs_str += f", arg_{i}: {_get_type(parm_type).type_hint()}"
             ret_type_hint = _get_type(proc.ret_type).type_hint()
             if as_client:
-                funcs_str += f") -> rpc.UnpackedRPCMsg[{ret_type_hint}]:\n"
+                funcs_str += f") -> client.UnpackedRPCMsg[{ret_type_hint}]:\n"
             else:
                 funcs_str += f") -> {ret_type_hint}:\n"
             if as_client:

@@ -147,10 +147,10 @@ class v_netbuf(rpchelp.struct_val_base):
 netbuf.val_base_class = v_netbuf
 
 
-from pynefs import rpc
+from pynefs import client
 
 
-class RPCBPROG_3_SERVER(rpc.ProgServer):
+class RPCBPROG_3_SERVER(rpchelp.Prog):
     prog = 100000
     vers = 3
     procs = {
@@ -202,7 +202,7 @@ class RPCBPROG_3_SERVER(rpc.ProgServer):
         raise NotImplementedError()
 
 
-class RPCBPROG_4_SERVER(rpc.ProgServer):
+class RPCBPROG_4_SERVER(rpchelp.Prog):
     prog = 100000
     vers = 4
     procs = {
@@ -274,7 +274,7 @@ class RPCBPROG_4_SERVER(rpc.ProgServer):
         raise NotImplementedError()
 
 
-class RPCBPROG_3_CLIENT(rpc.BaseClient):
+class RPCBPROG_3_CLIENT(client.BaseClient):
     prog = 100000
     vers = 3
     procs = {
@@ -289,35 +289,35 @@ class RPCBPROG_3_CLIENT(rpc.BaseClient):
         8: rpchelp.Proc('TADDR2UADDR', rpchelp.r_string, [netbuf]),
     }
 
-    async def NULL(self) -> rpc.UnpackedRPCMsg[None]:
+    async def NULL(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(0, )
 
-    async def SET(self, arg_0: v_rpcb) -> rpc.UnpackedRPCMsg[bool]:
+    async def SET(self, arg_0: v_rpcb) -> client.UnpackedRPCMsg[bool]:
         return await self.send_call(1, arg_0)
 
-    async def UNSET(self, arg_0: v_rpcb) -> rpc.UnpackedRPCMsg[bool]:
+    async def UNSET(self, arg_0: v_rpcb) -> client.UnpackedRPCMsg[bool]:
         return await self.send_call(2, arg_0)
 
-    async def GETADDR(self, arg_0: v_rpcb) -> rpc.UnpackedRPCMsg[bytes]:
+    async def GETADDR(self, arg_0: v_rpcb) -> client.UnpackedRPCMsg[bytes]:
         return await self.send_call(3, arg_0)
 
-    async def DUMP(self) -> rpc.UnpackedRPCMsg[typing.List[typing.Union[v_rpcb, v_rp__list]]]:
+    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[typing.Union[v_rpcb, v_rp__list]]]:
         return await self.send_call(4, )
 
-    async def CALLIT(self, arg_0: v_rpcb_rmtcallargs) -> rpc.UnpackedRPCMsg[v_rpcb_rmtcallres]:
+    async def CALLIT(self, arg_0: v_rpcb_rmtcallargs) -> client.UnpackedRPCMsg[v_rpcb_rmtcallres]:
         return await self.send_call(5, arg_0)
 
-    async def GETTIME(self) -> rpc.UnpackedRPCMsg[int]:
+    async def GETTIME(self) -> client.UnpackedRPCMsg[int]:
         return await self.send_call(6, )
 
-    async def UADDR2TADDR(self, arg_0: bytes) -> rpc.UnpackedRPCMsg[v_netbuf]:
+    async def UADDR2TADDR(self, arg_0: bytes) -> client.UnpackedRPCMsg[v_netbuf]:
         return await self.send_call(7, arg_0)
 
-    async def TADDR2UADDR(self, arg_0: v_netbuf) -> rpc.UnpackedRPCMsg[bytes]:
+    async def TADDR2UADDR(self, arg_0: v_netbuf) -> client.UnpackedRPCMsg[bytes]:
         return await self.send_call(8, arg_0)
 
 
-class RPCBPROG_4_CLIENT(rpc.BaseClient):
+class RPCBPROG_4_CLIENT(client.BaseClient):
     prog = 100000
     vers = 4
     procs = {
@@ -336,43 +336,43 @@ class RPCBPROG_4_CLIENT(rpc.BaseClient):
         12: rpchelp.Proc('GETSTAT', rpcb_stat_byvers, []),
     }
 
-    async def NULL(self) -> rpc.UnpackedRPCMsg[None]:
+    async def NULL(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(0, )
 
-    async def SET(self, arg_0: v_rpcb) -> rpc.UnpackedRPCMsg[bool]:
+    async def SET(self, arg_0: v_rpcb) -> client.UnpackedRPCMsg[bool]:
         return await self.send_call(1, arg_0)
 
-    async def UNSET(self, arg_0: v_rpcb) -> rpc.UnpackedRPCMsg[bool]:
+    async def UNSET(self, arg_0: v_rpcb) -> client.UnpackedRPCMsg[bool]:
         return await self.send_call(2, arg_0)
 
-    async def GETADDR(self, arg_0: v_rpcb) -> rpc.UnpackedRPCMsg[bytes]:
+    async def GETADDR(self, arg_0: v_rpcb) -> client.UnpackedRPCMsg[bytes]:
         return await self.send_call(3, arg_0)
 
-    async def DUMP(self) -> rpc.UnpackedRPCMsg[typing.List[typing.Union[v_rpcb, v_rp__list]]]:
+    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[typing.Union[v_rpcb, v_rp__list]]]:
         return await self.send_call(4, )
 
-    async def BCAST(self, arg_0: v_rpcb_rmtcallargs) -> rpc.UnpackedRPCMsg[v_rpcb_rmtcallres]:
+    async def BCAST(self, arg_0: v_rpcb_rmtcallargs) -> client.UnpackedRPCMsg[v_rpcb_rmtcallres]:
         return await self.send_call(5, arg_0)
 
-    async def GETTIME(self) -> rpc.UnpackedRPCMsg[int]:
+    async def GETTIME(self) -> client.UnpackedRPCMsg[int]:
         return await self.send_call(6, )
 
-    async def UADDR2TADDR(self, arg_0: bytes) -> rpc.UnpackedRPCMsg[v_netbuf]:
+    async def UADDR2TADDR(self, arg_0: bytes) -> client.UnpackedRPCMsg[v_netbuf]:
         return await self.send_call(7, arg_0)
 
-    async def TADDR2UADDR(self, arg_0: v_netbuf) -> rpc.UnpackedRPCMsg[bytes]:
+    async def TADDR2UADDR(self, arg_0: v_netbuf) -> client.UnpackedRPCMsg[bytes]:
         return await self.send_call(8, arg_0)
 
-    async def GETVERSADDR(self, arg_0: v_rpcb) -> rpc.UnpackedRPCMsg[bytes]:
+    async def GETVERSADDR(self, arg_0: v_rpcb) -> client.UnpackedRPCMsg[bytes]:
         return await self.send_call(9, arg_0)
 
-    async def INDIRECT(self, arg_0: v_rpcb_rmtcallargs) -> rpc.UnpackedRPCMsg[v_rpcb_rmtcallres]:
+    async def INDIRECT(self, arg_0: v_rpcb_rmtcallargs) -> client.UnpackedRPCMsg[v_rpcb_rmtcallres]:
         return await self.send_call(10, arg_0)
 
-    async def GETADDRLIST(self, arg_0: v_rpcb) -> rpc.UnpackedRPCMsg[typing.List[typing.Union[v_rpcb_entry, v_rpcb_entry_list]]]:
+    async def GETADDRLIST(self, arg_0: v_rpcb) -> client.UnpackedRPCMsg[typing.List[typing.Union[v_rpcb_entry, v_rpcb_entry_list]]]:
         return await self.send_call(11, arg_0)
 
-    async def GETSTAT(self) -> rpc.UnpackedRPCMsg[typing.List[v_rpcb_stat]]:
+    async def GETSTAT(self) -> client.UnpackedRPCMsg[typing.List[v_rpcb_stat]]:
         return await self.send_call(12, )
 
 __all__ = ['v_rpcb', 'v_rp__list', 'v_rp__list', 'v_rpcb_rmtcallargs', 'v_rpcb_rmtcallres', 'v_rpcb_entry', 'v_rpcb_entry_list', 'v_rpcbs_addrlist', 'v_rpcbs_rmtcalllist', 'v_rpcb_stat', 'v_netbuf', 'RPCBPROG_3_SERVER', 'RPCBPROG_4_SERVER', 'TRUE', 'FALSE', 'RPCB_PORT', 'rpcb_highproc_2', 'rpcb_highproc_3', 'rpcb_highproc_4', 'RPCBSTAT_HIGHPROC', 'RPCBVERS_STAT', 'RPCBVERS_4_STAT', 'RPCBVERS_3_STAT', 'RPCBVERS_2_STAT']

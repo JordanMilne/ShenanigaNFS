@@ -128,6 +128,32 @@ class BaseClient(abc.ABC):
     def __init__(self):
         self.xid_map: Dict[int, asyncio.Future] = {}
 
+    def __del__(self):
+        try:
+            self.disconnect()
+        except RuntimeError:
+            # Event loop may have already gone away
+            pass
+
+    async def __aenter__(self):
+        if not self.transport:
+            await self.connect()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        self.disconnect()
+
+    @abc.abstractmethod
+    async def connect(self):
+        self.disconnect()
+
+    @abc.abstractmethod
+    def disconnect(self):
+        self.kill_futures(asyncio.CancelledError("Connection is closing"))
+        if self.transport is not None:
+            self.transport.close()
+            self.transport = None
+
     def pack_args(self, proc_id: int, args: Sequence):
         packer = xdrlib.Packer()
         arg_specs = self.procs[proc_id].arg_types
@@ -162,10 +188,6 @@ class BaseClient(abc.ABC):
     @staticmethod
     def gen_xid() -> int:
         return random.getrandbits(32)
-
-    @abc.abstractmethod
-    async def connect(self):
-        pass
 
     async def send_call(self, proc_id: int, *args, xid: Optional[int] = None) -> UnpackedRPCMsg[T]:
         if xid is None:
@@ -223,14 +245,19 @@ class TCPClient(BaseClient):
             try:
                 self.pump_reply(await self.transport.read_msg())
             except asyncio.IncompleteReadError as e:
-                self.transport.close()
-                self.kill_futures(e)
-        self.kill_futures(asyncio.CancelledError("Connection is closing"))
+                self.disconnect()
+        self.disconnect()
 
     async def connect(self):
-        self.kill_futures(asyncio.CancelledError("Connection is closing"))
+        await super().connect()
         self.transport = TCPTransport(*await asyncio.open_connection(self.host, self.port))
         self.pump_replies_task = asyncio.create_task(self.pump_replies())
+
+    def disconnect(self):
+        super().disconnect()
+        if self.pump_replies_task is not None:
+            self.pump_replies_task.cancel()
+            self.pump_replies_task = None
 
 
 class ConnCtx:

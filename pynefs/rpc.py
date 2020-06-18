@@ -80,10 +80,17 @@ class Server:
         return packer.get_buffer()
 
 
+SPLIT_MSG = typing.Tuple[v_rpc_msg, bytes]
+
+
 class BaseClient(abc.ABC):
     prog: int
     vers: int
     procs: typing.Dict[int, rpchelp.Proc]
+    transport: typing.Optional["BaseTransport"]
+
+    def __init__(self):
+        self.xid_map: typing.Dict[int, asyncio.Future] = {}
 
     def pack_args(self, proc_id: int, args: typing.List[typing.Any]):
         packer = xdrlib.Packer()
@@ -94,6 +101,17 @@ class BaseClient(abc.ABC):
         for spec, arg in zip(arg_specs, args):
             spec.pack(packer, arg)
         return packer.get_buffer()
+
+    def pump_reply(self, msg: SPLIT_MSG):
+        reply, reply_body = msg
+        if not reply.header.mtype == msg_type.REPLY:
+            # Weird. log this.
+            return
+        xid_future = self.xid_map.pop(reply.xid, None)
+        if not xid_future:
+            # Got a reply for a message we didn't send???
+            return
+        xid_future.set_result(msg)
 
     def unpack_return(self, proc_id: int, body: bytes):
         unpacker = xdrlib.Unpacker(body)
@@ -106,11 +124,45 @@ class BaseClient(abc.ABC):
     async def connect(self):
         pass
 
-    @abc.abstractmethod
     async def send_call(self, proc_id: int,
                         args: typing.List[typing.Any],
                         xid: typing.Optional[int] = None) -> UnpackedRPCMsg[T]:
-        pass
+        if xid is None:
+            xid = self.gen_xid()
+        if not self.transport:
+            await self.connect()
+
+        msg = v_rpc_msg(
+            xid=xid,
+            header=v_rpc_body(
+                mtype=msg_type.CALL,
+                cbody=v_call_body(
+                    rpcvers=2,
+                    prog=self.prog,
+                    vers=self.vers,
+                    proc=proc_id,
+                    # always null auth for now
+                    cred=v_opaque_auth(
+                        flavor=auth_flavor.AUTH_NONE,
+                        body=b""
+                    ),
+                    verf=v_opaque_auth(
+                        flavor=auth_flavor.AUTH_NONE,
+                        body=b""
+                    ),
+                )
+            )
+        )
+        fut = asyncio.Future()
+        self.xid_map[xid] = fut
+        await self.transport.write_msg(msg, self.pack_args(proc_id, args))
+
+        # TODO: timeout?
+        reply, reply_body = await fut
+        assert(reply.header.mtype == REPLY)
+        if reply.header.rbody.stat != reply_stat.MSG_ACCEPTED:
+            return UnpackedRPCMsg(reply, None)
+        return UnpackedRPCMsg(reply, self.unpack_return(proc_id, reply_body))
 
 
 class BaseTransport(abc.ABC):
@@ -128,7 +180,7 @@ class BaseTransport(abc.ABC):
         p.pack_fstring(len(body), body)
         await self.write_msg_bytes(p.get_buffer())
 
-    async def read_msg(self) -> typing.Tuple[v_rpc_msg, bytes]:
+    async def read_msg(self) -> SPLIT_MSG:
         msg_bytes = await self.read_msg_bytes()
         unpacker = xdrlib.Unpacker(msg_bytes)
         msg = rpc_msg.unpack(unpacker)
@@ -166,48 +218,16 @@ class TCPTransport(BaseTransport):
 
 class TCPClient(BaseClient):
     def __init__(self, host, port):
-        self.transport: typing.Optional[BaseTransport] = None
+        super().__init__()
+        self.transport = None
+        self.reader_task: typing.Optional[asyncio.Task] = None
         self.host = host
         self.port = port
 
+    async def pump_replies(self):
+        while self.transport and (msg := await self.transport.read_msg()):
+            self.pump_reply(msg)
+
     async def connect(self):
         self.transport = TCPTransport(*await asyncio.open_connection(self.host, self.port))
-
-    async def send_call(self, proc_id: int,
-                        args: typing.List[typing.Any],
-                        xid: typing.Optional[int] = None) -> UnpackedRPCMsg[T]:
-        if xid is None:
-            xid = self.gen_xid()
-        if not self.transport:
-            await self.connect()
-
-        msg = v_rpc_msg(
-            xid=xid,
-            header=v_rpc_body(
-                mtype=msg_type.CALL,
-                cbody=v_call_body(
-                    rpcvers=2,
-                    prog=self.prog,
-                    vers=self.vers,
-                    proc=proc_id,
-                    # always null auth for now
-                    cred=v_opaque_auth(
-                        flavor=auth_flavor.AUTH_NONE,
-                        body=b""
-                    ),
-                    verf=v_opaque_auth(
-                        flavor=auth_flavor.AUTH_NONE,
-                        body=b""
-                    ),
-                )
-            )
-        )
-        await self.transport.write_msg(msg, self.pack_args(proc_id, args))
-
-        # TODO: Almost definitely bad, no guarantee reply immediately follows.
-        # should return a Future and pump messages instead?
-        reply, reply_body = await self.transport.read_msg()
-        assert(reply.header.mtype == REPLY)
-        if reply.header.rbody.stat != reply_stat.MSG_ACCEPTED:
-            return UnpackedRPCMsg(reply, None)
-        return UnpackedRPCMsg(reply, self.unpack_return(proc_id, reply_body))
+        self.reader_task = asyncio.create_task(self.pump_replies())

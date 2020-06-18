@@ -304,7 +304,11 @@ class union(packable):
         if dataclasses.is_dataclass(val):
             sw_val = getattr(val, self.switch_name)
             name = self.union_dict.get(sw_val, self.def_typ)[0]
-            data = getattr(val, name)
+            if name:
+                data = getattr(val, name)
+            else:
+                # void case
+                data = None
         else:
             sw_val, data = val
         self.switch_decl.pack(p, sw_val)

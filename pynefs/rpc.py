@@ -3,23 +3,23 @@ import asyncio
 import random
 
 import struct
-import typing
 import xdrlib
 from asyncio import StreamWriter, StreamReader
 from io import BytesIO
+from typing import *
 
 from pynefs import rpchelp
 from pynefs.generated.rfc1831 import *
 from pynefs.generated.rfc1831 import rpc_msg
 
 
-T = typing.TypeVar("T")
+T = TypeVar("T")
 
 
-class UnpackedRPCMsg(typing.Generic[T]):
+class UnpackedRPCMsg(Generic[T]):
     def __init__(self, msg: v_rpc_msg, body: T):
         self.msg = msg
-        self.body: typing.Optional[T] = body
+        self.body: Optional[T] = body
 
     @property
     def xid(self) -> int:
@@ -44,55 +44,88 @@ class UnpackedRPCMsg(typing.Generic[T]):
         return self.msg.header.rbody.stat == MSG_ACCEPTED
 
 
-class Server:
-    """Base class for rpcgen-created server classes.  Unpack arguments,
-    dispatch to appropriate procedure, and pack return value.  Check,
-    at instantiation time, whether there are any procedures defined in the
-    IDL which are both unimplemented and whose names are missing from the
-    deliberately_unimplemented member.
-    As a convenience, allows creation of transport server w/
-    create_transport_server.  In what every way the server is created,
-    you must call register."""
-    prog: int
-    vers: int
-    procs: typing.Dict[int, rpchelp.Proc]
+SPLIT_MSG = Tuple[v_rpc_msg, bytes]
 
-    def __init__(self):
+
+class BaseTransport(abc.ABC):
+    @abc.abstractmethod
+    async def write_msg_bytes(self, msg: bytes):
         pass
 
-    def get_handler(self, proc_id) -> typing.Callable:
-        return getattr(self, self.procs[proc_id].name)
+    @abc.abstractmethod
+    async def read_msg_bytes(self) -> bytes:
+        pass
 
-    def register(self, transport_server):
-        transport_server.register(self.prog, self.vers, self)
+    @property
+    def closed(self):
+        return False
 
-    def handle_proc_call(self, proc_id, unpacker: xdrlib.Unpacker) -> bytes:
-        proc = self.procs[proc_id]
-        if proc is None:
-            raise NotImplementedError()
+    @abc.abstractmethod
+    def close(self):
+        pass
 
-        argl = [arg_type.unpack(unpacker)
-                for arg_type in proc.arg_types]
-        rv = self.get_handler(proc_id)(*argl)
+    async def write_msg(self, header: v_rpc_msg, body: bytes) -> None:
+        p = xdrlib.Packer()
+        rpc_msg.pack(p, header)
+        p.pack_fstring(len(body), body)
+        await self.write_msg_bytes(p.get_buffer())
 
-        packer = xdrlib.Packer()
-        proc.ret_type.pack(packer, rv)
-        return packer.get_buffer()
+    async def read_msg(self) -> SPLIT_MSG:
+        msg_bytes = await self.read_msg_bytes()
+        unpacker = xdrlib.Unpacker(msg_bytes)
+        msg = rpc_msg.unpack(unpacker)
+        return msg, unpacker.get_buffer()[unpacker.get_position():]
 
 
-SPLIT_MSG = typing.Tuple[v_rpc_msg, bytes]
+class TCPTransport(BaseTransport):
+    # 100KB, larger than UDP would allow anyway?
+    MAX_MSG_BYTES = 100_000
+
+    def __init__(self, reader: StreamReader, writer: StreamWriter):
+        self.reader = reader
+        self.writer = writer
+
+    @property
+    def closed(self):
+        return self.reader.at_eof() or self.writer.is_closing()
+
+    def close(self):
+        if self.writer.can_write_eof():
+            self.writer.write_eof()
+        if not self.writer.is_closing():
+            self.writer.close()
+
+    async def write_msg_bytes(self, msg: bytes):
+        # Tack on the fragment size, mark as last frag
+        msg = struct.pack("!L", len(msg) | (1 << 31)) + msg
+        self.writer.write(msg)
+        await self.writer.drain()
+
+    async def read_msg_bytes(self) -> bytes:
+        last_frag = False
+        msg_bytes = BytesIO()
+        total_len = 0
+        while not last_frag:
+            frag_header = struct.unpack("!L", await self.reader.readexactly(4))[0]
+            last_frag = frag_header & (1 << 31)
+            frag_len = frag_header & (~(1 << 31))
+            total_len += frag_len
+            if total_len > self.MAX_MSG_BYTES:
+                raise ValueError(f"Overly large RPC message! {total_len}, {frag_len}")
+            msg_bytes.write(await self.reader.readexactly(frag_len))
+        return msg_bytes.getvalue()
 
 
 class BaseClient(abc.ABC):
     prog: int
     vers: int
-    procs: typing.Dict[int, rpchelp.Proc]
-    transport: typing.Optional["BaseTransport"]
+    procs: Dict[int, rpchelp.Proc]
+    transport: Optional[BaseTransport]
 
     def __init__(self):
-        self.xid_map: typing.Dict[int, asyncio.Future] = {}
+        self.xid_map: Dict[int, asyncio.Future] = {}
 
-    def pack_args(self, proc_id: int, args: typing.List[typing.Any]):
+    def pack_args(self, proc_id: int, args: Sequence):
         packer = xdrlib.Packer()
         arg_specs = self.procs[proc_id].arg_types
         if len(args) != len(arg_specs):
@@ -117,16 +150,15 @@ class BaseClient(abc.ABC):
         unpacker = xdrlib.Unpacker(body)
         return self.procs[proc_id].ret_type.unpack(unpacker)
 
-    def gen_xid(self) -> int:
+    @staticmethod
+    def gen_xid() -> int:
         return random.getrandbits(32)
 
     @abc.abstractmethod
     async def connect(self):
         pass
 
-    async def send_call(self, proc_id: int,
-                        args: typing.List[typing.Any],
-                        xid: typing.Optional[int] = None) -> UnpackedRPCMsg[T]:
+    async def send_call(self, proc_id: int, *args, xid: Optional[int] = None) -> UnpackedRPCMsg[T]:
         if xid is None:
             xid = self.gen_xid()
         if not self.transport:
@@ -165,69 +197,114 @@ class BaseClient(abc.ABC):
         return UnpackedRPCMsg(reply, self.unpack_return(proc_id, reply_body))
 
 
-class BaseTransport(abc.ABC):
-    @abc.abstractmethod
-    async def write_msg_bytes(self, msg: bytes):
-        pass
-
-    @abc.abstractmethod
-    async def read_msg_bytes(self) -> bytes:
-        pass
-
-    async def write_msg(self, header: v_rpc_msg, body: bytes) -> None:
-        p = xdrlib.Packer()
-        rpc_msg.pack(p, header)
-        p.pack_fstring(len(body), body)
-        await self.write_msg_bytes(p.get_buffer())
-
-    async def read_msg(self) -> SPLIT_MSG:
-        msg_bytes = await self.read_msg_bytes()
-        unpacker = xdrlib.Unpacker(msg_bytes)
-        msg = rpc_msg.unpack(unpacker)
-        return msg, unpacker.get_buffer()[unpacker.get_position():]
-
-
-class TCPTransport(BaseTransport):
-    # 100KB, larger than UDP would allow anyway?
-    MAX_MSG_BYTES = 100_000
-
-    def __init__(self, reader: StreamReader, writer: StreamWriter):
-        self.reader = reader
-        self.writer = writer
-
-    async def write_msg_bytes(self, msg: bytes):
-        # Tack on the fragment size, mark as last frag
-        msg = struct.pack("!L", len(msg) | (1 << 31)) + msg
-        self.writer.write(msg)
-        await self.writer.drain()
-
-    async def read_msg_bytes(self) -> bytes:
-        last_frag = False
-        msg_bytes = BytesIO()
-        total_len = 0
-        while not last_frag:
-            frag_header = struct.unpack("!L", await self.reader.readexactly(4))[0]
-            last_frag = frag_header & (1 << 31)
-            frag_len = frag_header & (~(1 << 31))
-            total_len += frag_len
-            if total_len > self.MAX_MSG_BYTES:
-                raise ValueError(f"Overly large RPC message! {total_len}, {frag_len}")
-            msg_bytes.write(await self.reader.readexactly(frag_len))
-        return msg_bytes.getvalue()
-
-
 class TCPClient(BaseClient):
     def __init__(self, host, port):
         super().__init__()
         self.transport = None
-        self.reader_task: typing.Optional[asyncio.Task] = None
+        self.reader_task: Optional[asyncio.Task] = None
         self.host = host
         self.port = port
 
     async def pump_replies(self):
-        while self.transport and (msg := await self.transport.read_msg()):
-            self.pump_reply(msg)
+        while self.transport and not self.transport.closed:
+            self.pump_reply(await self.transport.read_msg())
 
     async def connect(self):
         self.transport = TCPTransport(*await asyncio.open_connection(self.host, self.port))
         self.reader_task = asyncio.create_task(self.pump_replies())
+
+
+class ConnCtx:
+    def __init__(self):
+        self.state = {}
+
+
+class Server:
+    """Base class for rpcgen-created server classes.  Unpack arguments,
+    dispatch to appropriate procedure, and pack return value.  Check,
+    at instantiation time, whether there are any procedures defined in the
+    IDL which are both unimplemented and whose names are missing from the
+    deliberately_unimplemented member.
+    As a convenience, allows creation of transport server w/
+    create_transport_server.  In what every way the server is created,
+    you must call register."""
+    prog: int
+    vers: int
+    procs: Dict[int, rpchelp.Proc]
+
+    def get_handler(self, proc_id) -> Callable:
+        return getattr(self, self.procs[proc_id].name)
+
+    def register(self, transport_server):
+        transport_server.register(self.prog, self.vers, self)
+
+    def handle_proc_call(self, proc_id, call_body: bytes) -> bytes:
+        proc = self.procs[proc_id]
+        if proc is None:
+            raise NotImplementedError()
+
+        unpacker = xdrlib.Unpacker(call_body)
+        argl = [arg_type.unpack(unpacker)
+                for arg_type in proc.arg_types]
+        rv = self.get_handler(proc_id)(*argl)
+
+        packer = xdrlib.Packer()
+        proc.ret_type.pack(packer, rv)
+        return packer.get_buffer()
+
+    def make_reply(self, xid, stat: reply_stat = 0, msg_stat: Union[accept_stat, reject_stat] = 0) -> v_rpc_msg:
+        return v_rpc_msg(
+            xid=xid,
+            header=v_rpc_body(
+                mtype=msg_type.REPLY,
+                rbody=v_reply_body(
+                    stat=stat,
+                    areply=v_accepted_reply(
+                        verf=v_opaque_auth(
+                            auth_flavor.AUTH_NONE,
+                            body=b""
+                        ),
+                        data=v_reply_data(
+                            stat=msg_stat,
+                        )
+                    )
+                )
+            )
+        )
+
+
+class TCPServer(Server):
+    def __init__(self, bind_host, bind_port):
+        self.bind_host, self.bind_port = bind_host, bind_port
+
+    async def start(self) -> asyncio.AbstractServer:
+        return await asyncio.start_server(self.handle_connection, self.bind_host, self.bind_port)
+
+    async def handle_connection(self, reader, writer):
+        transport = TCPTransport(reader, writer)
+        ctx = ConnCtx()
+        while not transport.closed:
+            try:
+                read_ret = await asyncio.wait_for(transport.read_msg(), 1)
+            except asyncio.TimeoutError:
+                continue
+
+            call: v_rpc_msg = read_ret[0]
+            call_body: bytes = read_ret[1]
+
+            if not call.header.mtype == msg_type.CALL:
+                # ???
+                continue
+            try:
+                await self.handle_call(transport, call, call_body)
+            except Exception:
+                reply_header = self.make_reply(call.xid, reply_stat.MSG_ACCEPTED, accept_stat.SYSTEM_ERR)
+                await transport.write_msg(reply_header, b"")
+                transport.close()
+                raise
+        transport.close()
+
+    async def handle_call(self, transport: BaseTransport, call: v_rpc_msg, call_body: bytes):
+        reply_body = self.handle_proc_call(call.header.cbody.proc, call_body)
+        reply_header = self.make_reply(call.xid)
+        await transport.write_msg(reply_header, reply_body)

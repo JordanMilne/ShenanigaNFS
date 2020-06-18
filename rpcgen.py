@@ -651,7 +651,7 @@ class Program(Node):
                 funcs_str += f") -> {ret_type_hint}:\n"
             if as_client:
                 arg_list = ', '.join(f"arg_{i}" for i in range(len(proc.parm_list.children)))
-                funcs_str += f"\t\treturn await self.send_call({proc.proc_id}, [{arg_list}])\n\n"
+                funcs_str += f"\t\treturn await self.send_call({proc.proc_id}, {arg_list})\n\n"
             else:
                 funcs_str += "\t\tpass\n\n"
 

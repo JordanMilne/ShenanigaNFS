@@ -44,9 +44,9 @@ class TransportServer:
         stat: accept_stat = accept_stat.SUCCESS
         mismatch: Optional[v_mismatch_info] = None
         reply_body = b""
+        cbody = call.header.cbody
 
         try:
-            cbody = call.header.cbody
             progs = [p for p in self.progs if p.prog == cbody.prog]
             if progs:
                 vers_progs = [p for p in progs if p.vers == cbody.vers]
@@ -62,6 +62,7 @@ class TransportServer:
         except NotImplementedError:
             stat = accept_stat.PROC_UNAVAIL
         except Exception:
+            print(f"Failed in {cbody.prog}.{cbody.vers}.{cbody.proc}")
             reply_header = self.make_reply(call.xid, reply_stat.MSG_ACCEPTED, accept_stat.SYSTEM_ERR)
             await transport.write_msg(reply_header, b"")
             # Might not be able to gracefully handle this. try to kill the transport.

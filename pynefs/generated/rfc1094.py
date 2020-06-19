@@ -94,7 +94,7 @@ sattrargs = rpchelp.struct('sattrargs', [('file', fhandle), ('attributes', sattr
 MNTPATHLEN = 1024
 dirpath = rpchelp.string(rpchelp.var, MNTPATHLEN)
 name = rpchelp.string(rpchelp.var, MNTPATHLEN)
-fhstatus = rpchelp.union('fhstatus', rpchelp.r_uint, 'status', {0: ('directory', fhandle), None: (None, rpchelp.r_void)}, from_parser=True)
+fhstatus = rpchelp.union('fhstatus', rpchelp.r_uint, 'errno', {0: ('directory', fhandle), None: (None, rpchelp.r_void)}, from_parser=True)
 mountlist = rpchelp.linked_list('mountlist', [('hostname', name), ('directory', dirpath)])
 grouplist = rpchelp.linked_list('grouplist', [('grname', name)])
 exportlist = rpchelp.linked_list('exportlist', [('filesys', dirpath), ('groups', grouplist)])
@@ -336,7 +336,7 @@ sattrargs.val_base_class = v_sattrargs
 
 @dataclass
 class v_fhstatus(rpchelp.struct_val_base):
-    status: int
+    errno: int
     directory: typing.Optional[bytes] = None
 
 

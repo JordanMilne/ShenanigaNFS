@@ -291,7 +291,7 @@ typedef string dirpath<MNTPATHLEN>;
 typedef string name<MNTPATHLEN>;
 
 
-union fhstatus switch (unsigned int status) { /* was just unsigned, not unsigned int */
+union fhstatus switch (unsigned int errno) { /* was just unsigned, not unsigned int */
  case 0:
    fhandle directory;
  default:

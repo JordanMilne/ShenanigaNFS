@@ -1,71 +1,164 @@
 import abc
+import datetime as dt
+import dataclasses
+import enum
+import math
 import secrets
 import weakref
 from binascii import crc32
-from dataclasses import dataclass
 from typing import *
 
-from pynefs.generated.rfc1094 import *
+from pynefs.generated import rfc1094 as nfs2
+from pynefs.generated.rfc1094 import ftype as ftype2  # to appease busted typecheck
 
 
-INODE = Union["File", "Directory"]
+FSENTRY = Union["File", "Directory", "SymLink", "BaseFSEntry"]
 
 
-@dataclass
-class File(v_fattr):
-    fs: weakref.ReferenceType
-    fsid: int
-    fh: bytes
-    name: bytes
+# Portable-ish between NFS2/3/4
+class FileType(enum.IntEnum):
+    REG = 1
+    DIR = 2
+    BLCK = 3
+    CHAR = 4
+    # Specifically a symbolic link, no way to differentiate hardlinks?
+    LINK = 5
+    SOCK = 6
+    FIFO = 7
 
-    @staticmethod
-    def _type_to_mode_mask(f_type: ftype):
+    # https://tools.ietf.org/html/rfc1094#section-2.3.5
+    # NFSv2 specific protocol weirdness
+    def _nfs2_mode_mask(self):
         return {
-            ftype.NFCHR: 0o0020000,
-            ftype.NFDIR: 0o0040000,
-            ftype.NFBLK: 0o0060000,
-            ftype.NFREG: 0o0100000,
-            ftype.NFLNK: 0o0120000,
-            ftype.NFNON: 0o0140000,
-        }[f_type]
+            self.CHAR: 0o0020000,
+            self.DIR: 0o0040000,
+            self.BLCK: 0o0060000,
+            self.REG: 0o0100000,
+            self.LINK: 0o0120000,
+            self.SOCK: 0o0140000,
+            # XXX: Not clear how FIFOs should be represented.
+            # Same as sockets I guess?
+            self.FIFO: 0o0140000,
+        }[self]
 
-    def to_fattr(self) -> v_fattr:
-        return v_fattr(
-            type=self.type,
-            # https://tools.ietf.org/html/rfc1094#section-2.3.5
-            # NFSv2 specific protocol weirdness
-            mode=self.mode | self._type_to_mode_mask(self.type),
+    def to_nfs2(self, mode) -> Tuple[int, nfs2.ftype]:
+        if self in (self.SOCK, self.FIFO):
+            f_type = nfs2.ftype.NFNON
+        else:
+            f_type = ftype2(self)
+        return mode | self._nfs2_mode_mask(), f_type
+
+
+def date_to_nfs2(date: dt.datetime) -> nfs2.v_timeval:
+    ts = date.timestamp()
+    frac, whole = math.modf(ts)
+    return nfs2.v_timeval(math.floor(whole), math.floor(frac * 1_000_000))
+
+
+@dataclasses.dataclass
+class BaseFSEntry:
+    fs: weakref.ReferenceType
+    fh: bytes
+    parent_fh: Optional[bytes]
+    fileid: int
+    name: bytes
+    type: FileType
+    mode: int
+    nlink: int
+    uid: int
+    gid: int
+    size: int
+    rdev: int
+    blocks: int
+    atime: dt.datetime
+    mtime: dt.datetime
+    ctime: dt.datetime
+
+    def to_fattr(self) -> nfs2.v_fattr:
+        mode, f_type = self.type.to_nfs2(self.mode)
+        return nfs2.v_fattr(
+            type=f_type,
+            mode=mode,
             nlink=self.nlink,
             uid=self.uid,
             gid=self.gid,
             size=self.size,
-            blocksize=self.blocksize,
+            blocksize=self.fs().block_size,
             rdev=self.rdev,
             blocks=self.blocks,
-            fsid=self.fsid,
+            fsid=self.fs().fsid,
             fileid=self.fileid,
-            atime=self.atime,
-            mtime=self.mtime,
-            ctime=self.ctime,
+            atime=date_to_nfs2(self.atime),
+            mtime=date_to_nfs2(self.mtime),
+            ctime=date_to_nfs2(self.ctime),
         )
 
 
-@dataclass
-class Directory(File):
-    child_fhs: List[bytes]
+@dataclasses.dataclass
+class File(BaseFSEntry):
+    contents: bytes
 
-    def get_child_by_name(self, name: bytes) -> Optional[INODE]:
-        fs: BaseFS = self.fs()
-        for fh in self.child_fhs:
-            inode = fs.get_inode_by_fh(fh)
-            if inode.name == name:
-                return inode
+
+@dataclasses.dataclass
+class SymLink(File):
+    pass
+
+
+@dataclasses.dataclass
+class Directory(BaseFSEntry):
+    child_fhs: List[bytes]
+    root_dir: bool = False
+
+    def get_child_by_name(self, name: bytes) -> Optional[FSENTRY]:
+        for entry in self.dir_listing:
+            if entry.name == name:
+                return entry
         return None
 
+    def _make_upper_dir_link(self):
+        if self.parent_fh:
+            return dataclasses.replace(
+                self.fs().get_entry_by_fh(self.parent_fh),
+                name=b"..",
+                child_fhs=[self.fh],
+            )
+
+        assert self.root_dir
+
+        # Need to make a fake entry for `..` since it's actually above
+        # the root directory. Ironically none of the info other than the
+        # name seems to be used in the dir listing.
+        return Directory(
+            fs=weakref.ref(self),
+            type=FileType.DIR,
+            mode=0o0755,
+            # . and ..
+            nlink=0,
+            uid=1000,
+            gid=1000,
+            size=4096,
+            rdev=0,
+            blocks=1,
+            # Not a real file so should be fine?
+            fileid=0,
+            atime=dt.datetime.utcnow(),
+            mtime=dt.datetime.utcnow(),
+            ctime=dt.datetime.utcnow(),
+            fh=b"\xff" * 32,
+            name=b"..",
+            child_fhs=[self.fh],
+            root_dir=False,
+            parent_fh=None,
+        )
+
     @property
-    def children(self) -> List[INODE]:
+    def dir_listing(self) -> List[FSENTRY]:
         fs: BaseFS = self.fs()
-        files = [fs.get_inode_by_fh(fh) for fh in self.child_fhs]
+        files = [
+            dataclasses.replace(self, name=b"."),
+            self._make_upper_dir_link(),
+            *[fs.get_entry_by_fh(fh) for fh in self.child_fhs]
+        ]
         assert(all(files))
         return files
 
@@ -78,12 +171,12 @@ class BaseFS(abc.ABC):
     free_blocks: int
     avail_blocks: int
     root_path: bytes
-    inodes: List[File]
+    entries: List[FSENTRY]
 
-    def get_inode_by_fh(self, fh) -> Optional[INODE]:
-        for inode in self.inodes:
-            if inode.fh == fh:
-                return inode
+    def get_entry_by_fh(self, fh) -> Optional[FSENTRY]:
+        for entry in self.entries:
+            if entry.fh == fh:
+                return entry
         return None
 
 
@@ -97,27 +190,27 @@ class NullFS(BaseFS):
         self.free_blocks = 0
         self.avail_blocks = 0
         self.root_path = root_path
-        self.inodes = [
+        self.entries = [
             Directory(
                 fs=weakref.ref(self),
-                type=ftype.NFDIR,
+                type=FileType.DIR,
                 mode=0o0755,
                 # . and ..
                 nlink=2,
                 uid=1000,
                 gid=1000,
                 size=4096,
-                blocksize=self.block_size,
                 rdev=0,
                 blocks=1,
-                fsid=self.fsid,
                 fileid=crc32(self.fh),
-                atime=v_timeval(0, 1),
-                mtime=v_timeval(0, 1),
-                ctime=v_timeval(0, 1),
+                atime=dt.datetime.utcnow(),
+                mtime=dt.datetime.utcnow(),
+                ctime=dt.datetime.utcnow(),
                 fh=self.fh,
                 name=b"",
                 child_fhs=[],
+                root_dir=True,
+                parent_fh=None,
             )
         ]
 
@@ -138,9 +231,9 @@ class FileSystemManager:
                 return fs
         return None
 
-    def get_inode_by_fh(self, fh: bytes) -> Optional[INODE]:
+    def get_entry_by_fh(self, fh: bytes) -> Optional[FSENTRY]:
         for fs in self.filesystems:
-            inode = fs.get_inode_by_fh(fh)
-            if inode is not None:
-                return inode
+            entry = fs.get_entry_by_fh(fh)
+            if entry is not None:
+                return entry
         return None

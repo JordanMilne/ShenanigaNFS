@@ -49,10 +49,10 @@ class NFSv2Service(NFS_PROGRAM_2_SERVER):
         pass
 
     def GETATTR(self, fh: bytes) -> v_attrstat:
-        inode = self.fs_manager.get_inode_by_fh(fh)
-        if not inode:
+        entry = self.fs_manager.get_entry_by_fh(fh)
+        if not entry:
             return v_attrstat(stat.NFSERR_NOENT)
-        return v_attrstat(stat.NFS_OK, inode.to_fattr())
+        return v_attrstat(stat.NFS_OK, entry.to_fattr())
 
     def SETATTR(self, arg_0: v_sattrargs) -> v_attrstat:
         pass
@@ -61,7 +61,7 @@ class NFSv2Service(NFS_PROGRAM_2_SERVER):
         pass
 
     def LOOKUP(self, arg_0: v_diropargs) -> v_diropres:
-        directory = self.fs_manager.get_inode_by_fh(arg_0.dir)
+        directory = self.fs_manager.get_entry_by_fh(arg_0.dir)
         if not directory:
             return v_diropres(stat.NFSERR_NOENT)
         child = directory.get_child_by_name(arg_0.name)
@@ -105,7 +105,7 @@ class NFSv2Service(NFS_PROGRAM_2_SERVER):
         pass
 
     def READDIR(self, arg_0: v_readdirargs) -> v_readdirres:
-        directory = self.fs_manager.get_inode_by_fh(arg_0.dir)
+        directory = self.fs_manager.get_entry_by_fh(arg_0.dir)
         if not directory:
             return v_readdirres(stat.NFSERR_NOENT)
         null_cookie = not sum(arg_0.cookie)
@@ -118,7 +118,7 @@ class NFSv2Service(NFS_PROGRAM_2_SERVER):
                 return v_readdirres(stat.NFSERR_NOENT)
             cookie_idx += 1
 
-        children = directory.children[cookie_idx:cookie_idx + arg_0.count]
+        children = directory.dir_listing[cookie_idx:cookie_idx + arg_0.count]
         eof = len(children) != arg_0.count
         return v_readdirres(
             stat.NFS_OK,

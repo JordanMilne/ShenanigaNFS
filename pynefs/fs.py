@@ -3,13 +3,11 @@ import datetime as dt
 import dataclasses
 import enum
 import math
-import secrets
 import weakref
-from binascii import crc32
 from typing import *
 
 from pynefs.generated import rfc1094 as nfs2
-from pynefs.generated.rfc1094 import ftype as ftype2  # to appease busted typecheck
+from pynefs.generated.rfc1094 import ftype as ftype2  # to appease busted type check
 
 
 FSENTRY = Union["File", "Directory", "SymLink", "BaseFSEntry"]
@@ -62,7 +60,7 @@ class BaseFSEntry:
     parent_fh: Optional[bytes]
     fileid: int
     name: bytes
-    type: FileType
+    type: FileType = dataclasses.field(init=False)
     mode: int
     nlink: int
     uid: int
@@ -98,16 +96,36 @@ class BaseFSEntry:
 class File(BaseFSEntry):
     contents: bytes
 
+    def __post_init__(self):
+        self.type = FileType.REG
+
 
 @dataclasses.dataclass
-class SymLink(File):
-    pass
+class SymLink(BaseFSEntry):
+    contents: bytes
+
+    def __post_init__(self):
+        self.type = FileType.LINK
 
 
 @dataclasses.dataclass
 class Directory(BaseFSEntry):
     child_fhs: List[bytes]
     root_dir: bool = False
+
+    def __post_init__(self):
+        self.type = FileType.DIR
+
+    def add_child(self, child: FSENTRY):
+        if child.fh in self.child_fhs:
+            return
+        assert(child.fs == self.fs)
+        child.parent_fh = self.fh
+        self.child_fhs.append(child.fh)
+
+        fs: BaseFS = self.fs()
+        if child not in fs.entries:
+            fs.entries.append(child)
 
     def get_child_by_name(self, name: bytes) -> Optional[FSENTRY]:
         for entry in self.dir_listing:
@@ -130,7 +148,6 @@ class Directory(BaseFSEntry):
         # name seems to be used in the dir listing.
         return Directory(
             fs=weakref.ref(self),
-            type=FileType.DIR,
             mode=0o0755,
             # . and ..
             nlink=0,
@@ -140,7 +157,8 @@ class Directory(BaseFSEntry):
             rdev=0,
             blocks=1,
             # Not a real file so should be fine?
-            fileid=0,
+            # fileid may NOT be 0 or clients will ignore it!
+            fileid=(~self.fileid) & 0xFFffFFff,
             atime=dt.datetime.utcnow(),
             mtime=dt.datetime.utcnow(),
             ctime=dt.datetime.utcnow(),
@@ -179,40 +197,22 @@ class BaseFS(abc.ABC):
                 return entry
         return None
 
+    def get_descendants(self, entry: FSENTRY) -> Generator[FSENTRY, None, None]:
+        if not isinstance(entry, Directory):
+            return
+        for fh in entry.child_fhs:
+            child = self.get_entry_by_fh(fh)
+            yield child
+            yield from self.get_descendants(child)
 
-class NullFS(BaseFS):
-    def __init__(self, root_path):
-        super().__init__()
-        self.fh = secrets.token_bytes(32)
-        self.fsid = 0
-        self.block_size = 4096
-        self.num_blocks = 1
-        self.free_blocks = 0
-        self.avail_blocks = 0
-        self.root_path = root_path
-        self.entries = [
-            Directory(
-                fs=weakref.ref(self),
-                type=FileType.DIR,
-                mode=0o0755,
-                # . and ..
-                nlink=2,
-                uid=1000,
-                gid=1000,
-                size=4096,
-                rdev=0,
-                blocks=1,
-                fileid=crc32(self.fh),
-                atime=dt.datetime.utcnow(),
-                mtime=dt.datetime.utcnow(),
-                ctime=dt.datetime.utcnow(),
-                fh=self.fh,
-                name=b"",
-                child_fhs=[],
-                root_dir=True,
-                parent_fh=None,
-            )
-        ]
+    def remove_entry(self, entry: FSENTRY):
+        """Completely remove an entry and its subtree from the FS"""
+        if entry.parent_fh:
+            parent: Directory = self.get_entry_by_fh(entry.parent_fh)
+            parent.child_fhs.remove(entry.fh)
+        for descendant in self.get_descendants(entry):
+            self.entries.remove(descendant)
+        self.entries.remove(entry)
 
 
 class FileSystemManager:

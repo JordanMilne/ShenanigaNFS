@@ -4,7 +4,8 @@ import typing
 
 from pynefs.server import TCPTransportServer
 from pynefs.generated.rfc1094 import *
-from pynefs.fs import FileSystemManager, NullFS
+from pynefs.fs import FileSystemManager, FileType
+from pynefs.nullfs import NullFS
 
 
 class MountService(MOUNTPROG_1_SERVER):
@@ -51,11 +52,11 @@ class NFSv2Service(NFS_PROGRAM_2_SERVER):
     def GETATTR(self, fh: bytes) -> v_attrstat:
         entry = self.fs_manager.get_entry_by_fh(fh)
         if not entry:
-            return v_attrstat(stat.NFSERR_NOENT)
+            return v_attrstat(stat.NFSERR_STALE)
         return v_attrstat(stat.NFS_OK, entry.to_fattr())
 
     def SETATTR(self, arg_0: v_sattrargs) -> v_attrstat:
-        pass
+        return v_attrstat(stat.NFSERR_ROFS)
 
     def ROOT(self) -> None:
         pass
@@ -63,7 +64,7 @@ class NFSv2Service(NFS_PROGRAM_2_SERVER):
     def LOOKUP(self, arg_0: v_diropargs) -> v_diropres:
         directory = self.fs_manager.get_entry_by_fh(arg_0.dir)
         if not directory:
-            return v_diropres(stat.NFSERR_NOENT)
+            return v_diropres(stat.NFSERR_STALE)
         child = directory.get_child_by_name(arg_0.name)
         if not child:
             return v_diropres(stat.NFSERR_NOENT)
@@ -71,43 +72,58 @@ class NFSv2Service(NFS_PROGRAM_2_SERVER):
             stat.NFS_OK, v_diropres_diropok(child.fh, child.to_fattr())
         )
 
-    def READLINK(self, arg_0: bytes) -> v_readlinkres:
-        pass
+    def READLINK(self, fh: bytes) -> v_readlinkres:
+        entry = self.fs_manager.get_entry_by_fh(fh)
+        if not entry:
+            return v_readlinkres(stat.NFSERR_STALE)
+        if entry.type != FileType.LINK:
+            # TODO: Better error for this?
+            return v_readlinkres(stat.NFSERR_NOENT)
+        return v_readlinkres(stat.NFS_OK, entry.contents)
 
-    def READ(self, arg_0: v_readargs) -> v_readres:
-        pass
+    def READ(self, read_args: v_readargs) -> v_readres:
+        entry = self.fs_manager.get_entry_by_fh(read_args.file)
+        if not entry:
+            return v_readres(stat.NFSERR_STALE)
+        # No special devices for now!
+        if entry.type not in (FileType.LINK, FileType.REG):
+            return v_readres(stat.NFSERR_IO)
+        return v_readres(stat.NFS_OK, v_attrdat(
+            attributes=entry.to_fattr(),
+            data=entry.contents[read_args.offset:read_args.offset + read_args.count]
+        ))
 
     def WRITECACHE(self) -> None:
         pass
 
     def WRITE(self, arg_0: v_writeargs) -> v_attrstat:
-        pass
+        return v_attrstat(stat.NFSERR_ROFS)
 
     def CREATE(self, arg_0: v_createargs) -> v_diropres:
-        pass
+        return v_diropres(stat.NFSERR_ROFS)
 
     def REMOVE(self, arg_0: v_diropargs) -> stat:
-        pass
+        return stat.NFSERR_ROFS
 
     def RENAME(self, arg_0: v_renameargs) -> stat:
-        pass
+        return stat.NFSERR_ROFS
 
     def LINK(self, arg_0: v_linkargs) -> stat:
-        pass
+        return stat.NFSERR_ROFS
 
     def SYMLINK(self, arg_0: v_symlinkargs) -> stat:
-        pass
+        return stat.NFSERR_ROFS
 
     def MKDIR(self, arg_0: v_createargs) -> v_diropres:
-        pass
+        return v_diropres(stat.NFSERR_ROFS)
 
     def RMDIR(self, arg_0: v_diropargs) -> stat:
-        pass
+        return stat.NFSERR_ROFS
 
     def READDIR(self, arg_0: v_readdirargs) -> v_readdirres:
         directory = self.fs_manager.get_entry_by_fh(arg_0.dir)
         if not directory:
-            return v_readdirres(stat.NFSERR_NOENT)
+            return v_readdirres(stat.NFSERR_STALE)
         null_cookie = not sum(arg_0.cookie)
         if null_cookie:
             cookie_idx = 0
@@ -135,7 +151,7 @@ class NFSv2Service(NFS_PROGRAM_2_SERVER):
     def STATFS(self, fh: bytes) -> v_statfsres:
         fs = self.fs_manager.get_fs_by_fh(fh)
         if not fs:
-            return v_statfsres(stat.NFSERR_NOENT)
+            return v_statfsres(stat.NFSERR_STALE)
         return v_statfsres(
             stat.NFS_OK,
             v_statfsres_info(

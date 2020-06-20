@@ -3,6 +3,7 @@ import datetime as dt
 import dataclasses
 import enum
 import math
+import struct
 import weakref
 from typing import *
 
@@ -72,7 +73,11 @@ class BaseFSEntry:
     mtime: dt.datetime
     ctime: dt.datetime
 
-    def to_fattr(self) -> nfs2.v_fattr:
+    @property
+    def nfs2_cookie(self) -> bytes:
+        return struct.pack("!L", self.fileid)
+
+    def to_nfs2_fattr(self) -> nfs2.v_fattr:
         mode, f_type = self.type.to_nfs2(self.mode)
         return nfs2.v_fattr(
             type=f_type,
@@ -128,7 +133,7 @@ class Directory(BaseFSEntry):
             fs.entries.append(child)
 
     def get_child_by_name(self, name: bytes) -> Optional[FSENTRY]:
-        for entry in self.dir_listing:
+        for entry in self.children:
             if entry.name == name:
                 return entry
         return None
@@ -170,7 +175,7 @@ class Directory(BaseFSEntry):
         )
 
     @property
-    def dir_listing(self) -> List[FSENTRY]:
+    def children(self) -> List[FSENTRY]:
         fs: BaseFS = self.fs()
         files = [
             dataclasses.replace(self, name=b"."),

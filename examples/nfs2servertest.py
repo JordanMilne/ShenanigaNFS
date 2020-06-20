@@ -8,7 +8,7 @@ from pynefs.fs import FileSystemManager, FileType
 from pynefs.nullfs import NullFS
 
 
-class MountService(MOUNTPROG_1_SERVER):
+class MountV1Service(MOUNTPROG_1_SERVER):
     def __init__(self, fs_manager):
         self.fs_manager: FileSystemManager = fs_manager
 
@@ -41,7 +41,7 @@ class MountService(MOUNTPROG_1_SERVER):
         return [v_exportlist(fs.root_path, [b"*"]) for fs in self.fs_manager.filesystems]
 
 
-class NFSv2Service(NFS_PROGRAM_2_SERVER):
+class NFSV2Service(NFS_PROGRAM_2_SERVER):
     def __init__(self, fs_manager):
         super().__init__()
         self.fs_manager: FileSystemManager = fs_manager
@@ -53,7 +53,7 @@ class NFSv2Service(NFS_PROGRAM_2_SERVER):
         entry = self.fs_manager.get_entry_by_fh(fh)
         if not entry:
             return v_attrstat(stat.NFSERR_STALE)
-        return v_attrstat(stat.NFS_OK, entry.to_fattr())
+        return v_attrstat(stat.NFS_OK, entry.to_nfs2_fattr())
 
     def SETATTR(self, arg_0: v_sattrargs) -> v_attrstat:
         return v_attrstat(stat.NFSERR_ROFS)
@@ -69,7 +69,7 @@ class NFSv2Service(NFS_PROGRAM_2_SERVER):
         if not child:
             return v_diropres(stat.NFSERR_NOENT)
         return v_diropres(
-            stat.NFS_OK, v_diropres_diropok(child.fh, child.to_fattr())
+            stat.NFS_OK, v_diropres_diropok(child.fh, child.to_nfs2_fattr())
         )
 
     def READLINK(self, fh: bytes) -> v_readlinkres:
@@ -89,7 +89,7 @@ class NFSv2Service(NFS_PROGRAM_2_SERVER):
         if entry.type not in (FileType.LINK, FileType.REG):
             return v_readres(stat.NFSERR_IO)
         return v_readres(stat.NFS_OK, v_attrdat(
-            attributes=entry.to_fattr(),
+            attributes=entry.to_nfs2_fattr(),
             data=entry.contents[read_args.offset:read_args.offset + read_args.count]
         ))
 
@@ -122,27 +122,27 @@ class NFSv2Service(NFS_PROGRAM_2_SERVER):
 
     def READDIR(self, arg_0: v_readdirargs) -> v_readdirres:
         directory = self.fs_manager.get_entry_by_fh(arg_0.dir)
+        count = min(arg_0.count, 50)
         if not directory:
             return v_readdirres(stat.NFSERR_STALE)
+
+        cookie_idx = 0
         null_cookie = not sum(arg_0.cookie)
-        if null_cookie:
-            cookie_idx = 0
-        else:
-            # TODO: should these change when the file is mutated?
-            cookie_idx = directory.child_fhs.index(arg_0.cookie)
+        if not null_cookie:
+            cookie_idx = [e.nfs2_cookie for e in directory.children].index(arg_0.cookie)
             if cookie_idx == -1:
                 return v_readdirres(stat.NFSERR_NOENT)
             cookie_idx += 1
 
-        children = directory.dir_listing[cookie_idx:cookie_idx + arg_0.count]
-        eof = len(children) != arg_0.count
+        children = directory.children[cookie_idx:cookie_idx + count]
+        eof = len(children) != count
         return v_readdirres(
             stat.NFS_OK,
             v_readdirres_readdirok(
                 entries=[v_entry(
                     fileid=file.fileid,
                     name=file.name,
-                    cookie=file.fh[:4],
+                    cookie=file.nfs2_cookie,
                 ) for file in children],
                 eof=eof,
             )
@@ -170,8 +170,8 @@ async def main():
     ])
 
     transport_server = TCPTransportServer("127.0.0.1", 2222)
-    transport_server.register_prog(MountService(fs_manager))
-    transport_server.register_prog(NFSv2Service(fs_manager))
+    transport_server.register_prog(MountV1Service(fs_manager))
+    transport_server.register_prog(NFSV2Service(fs_manager))
     await transport_server.notify_portmapper()
 
     server = await transport_server.start()

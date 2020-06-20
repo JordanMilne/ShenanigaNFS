@@ -20,7 +20,6 @@ class NullFS(BaseFS):
         root_dir = Directory(
             fs=weakref.ref(self),
             mode=0o0755,
-            # . and ..
             nlink=2,
             uid=1000,
             gid=1000,

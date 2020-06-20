@@ -166,7 +166,7 @@ class NFSv2Service(NFS_PROGRAM_2_SERVER):
 
 async def main():
     fs_manager = FileSystemManager([
-        NullFS(b"/tmp/nfs2")
+        NullFS(b"/tmp/nfs2"),
     ])
 
     transport_server = TCPTransportServer("127.0.0.1", 2222)
@@ -179,4 +179,7 @@ async def main():
     async with server:
         await server.serve_forever()
 
-asyncio.run(main())
+try:
+    asyncio.run(main())
+except KeyboardInterrupt:
+    pass

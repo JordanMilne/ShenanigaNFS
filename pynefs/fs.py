@@ -135,8 +135,9 @@ class Directory(BaseFSEntry):
 
     def _make_upper_dir_link(self):
         if self.parent_fh:
+            parent: Directory = self.fs().get_entry_by_fh(self.parent_fh)
             return dataclasses.replace(
-                self.fs().get_entry_by_fh(self.parent_fh),
+                parent,
                 name=b"..",
                 child_fhs=[self.fh],
             )
@@ -148,9 +149,8 @@ class Directory(BaseFSEntry):
         # name seems to be used in the dir listing.
         return Directory(
             fs=weakref.ref(self),
-            mode=0o0755,
-            # . and ..
-            nlink=0,
+            mode=0o0555,
+            nlink=2,
             uid=1000,
             gid=1000,
             size=4096,
@@ -213,6 +213,21 @@ class BaseFS(abc.ABC):
         for descendant in self.get_descendants(entry):
             self.entries.remove(descendant)
         self.entries.remove(entry)
+
+    def sanity_check(self):
+        # Not multi-rooted
+        assert sum(getattr(entry, 'root_dir', False) for entry in self.entries) == 1
+        # Everything correctly rooted
+        assert all(getattr(entry, 'root_dir', False) or entry.parent_fh for entry in self.entries)
+        # Unique FHs
+        assert len(set(e.fh for e in self.entries)) == len(self.entries)
+        # Unique fileids
+        assert len(set(e.fileid for e in self.entries)) == len(self.entries)
+        for entry in self.entries:
+            if entry.parent_fh:
+                parent = self.get_entry_by_fh(entry.parent_fh)
+                assert parent
+                assert entry.fh in parent.child_fhs
 
 
 class FileSystemManager:

@@ -214,17 +214,28 @@ def t_error(t):
 lexer = lex.lex()
 
 
-PACKABLE_OR_PACKABLE_CLASS = typing.Union[rpchelp.packable, typing.Type[rpchelp.packable]]
-
-
 class Ctx:
     def __init__(self):
         self.indent = 0
         self.deferred_list = []  # used for deferring nested Enum definitions
         self.progs: typing.List["Program"] = []
-        self.type_mapping: typing.Dict[str, PACKABLE_OR_PACKABLE_CLASS] = {}
+        self.type_mapping: typing.Dict[str, rpchelp.PACKABLE_OR_PACKABLE_CLASS] = {}
         self.const_mapping: typing.Dict[str, int] = {}
         self.exportable = []
+        self.locals = {}
+        self.globals = {}
+
+    def exec(self, src):
+        # Gross. This file probably needs to be totally rewritten.
+        # Might be ok to construct the classes instead and give them
+        # a __repr__ that will completely recreate them?
+        try:
+            exec(src, self.globals, self.locals)
+            self.globals.update(self.locals)
+        except:
+            print(src, file=sys.stderr)
+            print(self.locals, file=sys.stderr)
+            raise
 
     def defer(self, val):
         self.deferred_list.append(val)
@@ -235,44 +246,26 @@ class Ctx:
     def finish(self):
         return "\n".join(self.deferred_list)
 
-    def collect_types(self, type_dict):
+    def collect_types(self):
         self.type_mapping.clear()
         self.const_mapping.clear()
-        for name, val in type_dict.items():
+        for name, val in self.locals.items():
             if isinstance(val, rpchelp.packable):
                 self.type_mapping[name] = val
             elif isinstance(val, int):
                 self.const_mapping[name] = val
-            elif isinstance(val, type) and issubclass(val, rpchelp.enum):
+            elif rpchelp.isinstance_or_subclass(val, (rpchelp.enum, rpchelp.struct)):
                 self.type_mapping[name] = val
 
     def finish_struct_vals(self):
         buf = ""
         for nm, typ in self.type_mapping.items():
-            if isinstance(typ, rpchelp.struct_base):
-                self.exportable.append(typ.val_name)
-                buf += f"@dataclass\nclass {typ.val_name}(rpchelp.struct_val_base):\n"
-                for el_nm, el_typ in typ.elt_list:
-                    buf += f"\t{el_nm}: {el_typ.type_hint()}\n"
-                buf += f"\n\n{typ.name}.val_base_class = {typ.val_name}\n\n\n"
+            if rpchelp.isinstance_or_subclass(typ, rpchelp.struct):
+                self.exportable.append(nm)
+            if rpchelp.isinstance_or_subclass(typ, rpchelp.enum):
+                self.exportable.append(typ.__name__)
             if isinstance(typ, rpchelp.union):
                 self.exportable.append(typ.val_name)
-                buf += f"@dataclass\nclass {typ.val_name}(rpchelp.struct_val_base):\n"
-                buf += f"\t{typ.switch_name}: {typ.switch_decl.type_hint()}\n"
-                seen_members = {}
-                for member_name, member_typ in typ.union_dict.values():
-                    if member_name is None and member_typ == rpchelp.r_void:
-                        continue
-                    if member_name in seen_members:
-                        # case fallthrough in union, this is fine.
-                        if member_typ == seen_members[member_name]:
-                            continue
-                        raise ValueError(f"Union member collision in {typ.val_name}.{member_name}!")
-                    seen_members[member_name] = member_typ
-                    buf += f"\t{member_name}: typing.Optional[{member_typ.type_hint()}] = None\n"
-                buf += f"\n\n{typ.name}.val_base_class = {typ.val_name}\n\n\n"
-            if isinstance(typ, type) and issubclass(typ, rpchelp.enum):
-                self.exportable.append(typ.__name__)
         return buf
 
     def finish_progs(self):
@@ -368,9 +361,6 @@ class SimpleType(Node):
 
 
 class ArrType(Node):
-    fixed = 0
-    var = 1
-
     def __init__(self, typ, ident, var_fixed, maxind=None):
         Node.__init__(self)
         self.ident = ident
@@ -379,7 +369,7 @@ class ArrType(Node):
         self.maxind = maxind
 
     def to_str(self, ctx):
-        var_fixed = ['rpchelp.fixed', 'rpchelp.var'][self.var_fixed]
+        var_fixed = ['rpchelp.LengthType.VAR', 'rpchelp.LengthType.FIXED'][self.var_fixed]
         is_string = False
         typ = self.typ
         if self.typ in ['string', 'opaque']:
@@ -455,6 +445,7 @@ class EnumClause(Node):
     def to_str(self, ctx):
         # For now we need both a bare and enum class version, defer.
         val = '%s = %s' % (self.ident, self.val)
+        ctx.exec(val)
         ctx.defer(val)
         return '\t' + val
 
@@ -473,10 +464,10 @@ class Struct(Node):
 
 class StructList(NodeList):
     def to_str(self, ctx):
-        str_children = []
+        children = []
         l_count = 0
+        have_tail_pointer = False
         for (decl, i) in zip(self.children, range(0, len(self.children))):
-            elt = "('%s', %s)" % (decl.ident, decl.to_str(ctx))
             # Self-referential tail pointer means we get treated like a linked list
             if (self.name and isinstance(decl, OptData)
                     and decl.type_spec.val == self.name):
@@ -484,12 +475,17 @@ class StructList(NodeList):
                 assert(i == len(self.children) - 1)
                 l_count += 1
             else:
-                str_children.append(elt)
-        members_str = ", ".join(str_children)
+                children.append((decl.ident, decl.to_str(ctx)))
+        class_name = "struct"
         if l_count == 1:
-            return "rpchelp.linked_list('%s', [%s])" % (self.name, members_str)
-        else:  # either a flat struct or a tree or something more complex
-            return "rpchelp.struct('%s', [%s])" % (self.name, members_str)
+            class_name = "linked_list"
+        buf = f"@dataclass\nclass {self.name}(rpchelp.{class_name}):\n"
+        for field in children:
+            field_type = eval(field[1], globals(), ctx.locals)
+            field_data = ' = rpchelp.rpc_field(%s)' % field[1]
+            buf += f"\t{field[0]}: {field_type.type_hint()}{field_data}\n"
+        ctx.exec(buf)
+        return buf
 
 
 class Union(Node):
@@ -580,7 +576,9 @@ class Const(Node):
         self.val = val
 
     def to_str(self, ctx):
-        return '%s = %s' % (self.ident, self.val)
+        val = '%s = %s' % (self.ident, self.val)
+        ctx.exec(val)
+        return val
 
 
 class TypeDef(Node):
@@ -594,7 +592,9 @@ class TypeDef(Node):
             # semantically useful.
             return '# "typedef void;" encountered'
         typestr = self.decl.to_str(ctx)
-        return '%s = %s' % (self.decl.ident, typestr)
+        val = '%s = %s' % (self.decl.ident, typestr)
+        ctx.exec(val)
+        return val
 
 
 class TypeDefCompound(Node):
@@ -608,8 +608,32 @@ class TypeDefCompound(Node):
     def to_str(self, ctx):
         params = (self.ident, self.body.to_str(ctx))
         if self.typ == "enum":
-            return "class %s(rpchelp.enum):\n%s" % params
-        return '%s = %s' % params
+            val = "class %s(rpchelp.enum):\n%s" % params
+        elif self.typ in "struct":
+            val = params[1]
+        else:
+            val = '%s = %s' % params
+        ctx.exec(val)
+        if self.typ == "union":
+            # Need to create the val type for the union now
+            typ = ctx.locals[self.ident]
+            union_val = f"@dataclass\nclass {typ.val_name}:\n"
+            union_val += f"\t{typ.switch_name}: {typ.switch_decl.type_hint()}\n"
+            seen_members = {}
+            for member_name, member_typ in typ.union_dict.values():
+                if member_name is None and member_typ == rpchelp.r_void:
+                    continue
+                if member_name in seen_members:
+                    # case fallthrough in union, this is fine.
+                    if member_typ == seen_members[member_name]:
+                        continue
+                    raise ValueError(f"Union member collision in {typ.val_name}.{member_name}!")
+                seen_members[member_name] = member_typ
+                union_val += f"\t{member_name}: typing.Optional[{member_typ.type_hint()}] = None\n"
+            union_val += f"\n\n{self.ident}.val_base_class = {typ.val_name}\n\n\n"
+            ctx.exec(union_val)
+            val += "\n" + union_val
+        return val
 
 
 class Program(Node):
@@ -715,34 +739,34 @@ def p_decl_1(t):
 
 def p_decl_2(t):
     """declaration : type_specifier IDENT LBRACK value RBRACK"""
-    t[0] = ArrType(t[1], t[2], ArrType.fixed, t[4])
+    t[0] = ArrType(t[1], t[2], rpchelp.LengthType.FIXED, t[4])
 
 
 def p_decl_3(t):
     """declaration : type_specifier IDENT LANGLE value RANGLE"""
-    t[0] = ArrType(t[1], t[2], ArrType.var, t[4])
+    t[0] = ArrType(t[1], t[2], rpchelp.LengthType.VAR, t[4])
 
 
 def p_decl_4(t):
     """declaration : type_specifier IDENT LANGLE RANGLE"""
-    t[0] = ArrType(t[1], t[2], ArrType.var)
+    t[0] = ArrType(t[1], t[2], rpchelp.LengthType.VAR)
 
 
 def p_decl_5(t):
     """declaration : OPAQUE IDENT LBRACK value RBRACK"""  # fixed opaque
-    t[0] = ArrType('opaque', t[2], ArrType.fixed, t[4])
+    t[0] = ArrType('opaque', t[2], rpchelp.LengthType.FIXED, t[4])
 
 
 def p_decl_6(t):
     """declaration : OPAQUE IDENT LANGLE value RANGLE
     | STRING IDENT LANGLE value RANGLE"""  # var-len opaque/string
-    t[0] = ArrType(t[1], t[2], ArrType.var, t[4])
+    t[0] = ArrType(t[1], t[2], rpchelp.LengthType.VAR, t[4])
 
 
 def p_decl_7(t):
     """declaration : OPAQUE IDENT LANGLE RANGLE
     | STRING IDENT LANGLE RANGLE"""  # var-len opaque/string
-    t[0] = ArrType(t[1], t[2], ArrType.var)
+    t[0] = ArrType(t[1], t[2], rpchelp.LengthType.VAR)
 
 
 def p_decl_8(t):  # optional data
@@ -1013,7 +1037,7 @@ class StructHoistingVisitor(NodeVisitor):
         new_name = f"{base_typedef.ident}_{typ_spec.val.body.name}"
         struct_val = typ_spec.val
         struct_val.body.name = new_name
-        new_typ_spec = TypeDefCompound(struct_val.body.name, struct_val, struct_val.body)
+        new_typ_spec = TypeDefCompound(struct_val.body.name, "struct", struct_val.body)
 
         # Have the union reference this instead
         typ_spec.base = False
@@ -1032,27 +1056,20 @@ def test(s, fn):
 
     header = "# Auto-generated from IDL file\n"
     src = """import abc
-from dataclasses import dataclass
+import dataclasses
 import typing
+from dataclasses import dataclass
 
 from pynefs import rpchelp
 
 TRUE = True
 FALSE = False
 """
+    ctx.exec(src)
     tmp = ast.to_str(ctx)
     src += "\n".join((ctx.finish(), tmp.strip()))
 
-    # Gross. This file probably needs to be totally rewritten.
-    # Might be ok to construct the classes instead and give them
-    # a __repr__ that will completely recreate them?
-    src_locals = {}
-    try:
-        exec(src, globals(), src_locals)
-    except:
-        print(src, file=sys.stderr)
-        raise
-    ctx.collect_types(src_locals)
+    ctx.collect_types()
 
     s = StringIO()
     s.write(header)

@@ -13,9 +13,12 @@ T = TypeVar("T")
 
 class UnpackedRPCMsg(Generic[T]):
     """Wrapper for a parsed message header and parsed return data"""
-    def __init__(self, msg: v_rpc_msg, body: T):
+    def __init__(self, msg: rpc_msg, body: T):
         self.msg = msg
         self.body: Optional[T] = body
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__}{(self.msg, self.body)!r}>"
 
     @property
     def xid(self) -> int:
@@ -118,21 +121,21 @@ class BaseClient(rpchelp.Prog):
         if not self.transport:
             await self.connect()
 
-        msg = v_rpc_msg(
+        msg = rpc_msg(
             xid=xid,
             header=v_rpc_body(
                 mtype=msg_type.CALL,
-                cbody=v_call_body(
+                cbody=call_body(
                     rpcvers=2,
                     prog=self.prog,
                     vers=self.vers,
                     proc=proc_id,
                     # always null auth for now
-                    cred=v_opaque_auth(
+                    cred=opaque_auth(
                         flavor=auth_flavor.AUTH_NONE,
                         body=b""
                     ),
-                    verf=v_opaque_auth(
+                    verf=opaque_auth(
                         flavor=auth_flavor.AUTH_NONE,
                         body=b""
                     ),
@@ -145,7 +148,7 @@ class BaseClient(rpchelp.Prog):
 
         # TODO: timeout?
         reply_msg = await fut
-        reply: v_rpc_msg = reply_msg[0]
+        reply: rpc_msg = reply_msg[0]
         reply_body: bytes = reply_msg[1]
 
         assert(reply.header.mtype == REPLY)

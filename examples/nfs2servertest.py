@@ -26,7 +26,7 @@ class MountV1Service(MOUNTPROG_1_SERVER):
             directory=fs.fh,
         )
 
-    def DUMP(self) -> typing.List[v_mountlist]:
+    def DUMP(self) -> typing.List[mountlist]:
         # State maintenance is only for informational purposes?
         # Let's just not bother then.
         return []
@@ -37,8 +37,8 @@ class MountV1Service(MOUNTPROG_1_SERVER):
     def UMNTALL(self) -> None:
         return
 
-    def EXPORT(self) -> typing.List[v_exportlist]:
-        return [v_exportlist(fs.root_path, [b"*"]) for fs in self.fs_manager.filesystems]
+    def EXPORT(self) -> typing.List[exportlist]:
+        return [exportlist(fs.root_path, [b"*"]) for fs in self.fs_manager.filesystems]
 
 
 class NFSV2Service(NFS_PROGRAM_2_SERVER):
@@ -55,13 +55,13 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
             return v_attrstat(stat.NFSERR_STALE)
         return v_attrstat(stat.NFS_OK, entry.to_nfs2_fattr())
 
-    def SETATTR(self, arg_0: v_sattrargs) -> v_attrstat:
+    def SETATTR(self, arg_0: sattrargs) -> v_attrstat:
         return v_attrstat(stat.NFSERR_ROFS)
 
     def ROOT(self) -> None:
         pass
 
-    def LOOKUP(self, arg_0: v_diropargs) -> v_diropres:
+    def LOOKUP(self, arg_0: diropargs) -> v_diropres:
         directory = self.fs_manager.get_entry_by_fh(arg_0.dir)
         if not directory:
             return v_diropres(stat.NFSERR_STALE)
@@ -69,7 +69,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         if not child:
             return v_diropres(stat.NFSERR_NOENT)
         return v_diropres(
-            stat.NFS_OK, v_diropres_diropok(child.fh, child.to_nfs2_fattr())
+            stat.NFS_OK, diropres_diropok(child.fh, child.to_nfs2_fattr())
         )
 
     def READLINK(self, fh: bytes) -> v_readlinkres:
@@ -81,14 +81,14 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
             return v_readlinkres(stat.NFSERR_NOENT)
         return v_readlinkres(stat.NFS_OK, entry.contents)
 
-    def READ(self, read_args: v_readargs) -> v_readres:
+    def READ(self, read_args: readargs) -> v_readres:
         entry = self.fs_manager.get_entry_by_fh(read_args.file)
         if not entry:
             return v_readres(stat.NFSERR_STALE)
         # No special devices for now!
         if entry.type not in (FileType.LINK, FileType.REG):
             return v_readres(stat.NFSERR_IO)
-        return v_readres(stat.NFS_OK, v_attrdat(
+        return v_readres(stat.NFS_OK, attrdat(
             attributes=entry.to_nfs2_fattr(),
             data=entry.contents[read_args.offset:read_args.offset + read_args.count]
         ))
@@ -96,31 +96,31 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
     def WRITECACHE(self) -> None:
         pass
 
-    def WRITE(self, arg_0: v_writeargs) -> v_attrstat:
+    def WRITE(self, arg_0: writeargs) -> v_attrstat:
         return v_attrstat(stat.NFSERR_ROFS)
 
-    def CREATE(self, arg_0: v_createargs) -> v_diropres:
+    def CREATE(self, arg_0: createargs) -> v_diropres:
         return v_diropres(stat.NFSERR_ROFS)
 
-    def REMOVE(self, arg_0: v_diropargs) -> stat:
+    def REMOVE(self, arg_0: diropargs) -> stat:
         return stat.NFSERR_ROFS
 
-    def RENAME(self, arg_0: v_renameargs) -> stat:
+    def RENAME(self, arg_0: renameargs) -> stat:
         return stat.NFSERR_ROFS
 
-    def LINK(self, arg_0: v_linkargs) -> stat:
+    def LINK(self, arg_0: linkargs) -> stat:
         return stat.NFSERR_ROFS
 
-    def SYMLINK(self, arg_0: v_symlinkargs) -> stat:
+    def SYMLINK(self, arg_0: symlinkargs) -> stat:
         return stat.NFSERR_ROFS
 
-    def MKDIR(self, arg_0: v_createargs) -> v_diropres:
+    def MKDIR(self, arg_0: createargs) -> v_diropres:
         return v_diropres(stat.NFSERR_ROFS)
 
-    def RMDIR(self, arg_0: v_diropargs) -> stat:
+    def RMDIR(self, arg_0: diropargs) -> stat:
         return stat.NFSERR_ROFS
 
-    def READDIR(self, arg_0: v_readdirargs) -> v_readdirres:
+    def READDIR(self, arg_0: readdirargs) -> v_readdirres:
         directory = self.fs_manager.get_entry_by_fh(arg_0.dir)
         count = min(arg_0.count, 50)
         if not directory:
@@ -138,8 +138,8 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         eof = len(children) != count
         return v_readdirres(
             stat.NFS_OK,
-            v_readdirres_readdirok(
-                entries=[v_entry(
+            readdirres_readdirok(
+                entries=[entry(
                     fileid=file.fileid,
                     name=file.name,
                     cookie=file.nfs2_cookie,
@@ -154,7 +154,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
             return v_statfsres(stat.NFSERR_STALE)
         return v_statfsres(
             stat.NFS_OK,
-            v_statfsres_info(
+            statfsres_info(
                 tsize=4096,
                 bsize=fs.block_size,
                 blocks=fs.num_blocks,

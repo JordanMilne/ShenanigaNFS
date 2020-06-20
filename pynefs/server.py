@@ -28,7 +28,7 @@ class TransportServer:
                 await pmap_client.SET(self.get_prog_port_mapping(prog))
 
     @abc.abstractmethod
-    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> v_mapping:
+    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> mapping:
         pass
 
     async def handle_message(self, transport: BaseTransport, msg: SPLIT_MSG):
@@ -40,9 +40,9 @@ class TransportServer:
             err_msg = self.make_reply(call.xid, reply_stat.MSG_ACCEPTED, accept_stat.GARBAGE_ARGS)
             await transport.write_msg(err_msg, b"")
 
-    async def handle_call(self, transport: BaseTransport, call: v_rpc_msg, call_body: bytes):
+    async def handle_call(self, transport: BaseTransport, call: rpc_msg, call_body: bytes):
         stat: accept_stat = accept_stat.SUCCESS
-        mismatch: Optional[v_mismatch_info] = None
+        mismatch: Optional[mismatch_info] = None
         reply_body = b""
         cbody = call.header.cbody
 
@@ -54,7 +54,7 @@ class TransportServer:
                     reply_body = vers_progs[0].handle_proc_call(cbody.proc, call_body)
                 else:
                     prog_versions = [p.vers for p in progs]
-                    mismatch = v_mismatch_info(min(prog_versions), max(prog_versions))
+                    mismatch = mismatch_info(min(prog_versions), max(prog_versions))
                     stat = accept_stat.PROG_MISMATCH
             else:
                 stat = accept_stat.PROG_UNAVAIL
@@ -74,15 +74,15 @@ class TransportServer:
 
     @staticmethod
     def make_reply(xid, stat: reply_stat = 0, msg_stat: Union[accept_stat, reject_stat] = 0,
-                   mismatch: Optional[v_mismatch_info] = None) -> v_rpc_msg:
-        return v_rpc_msg(
+                   mismatch: Optional[mismatch_info] = None) -> rpc_msg:
+        return rpc_msg(
             xid=xid,
             header=v_rpc_body(
                 mtype=msg_type.REPLY,
                 rbody=v_reply_body(
                     stat=stat,
-                    areply=v_accepted_reply(
-                        verf=v_opaque_auth(
+                    areply=accepted_reply(
+                        verf=opaque_auth(
                             auth_flavor.AUTH_NONE,
                             body=b""
                         ),
@@ -118,8 +118,8 @@ class TCPTransportServer(TransportServer):
             await self.handle_message(transport, read_ret)
         transport.close()
 
-    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> v_mapping:
-        return v_mapping(
+    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> mapping:
+        return mapping(
             prog=prog.prog,
             vers=prog.vers,
             prot=IPPROTO_TCP,

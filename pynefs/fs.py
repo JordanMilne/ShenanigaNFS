@@ -8,7 +8,6 @@ import weakref
 from typing import *
 
 from pynefs.generated import rfc1094 as nfs2
-from pynefs.generated.rfc1094 import ftype as ftype2  # to appease busted type check
 
 
 FSENTRY = Union["File", "Directory", "SymLink", "BaseFSEntry"]
@@ -44,14 +43,14 @@ class FileType(enum.IntEnum):
         if self in (self.SOCK, self.FIFO):
             f_type = nfs2.ftype.NFNON
         else:
-            f_type = ftype2(self)
+            f_type = nfs2.ftype(self)
         return mode | self._nfs2_mode_mask(), f_type
 
 
-def date_to_nfs2(date: dt.datetime) -> nfs2.v_timeval:
+def date_to_nfs2(date: dt.datetime) -> nfs2.timeval:
     ts = date.timestamp()
     frac, whole = math.modf(ts)
-    return nfs2.v_timeval(math.floor(whole), math.floor(frac * 1_000_000))
+    return nfs2.timeval(math.floor(whole), math.floor(frac * 1_000_000))
 
 
 @dataclasses.dataclass
@@ -77,9 +76,9 @@ class BaseFSEntry:
     def nfs2_cookie(self) -> bytes:
         return struct.pack("!L", self.fileid)
 
-    def to_nfs2_fattr(self) -> nfs2.v_fattr:
+    def to_nfs2_fattr(self) -> nfs2.fattr:
         mode, f_type = self.type.to_nfs2(self.mode)
-        return nfs2.v_fattr(
+        return nfs2.fattr(
             type=f_type,
             mode=mode,
             nlink=self.nlink,

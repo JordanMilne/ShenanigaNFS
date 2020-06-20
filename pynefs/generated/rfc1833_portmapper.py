@@ -1,7 +1,8 @@
 # Auto-generated from IDL file
 import abc
-from dataclasses import dataclass
+import dataclasses
 import typing
+from dataclasses import dataclass
 
 from pynefs import rpchelp
 
@@ -9,51 +10,30 @@ TRUE = True
 FALSE = False
 
 PMAP_PORT = 111
-mapping = rpchelp.struct('mapping', [('prog', rpchelp.r_uint), ('vers', rpchelp.r_uint), ('prot', rpchelp.r_uint), ('port', rpchelp.r_uint)])
+@dataclass
+class mapping(rpchelp.struct):
+    prog: int = rpchelp.rpc_field(rpchelp.r_uint)
+    vers: int = rpchelp.rpc_field(rpchelp.r_uint)
+    prot: int = rpchelp.rpc_field(rpchelp.r_uint)
+    port: int = rpchelp.rpc_field(rpchelp.r_uint)
+
 IPPROTO_TCP = 6
 IPPROTO_UDP = 17
-pmaplist = rpchelp.linked_list('pmaplist', [('map', mapping)])
-call_args = rpchelp.struct('call_args', [('prog', rpchelp.r_uint), ('vers', rpchelp.r_uint), ('proc', rpchelp.r_uint), ('args', rpchelp.opaque(rpchelp.var, None))])
-call_result = rpchelp.struct('call_result', [('port', rpchelp.r_uint), ('res', rpchelp.opaque(rpchelp.var, None))])
-
+@dataclass
+class pmaplist(rpchelp.linked_list):
+    map: mapping = rpchelp.rpc_field(mapping)
 
 @dataclass
-class v_mapping(rpchelp.struct_val_base):
-    prog: int
-    vers: int
-    prot: int
-    port: int
-
-
-mapping.val_base_class = v_mapping
-
+class call_args(rpchelp.struct):
+    prog: int = rpchelp.rpc_field(rpchelp.r_uint)
+    vers: int = rpchelp.rpc_field(rpchelp.r_uint)
+    proc: int = rpchelp.rpc_field(rpchelp.r_uint)
+    args: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, None))
 
 @dataclass
-class v_pmaplist(rpchelp.struct_val_base):
-    map: v_mapping
-
-
-pmaplist.val_base_class = v_pmaplist
-
-
-@dataclass
-class v_call_args(rpchelp.struct_val_base):
-    prog: int
-    vers: int
-    proc: int
-    args: bytes
-
-
-call_args.val_base_class = v_call_args
-
-
-@dataclass
-class v_call_result(rpchelp.struct_val_base):
-    port: int
-    res: bytes
-
-
-call_result.val_base_class = v_call_result
+class call_result(rpchelp.struct):
+    port: int = rpchelp.rpc_field(rpchelp.r_uint)
+    res: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, None))
 
 
 from pynefs import client
@@ -76,23 +56,23 @@ class PMAP_PROG_2_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def SET(self, arg_0: v_mapping) -> bool:
+    def SET(self, arg_0: mapping) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def UNSET(self, arg_0: v_mapping) -> bool:
+    def UNSET(self, arg_0: mapping) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETPORT(self, arg_0: v_mapping) -> int:
+    def GETPORT(self, arg_0: mapping) -> int:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def DUMP(self) -> typing.List[typing.Union[v_mapping, v_pmaplist]]:
+    def DUMP(self) -> typing.List[typing.Union[mapping, pmaplist]]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def CALLIT(self, arg_0: v_call_args) -> v_call_result:
+    def CALLIT(self, arg_0: call_args) -> call_result:
         raise NotImplementedError()
 
 
@@ -111,19 +91,19 @@ class PMAP_PROG_2_CLIENT(client.BaseClient):
     async def NULL(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(0, )
 
-    async def SET(self, arg_0: v_mapping) -> client.UnpackedRPCMsg[bool]:
+    async def SET(self, arg_0: mapping) -> client.UnpackedRPCMsg[bool]:
         return await self.send_call(1, arg_0)
 
-    async def UNSET(self, arg_0: v_mapping) -> client.UnpackedRPCMsg[bool]:
+    async def UNSET(self, arg_0: mapping) -> client.UnpackedRPCMsg[bool]:
         return await self.send_call(2, arg_0)
 
-    async def GETPORT(self, arg_0: v_mapping) -> client.UnpackedRPCMsg[int]:
+    async def GETPORT(self, arg_0: mapping) -> client.UnpackedRPCMsg[int]:
         return await self.send_call(3, arg_0)
 
-    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[typing.Union[v_mapping, v_pmaplist]]]:
+    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[typing.Union[mapping, pmaplist]]]:
         return await self.send_call(4, )
 
-    async def CALLIT(self, arg_0: v_call_args) -> client.UnpackedRPCMsg[v_call_result]:
+    async def CALLIT(self, arg_0: call_args) -> client.UnpackedRPCMsg[call_result]:
         return await self.send_call(5, arg_0)
 
-__all__ = ['v_mapping', 'v_pmaplist', 'v_call_args', 'v_call_result', 'PMAP_PROG_2_SERVER', 'TRUE', 'FALSE', 'PMAP_PORT', 'IPPROTO_TCP', 'IPPROTO_UDP']
+__all__ = ['mapping', 'pmaplist', 'call_args', 'call_result', 'PMAP_PROG_2_SERVER', 'TRUE', 'FALSE', 'PMAP_PORT', 'IPPROTO_TCP', 'IPPROTO_UDP']

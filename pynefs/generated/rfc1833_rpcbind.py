@@ -1,7 +1,8 @@
 # Auto-generated from IDL file
 import abc
-from dataclasses import dataclass
+import dataclasses
 import typing
+from dataclasses import dataclass
 
 from pynefs import rpchelp
 
@@ -9,13 +10,43 @@ TRUE = True
 FALSE = False
 
 RPCB_PORT = 111
-rpcb = rpchelp.struct('rpcb', [('r_prog', rpchelp.r_uint), ('r_vers', rpchelp.r_uint), ('r_netid', rpchelp.string(rpchelp.var, None)), ('r_addr', rpchelp.string(rpchelp.var, None)), ('r_owner', rpchelp.string(rpchelp.var, None))])
-rp__list = rpchelp.linked_list('rp__list', [('rpcb_map', rpcb)])
+@dataclass
+class rpcb(rpchelp.struct):
+    r_prog: int = rpchelp.rpc_field(rpchelp.r_uint)
+    r_vers: int = rpchelp.rpc_field(rpchelp.r_uint)
+    r_netid: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
+    r_addr: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
+    r_owner: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
+
+@dataclass
+class rp__list(rpchelp.linked_list):
+    rpcb_map: rpcb = rpchelp.rpc_field(rpcb)
+
 rpcblist = rp__list
-rpcb_rmtcallargs = rpchelp.struct('rpcb_rmtcallargs', [('prog', rpchelp.r_uint), ('vers', rpchelp.r_uint), ('proc', rpchelp.r_uint), ('args', rpchelp.opaque(rpchelp.var, None))])
-rpcb_rmtcallres = rpchelp.struct('rpcb_rmtcallres', [('addr', rpchelp.string(rpchelp.var, None)), ('results', rpchelp.opaque(rpchelp.var, None))])
-rpcb_entry = rpchelp.struct('rpcb_entry', [('r_maddr', rpchelp.string(rpchelp.var, None)), ('r_nc_netid', rpchelp.string(rpchelp.var, None)), ('r_nc_semantics', rpchelp.r_uint), ('r_nc_protofmly', rpchelp.string(rpchelp.var, None)), ('r_nc_proto', rpchelp.string(rpchelp.var, None))])
-rpcb_entry_list = rpchelp.linked_list('rpcb_entry_list', [('rpcb_entry_map', rpcb_entry)])
+@dataclass
+class rpcb_rmtcallargs(rpchelp.struct):
+    prog: int = rpchelp.rpc_field(rpchelp.r_uint)
+    vers: int = rpchelp.rpc_field(rpchelp.r_uint)
+    proc: int = rpchelp.rpc_field(rpchelp.r_uint)
+    args: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, None))
+
+@dataclass
+class rpcb_rmtcallres(rpchelp.struct):
+    addr: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
+    results: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, None))
+
+@dataclass
+class rpcb_entry(rpchelp.struct):
+    r_maddr: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
+    r_nc_netid: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
+    r_nc_semantics: int = rpchelp.rpc_field(rpchelp.r_uint)
+    r_nc_protofmly: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
+    r_nc_proto: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
+
+@dataclass
+class rpcb_entry_list(rpchelp.linked_list):
+    rpcb_entry_map: rpcb_entry = rpchelp.rpc_field(rpcb_entry)
+
 rpcb_highproc_2 = 5
 rpcb_highproc_3 = 8
 rpcb_highproc_4 = 12
@@ -24,127 +55,38 @@ RPCBVERS_STAT = 3
 RPCBVERS_4_STAT = 2
 RPCBVERS_3_STAT = 1
 RPCBVERS_2_STAT = 0
-rpcbs_addrlist = rpchelp.linked_list('rpcbs_addrlist', [('prog', rpchelp.r_uint), ('vers', rpchelp.r_uint), ('success', rpchelp.r_int), ('failure', rpchelp.r_int), ('netid', rpchelp.string(rpchelp.var, None))])
-rpcbs_rmtcalllist = rpchelp.linked_list('rpcbs_rmtcalllist', [('prog', rpchelp.r_uint), ('vers', rpchelp.r_uint), ('proc', rpchelp.r_uint), ('success', rpchelp.r_int), ('failure', rpchelp.r_int), ('indirect', rpchelp.r_int), ('netid', rpchelp.string(rpchelp.var, None))])
-rpcbs_proc = rpchelp.arr(rpchelp.r_int, rpchelp.fixed, RPCBSTAT_HIGHPROC)
-rpcb_stat = rpchelp.struct('rpcb_stat', [('info', rpcbs_proc), ('setinfo', rpchelp.r_int), ('unsetinfo', rpchelp.r_int), ('addrinfo', rpchelp.opt_data(rpcbs_addrlist)), ('rmtinfo', rpchelp.opt_data(rpcbs_rmtcalllist))])
-rpcb_stat_byvers = rpchelp.arr(rpcb_stat, rpchelp.fixed, RPCBVERS_STAT)
-netbuf = rpchelp.struct('netbuf', [('maxlen', rpchelp.r_uint), ('buf', rpchelp.opaque(rpchelp.var, None))])
-
+@dataclass
+class rpcbs_addrlist(rpchelp.linked_list):
+    prog: int = rpchelp.rpc_field(rpchelp.r_uint)
+    vers: int = rpchelp.rpc_field(rpchelp.r_uint)
+    success: int = rpchelp.rpc_field(rpchelp.r_int)
+    failure: int = rpchelp.rpc_field(rpchelp.r_int)
+    netid: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
 
 @dataclass
-class v_rpcb(rpchelp.struct_val_base):
-    r_prog: int
-    r_vers: int
-    r_netid: bytes
-    r_addr: bytes
-    r_owner: bytes
+class rpcbs_rmtcalllist(rpchelp.linked_list):
+    prog: int = rpchelp.rpc_field(rpchelp.r_uint)
+    vers: int = rpchelp.rpc_field(rpchelp.r_uint)
+    proc: int = rpchelp.rpc_field(rpchelp.r_uint)
+    success: int = rpchelp.rpc_field(rpchelp.r_int)
+    failure: int = rpchelp.rpc_field(rpchelp.r_int)
+    indirect: int = rpchelp.rpc_field(rpchelp.r_int)
+    netid: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
 
-
-rpcb.val_base_class = v_rpcb
-
-
+rpcbs_proc = rpchelp.arr(rpchelp.r_int, rpchelp.LengthType.FIXED, RPCBSTAT_HIGHPROC)
 @dataclass
-class v_rp__list(rpchelp.struct_val_base):
-    rpcb_map: v_rpcb
+class rpcb_stat(rpchelp.struct):
+    info: typing.List[int] = rpchelp.rpc_field(rpcbs_proc)
+    setinfo: int = rpchelp.rpc_field(rpchelp.r_int)
+    unsetinfo: int = rpchelp.rpc_field(rpchelp.r_int)
+    addrinfo: typing.List[rpcbs_addrlist] = rpchelp.rpc_field(rpchelp.opt_data(rpcbs_addrlist))
+    rmtinfo: typing.List[rpcbs_rmtcalllist] = rpchelp.rpc_field(rpchelp.opt_data(rpcbs_rmtcalllist))
 
-
-rp__list.val_base_class = v_rp__list
-
-
+rpcb_stat_byvers = rpchelp.arr(rpcb_stat, rpchelp.LengthType.FIXED, RPCBVERS_STAT)
 @dataclass
-class v_rp__list(rpchelp.struct_val_base):
-    rpcb_map: v_rpcb
-
-
-rp__list.val_base_class = v_rp__list
-
-
-@dataclass
-class v_rpcb_rmtcallargs(rpchelp.struct_val_base):
-    prog: int
-    vers: int
-    proc: int
-    args: bytes
-
-
-rpcb_rmtcallargs.val_base_class = v_rpcb_rmtcallargs
-
-
-@dataclass
-class v_rpcb_rmtcallres(rpchelp.struct_val_base):
-    addr: bytes
-    results: bytes
-
-
-rpcb_rmtcallres.val_base_class = v_rpcb_rmtcallres
-
-
-@dataclass
-class v_rpcb_entry(rpchelp.struct_val_base):
-    r_maddr: bytes
-    r_nc_netid: bytes
-    r_nc_semantics: int
-    r_nc_protofmly: bytes
-    r_nc_proto: bytes
-
-
-rpcb_entry.val_base_class = v_rpcb_entry
-
-
-@dataclass
-class v_rpcb_entry_list(rpchelp.struct_val_base):
-    rpcb_entry_map: v_rpcb_entry
-
-
-rpcb_entry_list.val_base_class = v_rpcb_entry_list
-
-
-@dataclass
-class v_rpcbs_addrlist(rpchelp.struct_val_base):
-    prog: int
-    vers: int
-    success: int
-    failure: int
-    netid: bytes
-
-
-rpcbs_addrlist.val_base_class = v_rpcbs_addrlist
-
-
-@dataclass
-class v_rpcbs_rmtcalllist(rpchelp.struct_val_base):
-    prog: int
-    vers: int
-    proc: int
-    success: int
-    failure: int
-    indirect: int
-    netid: bytes
-
-
-rpcbs_rmtcalllist.val_base_class = v_rpcbs_rmtcalllist
-
-
-@dataclass
-class v_rpcb_stat(rpchelp.struct_val_base):
-    info: typing.List[int]
-    setinfo: int
-    unsetinfo: int
-    addrinfo: typing.List[v_rpcbs_addrlist]
-    rmtinfo: typing.List[v_rpcbs_rmtcalllist]
-
-
-rpcb_stat.val_base_class = v_rpcb_stat
-
-
-@dataclass
-class v_netbuf(rpchelp.struct_val_base):
-    maxlen: int
-    buf: bytes
-
-
-netbuf.val_base_class = v_netbuf
+class netbuf(rpchelp.struct):
+    maxlen: int = rpchelp.rpc_field(rpchelp.r_uint)
+    buf: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, None))
 
 
 from pynefs import client
@@ -170,23 +112,23 @@ class RPCBPROG_3_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def SET(self, arg_0: v_rpcb) -> bool:
+    def SET(self, arg_0: rpcb) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def UNSET(self, arg_0: v_rpcb) -> bool:
+    def UNSET(self, arg_0: rpcb) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETADDR(self, arg_0: v_rpcb) -> bytes:
+    def GETADDR(self, arg_0: rpcb) -> bytes:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def DUMP(self) -> typing.List[typing.Union[v_rpcb, v_rp__list]]:
+    def DUMP(self) -> typing.List[typing.Union[rpcb, rp__list]]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def CALLIT(self, arg_0: v_rpcb_rmtcallargs) -> v_rpcb_rmtcallres:
+    def CALLIT(self, arg_0: rpcb_rmtcallargs) -> rpcb_rmtcallres:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -194,11 +136,11 @@ class RPCBPROG_3_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def UADDR2TADDR(self, arg_0: bytes) -> v_netbuf:
+    def UADDR2TADDR(self, arg_0: bytes) -> netbuf:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def TADDR2UADDR(self, arg_0: v_netbuf) -> bytes:
+    def TADDR2UADDR(self, arg_0: netbuf) -> bytes:
         raise NotImplementedError()
 
 
@@ -226,23 +168,23 @@ class RPCBPROG_4_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def SET(self, arg_0: v_rpcb) -> bool:
+    def SET(self, arg_0: rpcb) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def UNSET(self, arg_0: v_rpcb) -> bool:
+    def UNSET(self, arg_0: rpcb) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETADDR(self, arg_0: v_rpcb) -> bytes:
+    def GETADDR(self, arg_0: rpcb) -> bytes:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def DUMP(self) -> typing.List[typing.Union[v_rpcb, v_rp__list]]:
+    def DUMP(self) -> typing.List[typing.Union[rpcb, rp__list]]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def BCAST(self, arg_0: v_rpcb_rmtcallargs) -> v_rpcb_rmtcallres:
+    def BCAST(self, arg_0: rpcb_rmtcallargs) -> rpcb_rmtcallres:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -250,27 +192,27 @@ class RPCBPROG_4_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def UADDR2TADDR(self, arg_0: bytes) -> v_netbuf:
+    def UADDR2TADDR(self, arg_0: bytes) -> netbuf:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def TADDR2UADDR(self, arg_0: v_netbuf) -> bytes:
+    def TADDR2UADDR(self, arg_0: netbuf) -> bytes:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETVERSADDR(self, arg_0: v_rpcb) -> bytes:
+    def GETVERSADDR(self, arg_0: rpcb) -> bytes:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def INDIRECT(self, arg_0: v_rpcb_rmtcallargs) -> v_rpcb_rmtcallres:
+    def INDIRECT(self, arg_0: rpcb_rmtcallargs) -> rpcb_rmtcallres:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETADDRLIST(self, arg_0: v_rpcb) -> typing.List[typing.Union[v_rpcb_entry, v_rpcb_entry_list]]:
+    def GETADDRLIST(self, arg_0: rpcb) -> typing.List[typing.Union[rpcb_entry, rpcb_entry_list]]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETSTAT(self) -> typing.List[v_rpcb_stat]:
+    def GETSTAT(self) -> typing.List[rpcb_stat]:
         raise NotImplementedError()
 
 
@@ -292,28 +234,28 @@ class RPCBPROG_3_CLIENT(client.BaseClient):
     async def NULL(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(0, )
 
-    async def SET(self, arg_0: v_rpcb) -> client.UnpackedRPCMsg[bool]:
+    async def SET(self, arg_0: rpcb) -> client.UnpackedRPCMsg[bool]:
         return await self.send_call(1, arg_0)
 
-    async def UNSET(self, arg_0: v_rpcb) -> client.UnpackedRPCMsg[bool]:
+    async def UNSET(self, arg_0: rpcb) -> client.UnpackedRPCMsg[bool]:
         return await self.send_call(2, arg_0)
 
-    async def GETADDR(self, arg_0: v_rpcb) -> client.UnpackedRPCMsg[bytes]:
+    async def GETADDR(self, arg_0: rpcb) -> client.UnpackedRPCMsg[bytes]:
         return await self.send_call(3, arg_0)
 
-    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[typing.Union[v_rpcb, v_rp__list]]]:
+    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[typing.Union[rpcb, rp__list]]]:
         return await self.send_call(4, )
 
-    async def CALLIT(self, arg_0: v_rpcb_rmtcallargs) -> client.UnpackedRPCMsg[v_rpcb_rmtcallres]:
+    async def CALLIT(self, arg_0: rpcb_rmtcallargs) -> client.UnpackedRPCMsg[rpcb_rmtcallres]:
         return await self.send_call(5, arg_0)
 
     async def GETTIME(self) -> client.UnpackedRPCMsg[int]:
         return await self.send_call(6, )
 
-    async def UADDR2TADDR(self, arg_0: bytes) -> client.UnpackedRPCMsg[v_netbuf]:
+    async def UADDR2TADDR(self, arg_0: bytes) -> client.UnpackedRPCMsg[netbuf]:
         return await self.send_call(7, arg_0)
 
-    async def TADDR2UADDR(self, arg_0: v_netbuf) -> client.UnpackedRPCMsg[bytes]:
+    async def TADDR2UADDR(self, arg_0: netbuf) -> client.UnpackedRPCMsg[bytes]:
         return await self.send_call(8, arg_0)
 
 
@@ -339,40 +281,40 @@ class RPCBPROG_4_CLIENT(client.BaseClient):
     async def NULL(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(0, )
 
-    async def SET(self, arg_0: v_rpcb) -> client.UnpackedRPCMsg[bool]:
+    async def SET(self, arg_0: rpcb) -> client.UnpackedRPCMsg[bool]:
         return await self.send_call(1, arg_0)
 
-    async def UNSET(self, arg_0: v_rpcb) -> client.UnpackedRPCMsg[bool]:
+    async def UNSET(self, arg_0: rpcb) -> client.UnpackedRPCMsg[bool]:
         return await self.send_call(2, arg_0)
 
-    async def GETADDR(self, arg_0: v_rpcb) -> client.UnpackedRPCMsg[bytes]:
+    async def GETADDR(self, arg_0: rpcb) -> client.UnpackedRPCMsg[bytes]:
         return await self.send_call(3, arg_0)
 
-    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[typing.Union[v_rpcb, v_rp__list]]]:
+    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[typing.Union[rpcb, rp__list]]]:
         return await self.send_call(4, )
 
-    async def BCAST(self, arg_0: v_rpcb_rmtcallargs) -> client.UnpackedRPCMsg[v_rpcb_rmtcallres]:
+    async def BCAST(self, arg_0: rpcb_rmtcallargs) -> client.UnpackedRPCMsg[rpcb_rmtcallres]:
         return await self.send_call(5, arg_0)
 
     async def GETTIME(self) -> client.UnpackedRPCMsg[int]:
         return await self.send_call(6, )
 
-    async def UADDR2TADDR(self, arg_0: bytes) -> client.UnpackedRPCMsg[v_netbuf]:
+    async def UADDR2TADDR(self, arg_0: bytes) -> client.UnpackedRPCMsg[netbuf]:
         return await self.send_call(7, arg_0)
 
-    async def TADDR2UADDR(self, arg_0: v_netbuf) -> client.UnpackedRPCMsg[bytes]:
+    async def TADDR2UADDR(self, arg_0: netbuf) -> client.UnpackedRPCMsg[bytes]:
         return await self.send_call(8, arg_0)
 
-    async def GETVERSADDR(self, arg_0: v_rpcb) -> client.UnpackedRPCMsg[bytes]:
+    async def GETVERSADDR(self, arg_0: rpcb) -> client.UnpackedRPCMsg[bytes]:
         return await self.send_call(9, arg_0)
 
-    async def INDIRECT(self, arg_0: v_rpcb_rmtcallargs) -> client.UnpackedRPCMsg[v_rpcb_rmtcallres]:
+    async def INDIRECT(self, arg_0: rpcb_rmtcallargs) -> client.UnpackedRPCMsg[rpcb_rmtcallres]:
         return await self.send_call(10, arg_0)
 
-    async def GETADDRLIST(self, arg_0: v_rpcb) -> client.UnpackedRPCMsg[typing.List[typing.Union[v_rpcb_entry, v_rpcb_entry_list]]]:
+    async def GETADDRLIST(self, arg_0: rpcb) -> client.UnpackedRPCMsg[typing.List[typing.Union[rpcb_entry, rpcb_entry_list]]]:
         return await self.send_call(11, arg_0)
 
-    async def GETSTAT(self) -> client.UnpackedRPCMsg[typing.List[v_rpcb_stat]]:
+    async def GETSTAT(self) -> client.UnpackedRPCMsg[typing.List[rpcb_stat]]:
         return await self.send_call(12, )
 
-__all__ = ['v_rpcb', 'v_rp__list', 'v_rp__list', 'v_rpcb_rmtcallargs', 'v_rpcb_rmtcallres', 'v_rpcb_entry', 'v_rpcb_entry_list', 'v_rpcbs_addrlist', 'v_rpcbs_rmtcalllist', 'v_rpcb_stat', 'v_netbuf', 'RPCBPROG_3_SERVER', 'RPCBPROG_4_SERVER', 'TRUE', 'FALSE', 'RPCB_PORT', 'rpcb_highproc_2', 'rpcb_highproc_3', 'rpcb_highproc_4', 'RPCBSTAT_HIGHPROC', 'RPCBVERS_STAT', 'RPCBVERS_4_STAT', 'RPCBVERS_3_STAT', 'RPCBVERS_2_STAT']
+__all__ = ['rpcb', 'rp__list', 'rpcblist', 'rpcb_rmtcallargs', 'rpcb_rmtcallres', 'rpcb_entry', 'rpcb_entry_list', 'rpcbs_addrlist', 'rpcbs_rmtcalllist', 'rpcb_stat', 'netbuf', 'RPCBPROG_3_SERVER', 'RPCBPROG_4_SERVER', 'TRUE', 'FALSE', 'RPCB_PORT', 'rpcb_highproc_2', 'rpcb_highproc_3', 'rpcb_highproc_4', 'RPCBSTAT_HIGHPROC', 'RPCBVERS_STAT', 'RPCBVERS_4_STAT', 'RPCBVERS_3_STAT', 'RPCBVERS_2_STAT']

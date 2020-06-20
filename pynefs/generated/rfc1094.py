@@ -1,7 +1,8 @@
 # Auto-generated from IDL file
 import abc
-from dataclasses import dataclass
+import dataclasses
 import typing
+from dataclasses import dataclass
 
 from pynefs import rpchelp
 
@@ -36,7 +37,7 @@ MAXPATHLEN = 1024
 MAXNAMLEN = 255
 COOKIESIZE = 4
 FHSIZE = 32
-nfsdata = rpchelp.opaque(rpchelp.var, MAXDATA)
+nfsdata = rpchelp.opaque(rpchelp.LengthType.VAR, MAXDATA)
 class stat(rpchelp.enum):
     NFS_OK = 0
     NFSERR_PERM = 1
@@ -63,261 +64,175 @@ class ftype(rpchelp.enum):
     NFBLK = 3
     NFCHR = 4
     NFLNK = 5
-fhandle = rpchelp.opaque(rpchelp.fixed, FHSIZE)
-timeval = rpchelp.struct('timeval', [('seconds', rpchelp.r_uint), ('useconds', rpchelp.r_uint)])
-fattr = rpchelp.struct('fattr', [('type', ftype), ('mode', rpchelp.r_uint), ('nlink', rpchelp.r_uint), ('uid', rpchelp.r_uint), ('gid', rpchelp.r_uint), ('size', rpchelp.r_uint), ('blocksize', rpchelp.r_uint), ('rdev', rpchelp.r_uint), ('blocks', rpchelp.r_uint), ('fsid', rpchelp.r_uint), ('fileid', rpchelp.r_uint), ('atime', timeval), ('mtime', timeval), ('ctime', timeval)])
-sattr = rpchelp.struct('sattr', [('mode', rpchelp.r_uint), ('uid', rpchelp.r_uint), ('gid', rpchelp.r_uint), ('size', rpchelp.r_uint), ('atime', timeval), ('mtime', timeval)])
-filename = rpchelp.string(rpchelp.var, MAXNAMLEN)
-path = rpchelp.string(rpchelp.var, MAXPATHLEN)
+fhandle = rpchelp.opaque(rpchelp.LengthType.FIXED, FHSIZE)
+@dataclass
+class timeval(rpchelp.struct):
+    seconds: int = rpchelp.rpc_field(rpchelp.r_uint)
+    useconds: int = rpchelp.rpc_field(rpchelp.r_uint)
+
+@dataclass
+class fattr(rpchelp.struct):
+    type: ftype = rpchelp.rpc_field(ftype)
+    mode: int = rpchelp.rpc_field(rpchelp.r_uint)
+    nlink: int = rpchelp.rpc_field(rpchelp.r_uint)
+    uid: int = rpchelp.rpc_field(rpchelp.r_uint)
+    gid: int = rpchelp.rpc_field(rpchelp.r_uint)
+    size: int = rpchelp.rpc_field(rpchelp.r_uint)
+    blocksize: int = rpchelp.rpc_field(rpchelp.r_uint)
+    rdev: int = rpchelp.rpc_field(rpchelp.r_uint)
+    blocks: int = rpchelp.rpc_field(rpchelp.r_uint)
+    fsid: int = rpchelp.rpc_field(rpchelp.r_uint)
+    fileid: int = rpchelp.rpc_field(rpchelp.r_uint)
+    atime: timeval = rpchelp.rpc_field(timeval)
+    mtime: timeval = rpchelp.rpc_field(timeval)
+    ctime: timeval = rpchelp.rpc_field(timeval)
+
+@dataclass
+class sattr(rpchelp.struct):
+    mode: int = rpchelp.rpc_field(rpchelp.r_uint)
+    uid: int = rpchelp.rpc_field(rpchelp.r_uint)
+    gid: int = rpchelp.rpc_field(rpchelp.r_uint)
+    size: int = rpchelp.rpc_field(rpchelp.r_uint)
+    atime: timeval = rpchelp.rpc_field(timeval)
+    mtime: timeval = rpchelp.rpc_field(timeval)
+
+filename = rpchelp.string(rpchelp.LengthType.VAR, MAXNAMLEN)
+path = rpchelp.string(rpchelp.LengthType.VAR, MAXPATHLEN)
 attrstat = rpchelp.union('attrstat', stat, 'status', {NFS_OK: ('attributes', fattr), None: (None, rpchelp.r_void)}, from_parser=True)
-diropargs = rpchelp.struct('diropargs', [('dir', fhandle), ('name', filename)])
-diropres_diropok = rpchelp.struct('diropres_diropok', [('file', fhandle), ('attributes', fattr)])
-diropres = rpchelp.union('diropres', stat, 'status', {NFS_OK: ('diropok', diropres_diropok), None: (None, rpchelp.r_void)}, from_parser=True)
-statfsres_info = rpchelp.struct('statfsres_info', [('tsize', rpchelp.r_uint), ('bsize', rpchelp.r_uint), ('blocks', rpchelp.r_uint), ('bfree', rpchelp.r_uint), ('bavail', rpchelp.r_uint)])
-statfsres = rpchelp.union('statfsres', stat, 'status', {NFS_OK: ('info', statfsres_info), None: (None, rpchelp.r_void)}, from_parser=True)
-nfscookie = rpchelp.opaque(rpchelp.fixed, COOKIESIZE)
-readdirargs = rpchelp.struct('readdirargs', [('dir', fhandle), ('cookie', nfscookie), ('count', rpchelp.r_uint)])
-entry = rpchelp.linked_list('entry', [('fileid', rpchelp.r_uint), ('name', filename), ('cookie', nfscookie)])
-readdirres_readdirok = rpchelp.struct('readdirres_readdirok', [('entries', rpchelp.opt_data(entry)), ('eof', rpchelp.r_bool)])
-readdirres = rpchelp.union('readdirres', stat, 'status', {NFS_OK: ('readdirok', readdirres_readdirok), None: (None, rpchelp.r_void)}, from_parser=True)
-symlinkargs = rpchelp.struct('symlinkargs', [('from_', diropargs), ('to', path), ('attributes', sattr)])
-linkargs = rpchelp.struct('linkargs', [('from_', fhandle), ('to', diropargs)])
-renameargs = rpchelp.struct('renameargs', [('from_', diropargs), ('to', diropargs)])
-createargs = rpchelp.struct('createargs', [('where', diropargs), ('attributes', sattr)])
-writeargs = rpchelp.struct('writeargs', [('file', fhandle), ('beginoffset', rpchelp.r_uint), ('offset', rpchelp.r_uint), ('totalcount', rpchelp.r_uint), ('data', nfsdata)])
-readargs = rpchelp.struct('readargs', [('file', fhandle), ('offset', rpchelp.r_uint), ('count', rpchelp.r_uint), ('totalcount', rpchelp.r_uint)])
-attrdat = rpchelp.struct('attrdat', [('attributes', fattr), ('data', nfsdata)])
-readres = rpchelp.union('readres', stat, 'status', {NFS_OK: ('attr_and_data', attrdat), None: (None, rpchelp.r_void)}, from_parser=True)
-readlinkres = rpchelp.union('readlinkres', stat, 'status', {NFS_OK: ('data', path), None: (None, rpchelp.r_void)}, from_parser=True)
-sattrargs = rpchelp.struct('sattrargs', [('file', fhandle), ('attributes', sattr)])
-
-MNTPATHLEN = 1024
-dirpath = rpchelp.string(rpchelp.var, MNTPATHLEN)
-name = rpchelp.string(rpchelp.var, MNTPATHLEN)
-fhstatus = rpchelp.union('fhstatus', rpchelp.r_uint, 'errno', {0: ('directory', fhandle), None: (None, rpchelp.r_void)}, from_parser=True)
-mountlist = rpchelp.linked_list('mountlist', [('hostname', name), ('directory', dirpath)])
-grouplist = rpchelp.linked_list('grouplist', [('grname', name)])
-exportlist = rpchelp.linked_list('exportlist', [('filesys', dirpath), ('groups', grouplist)])
-
-
 @dataclass
-class v_timeval(rpchelp.struct_val_base):
-    seconds: int
-    useconds: int
-
-
-timeval.val_base_class = v_timeval
-
-
-@dataclass
-class v_fattr(rpchelp.struct_val_base):
-    type: ftype
-    mode: int
-    nlink: int
-    uid: int
-    gid: int
-    size: int
-    blocksize: int
-    rdev: int
-    blocks: int
-    fsid: int
-    fileid: int
-    atime: v_timeval
-    mtime: v_timeval
-    ctime: v_timeval
-
-
-fattr.val_base_class = v_fattr
-
-
-@dataclass
-class v_sattr(rpchelp.struct_val_base):
-    mode: int
-    uid: int
-    gid: int
-    size: int
-    atime: v_timeval
-    mtime: v_timeval
-
-
-sattr.val_base_class = v_sattr
-
-
-@dataclass
-class v_attrstat(rpchelp.struct_val_base):
+class v_attrstat:
     status: stat
-    attributes: typing.Optional[v_fattr] = None
+    attributes: typing.Optional[fattr] = None
 
 
 attrstat.val_base_class = v_attrstat
 
 
-@dataclass
-class v_diropargs(rpchelp.struct_val_base):
-    dir: bytes
-    name: bytes
-
-
-diropargs.val_base_class = v_diropargs
-
 
 @dataclass
-class v_diropres_diropok(rpchelp.struct_val_base):
-    file: bytes
-    attributes: v_fattr
-
-
-diropres_diropok.val_base_class = v_diropres_diropok
-
+class diropargs(rpchelp.struct):
+    dir: bytes = rpchelp.rpc_field(fhandle)
+    name: bytes = rpchelp.rpc_field(filename)
 
 @dataclass
-class v_diropres(rpchelp.struct_val_base):
+class diropres_diropok(rpchelp.struct):
+    file: bytes = rpchelp.rpc_field(fhandle)
+    attributes: fattr = rpchelp.rpc_field(fattr)
+
+diropres = rpchelp.union('diropres', stat, 'status', {NFS_OK: ('diropok', diropres_diropok), None: (None, rpchelp.r_void)}, from_parser=True)
+@dataclass
+class v_diropres:
     status: stat
-    diropok: typing.Optional[v_diropres_diropok] = None
+    diropok: typing.Optional[diropres_diropok] = None
 
 
 diropres.val_base_class = v_diropres
 
 
-@dataclass
-class v_statfsres_info(rpchelp.struct_val_base):
-    tsize: int
-    bsize: int
-    blocks: int
-    bfree: int
-    bavail: int
-
-
-statfsres_info.val_base_class = v_statfsres_info
-
 
 @dataclass
-class v_statfsres(rpchelp.struct_val_base):
+class statfsres_info(rpchelp.struct):
+    tsize: int = rpchelp.rpc_field(rpchelp.r_uint)
+    bsize: int = rpchelp.rpc_field(rpchelp.r_uint)
+    blocks: int = rpchelp.rpc_field(rpchelp.r_uint)
+    bfree: int = rpchelp.rpc_field(rpchelp.r_uint)
+    bavail: int = rpchelp.rpc_field(rpchelp.r_uint)
+
+statfsres = rpchelp.union('statfsres', stat, 'status', {NFS_OK: ('info', statfsres_info), None: (None, rpchelp.r_void)}, from_parser=True)
+@dataclass
+class v_statfsres:
     status: stat
-    info: typing.Optional[v_statfsres_info] = None
+    info: typing.Optional[statfsres_info] = None
 
 
 statfsres.val_base_class = v_statfsres
 
 
+
+nfscookie = rpchelp.opaque(rpchelp.LengthType.FIXED, COOKIESIZE)
 @dataclass
-class v_readdirargs(rpchelp.struct_val_base):
-    dir: bytes
-    cookie: bytes
-    count: int
-
-
-readdirargs.val_base_class = v_readdirargs
-
+class readdirargs(rpchelp.struct):
+    dir: bytes = rpchelp.rpc_field(fhandle)
+    cookie: bytes = rpchelp.rpc_field(nfscookie)
+    count: int = rpchelp.rpc_field(rpchelp.r_uint)
 
 @dataclass
-class v_entry(rpchelp.struct_val_base):
-    fileid: int
-    name: bytes
-    cookie: bytes
-
-
-entry.val_base_class = v_entry
-
+class entry(rpchelp.linked_list):
+    fileid: int = rpchelp.rpc_field(rpchelp.r_uint)
+    name: bytes = rpchelp.rpc_field(filename)
+    cookie: bytes = rpchelp.rpc_field(nfscookie)
 
 @dataclass
-class v_readdirres_readdirok(rpchelp.struct_val_base):
-    entries: typing.List[v_entry]
-    eof: bool
+class readdirres_readdirok(rpchelp.struct):
+    entries: typing.List[entry] = rpchelp.rpc_field(rpchelp.opt_data(entry))
+    eof: bool = rpchelp.rpc_field(rpchelp.r_bool)
 
-
-readdirres_readdirok.val_base_class = v_readdirres_readdirok
-
-
+readdirres = rpchelp.union('readdirres', stat, 'status', {NFS_OK: ('readdirok', readdirres_readdirok), None: (None, rpchelp.r_void)}, from_parser=True)
 @dataclass
-class v_readdirres(rpchelp.struct_val_base):
+class v_readdirres:
     status: stat
-    readdirok: typing.Optional[v_readdirres_readdirok] = None
+    readdirok: typing.Optional[readdirres_readdirok] = None
 
 
 readdirres.val_base_class = v_readdirres
 
 
-@dataclass
-class v_symlinkargs(rpchelp.struct_val_base):
-    from_: v_diropargs
-    to: bytes
-    attributes: v_sattr
-
-
-symlinkargs.val_base_class = v_symlinkargs
-
 
 @dataclass
-class v_linkargs(rpchelp.struct_val_base):
-    from_: bytes
-    to: v_diropargs
-
-
-linkargs.val_base_class = v_linkargs
-
+class symlinkargs(rpchelp.struct):
+    from_: diropargs = rpchelp.rpc_field(diropargs)
+    to: bytes = rpchelp.rpc_field(path)
+    attributes: sattr = rpchelp.rpc_field(sattr)
 
 @dataclass
-class v_renameargs(rpchelp.struct_val_base):
-    from_: v_diropargs
-    to: v_diropargs
-
-
-renameargs.val_base_class = v_renameargs
-
+class linkargs(rpchelp.struct):
+    from_: bytes = rpchelp.rpc_field(fhandle)
+    to: diropargs = rpchelp.rpc_field(diropargs)
 
 @dataclass
-class v_createargs(rpchelp.struct_val_base):
-    where: v_diropargs
-    attributes: v_sattr
-
-
-createargs.val_base_class = v_createargs
-
+class renameargs(rpchelp.struct):
+    from_: diropargs = rpchelp.rpc_field(diropargs)
+    to: diropargs = rpchelp.rpc_field(diropargs)
 
 @dataclass
-class v_writeargs(rpchelp.struct_val_base):
-    file: bytes
-    beginoffset: int
-    offset: int
-    totalcount: int
-    data: bytes
-
-
-writeargs.val_base_class = v_writeargs
-
+class createargs(rpchelp.struct):
+    where: diropargs = rpchelp.rpc_field(diropargs)
+    attributes: sattr = rpchelp.rpc_field(sattr)
 
 @dataclass
-class v_readargs(rpchelp.struct_val_base):
-    file: bytes
-    offset: int
-    count: int
-    totalcount: int
-
-
-readargs.val_base_class = v_readargs
-
+class writeargs(rpchelp.struct):
+    file: bytes = rpchelp.rpc_field(fhandle)
+    beginoffset: int = rpchelp.rpc_field(rpchelp.r_uint)
+    offset: int = rpchelp.rpc_field(rpchelp.r_uint)
+    totalcount: int = rpchelp.rpc_field(rpchelp.r_uint)
+    data: bytes = rpchelp.rpc_field(nfsdata)
 
 @dataclass
-class v_attrdat(rpchelp.struct_val_base):
-    attributes: v_fattr
-    data: bytes
-
-
-attrdat.val_base_class = v_attrdat
-
+class readargs(rpchelp.struct):
+    file: bytes = rpchelp.rpc_field(fhandle)
+    offset: int = rpchelp.rpc_field(rpchelp.r_uint)
+    count: int = rpchelp.rpc_field(rpchelp.r_uint)
+    totalcount: int = rpchelp.rpc_field(rpchelp.r_uint)
 
 @dataclass
-class v_readres(rpchelp.struct_val_base):
+class attrdat(rpchelp.struct):
+    attributes: fattr = rpchelp.rpc_field(fattr)
+    data: bytes = rpchelp.rpc_field(nfsdata)
+
+readres = rpchelp.union('readres', stat, 'status', {NFS_OK: ('attr_and_data', attrdat), None: (None, rpchelp.r_void)}, from_parser=True)
+@dataclass
+class v_readres:
     status: stat
-    attr_and_data: typing.Optional[v_attrdat] = None
+    attr_and_data: typing.Optional[attrdat] = None
 
 
 readres.val_base_class = v_readres
 
 
+
+readlinkres = rpchelp.union('readlinkres', stat, 'status', {NFS_OK: ('data', path), None: (None, rpchelp.r_void)}, from_parser=True)
 @dataclass
-class v_readlinkres(rpchelp.struct_val_base):
+class v_readlinkres:
     status: stat
     data: typing.Optional[bytes] = None
 
@@ -325,17 +240,19 @@ class v_readlinkres(rpchelp.struct_val_base):
 readlinkres.val_base_class = v_readlinkres
 
 
-@dataclass
-class v_sattrargs(rpchelp.struct_val_base):
-    file: bytes
-    attributes: v_sattr
-
-
-sattrargs.val_base_class = v_sattrargs
-
 
 @dataclass
-class v_fhstatus(rpchelp.struct_val_base):
+class sattrargs(rpchelp.struct):
+    file: bytes = rpchelp.rpc_field(fhandle)
+    attributes: sattr = rpchelp.rpc_field(sattr)
+
+
+MNTPATHLEN = 1024
+dirpath = rpchelp.string(rpchelp.LengthType.VAR, MNTPATHLEN)
+name = rpchelp.string(rpchelp.LengthType.VAR, MNTPATHLEN)
+fhstatus = rpchelp.union('fhstatus', rpchelp.r_uint, 'errno', {0: ('directory', fhandle), None: (None, rpchelp.r_void)}, from_parser=True)
+@dataclass
+class v_fhstatus:
     errno: int
     directory: typing.Optional[bytes] = None
 
@@ -343,30 +260,20 @@ class v_fhstatus(rpchelp.struct_val_base):
 fhstatus.val_base_class = v_fhstatus
 
 
-@dataclass
-class v_mountlist(rpchelp.struct_val_base):
-    hostname: bytes
-    directory: bytes
-
-
-mountlist.val_base_class = v_mountlist
-
 
 @dataclass
-class v_grouplist(rpchelp.struct_val_base):
-    grname: bytes
-
-
-grouplist.val_base_class = v_grouplist
-
+class mountlist(rpchelp.linked_list):
+    hostname: bytes = rpchelp.rpc_field(name)
+    directory: bytes = rpchelp.rpc_field(dirpath)
 
 @dataclass
-class v_exportlist(rpchelp.struct_val_base):
-    filesys: bytes
-    groups: typing.List[typing.Union[bytes, v_grouplist]]
+class grouplist(rpchelp.linked_list):
+    grname: bytes = rpchelp.rpc_field(name)
 
-
-exportlist.val_base_class = v_exportlist
+@dataclass
+class exportlist(rpchelp.linked_list):
+    filesys: bytes = rpchelp.rpc_field(dirpath)
+    groups: typing.List[typing.Union[bytes, grouplist]] = rpchelp.rpc_field(grouplist)
 
 
 from pynefs import client
@@ -405,7 +312,7 @@ class NFS_PROGRAM_2_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def SETATTR(self, arg_0: v_sattrargs) -> v_attrstat:
+    def SETATTR(self, arg_0: sattrargs) -> v_attrstat:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -413,7 +320,7 @@ class NFS_PROGRAM_2_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def LOOKUP(self, arg_0: v_diropargs) -> v_diropres:
+    def LOOKUP(self, arg_0: diropargs) -> v_diropres:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -421,7 +328,7 @@ class NFS_PROGRAM_2_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def READ(self, arg_0: v_readargs) -> v_readres:
+    def READ(self, arg_0: readargs) -> v_readres:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -429,39 +336,39 @@ class NFS_PROGRAM_2_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def WRITE(self, arg_0: v_writeargs) -> v_attrstat:
+    def WRITE(self, arg_0: writeargs) -> v_attrstat:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def CREATE(self, arg_0: v_createargs) -> v_diropres:
+    def CREATE(self, arg_0: createargs) -> v_diropres:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def REMOVE(self, arg_0: v_diropargs) -> stat:
+    def REMOVE(self, arg_0: diropargs) -> stat:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def RENAME(self, arg_0: v_renameargs) -> stat:
+    def RENAME(self, arg_0: renameargs) -> stat:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def LINK(self, arg_0: v_linkargs) -> stat:
+    def LINK(self, arg_0: linkargs) -> stat:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def SYMLINK(self, arg_0: v_symlinkargs) -> stat:
+    def SYMLINK(self, arg_0: symlinkargs) -> stat:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def MKDIR(self, arg_0: v_createargs) -> v_diropres:
+    def MKDIR(self, arg_0: createargs) -> v_diropres:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def RMDIR(self, arg_0: v_diropargs) -> stat:
+    def RMDIR(self, arg_0: diropargs) -> stat:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def READDIR(self, arg_0: v_readdirargs) -> v_readdirres:
+    def READDIR(self, arg_0: readdirargs) -> v_readdirres:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -499,49 +406,49 @@ class NFS_PROGRAM_2_CLIENT(client.BaseClient):
     async def GETATTR(self, arg_0: bytes) -> client.UnpackedRPCMsg[v_attrstat]:
         return await self.send_call(1, arg_0)
 
-    async def SETATTR(self, arg_0: v_sattrargs) -> client.UnpackedRPCMsg[v_attrstat]:
+    async def SETATTR(self, arg_0: sattrargs) -> client.UnpackedRPCMsg[v_attrstat]:
         return await self.send_call(2, arg_0)
 
     async def ROOT(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(3, )
 
-    async def LOOKUP(self, arg_0: v_diropargs) -> client.UnpackedRPCMsg[v_diropres]:
+    async def LOOKUP(self, arg_0: diropargs) -> client.UnpackedRPCMsg[v_diropres]:
         return await self.send_call(4, arg_0)
 
     async def READLINK(self, arg_0: bytes) -> client.UnpackedRPCMsg[v_readlinkres]:
         return await self.send_call(5, arg_0)
 
-    async def READ(self, arg_0: v_readargs) -> client.UnpackedRPCMsg[v_readres]:
+    async def READ(self, arg_0: readargs) -> client.UnpackedRPCMsg[v_readres]:
         return await self.send_call(6, arg_0)
 
     async def WRITECACHE(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(7, )
 
-    async def WRITE(self, arg_0: v_writeargs) -> client.UnpackedRPCMsg[v_attrstat]:
+    async def WRITE(self, arg_0: writeargs) -> client.UnpackedRPCMsg[v_attrstat]:
         return await self.send_call(8, arg_0)
 
-    async def CREATE(self, arg_0: v_createargs) -> client.UnpackedRPCMsg[v_diropres]:
+    async def CREATE(self, arg_0: createargs) -> client.UnpackedRPCMsg[v_diropres]:
         return await self.send_call(9, arg_0)
 
-    async def REMOVE(self, arg_0: v_diropargs) -> client.UnpackedRPCMsg[stat]:
+    async def REMOVE(self, arg_0: diropargs) -> client.UnpackedRPCMsg[stat]:
         return await self.send_call(10, arg_0)
 
-    async def RENAME(self, arg_0: v_renameargs) -> client.UnpackedRPCMsg[stat]:
+    async def RENAME(self, arg_0: renameargs) -> client.UnpackedRPCMsg[stat]:
         return await self.send_call(11, arg_0)
 
-    async def LINK(self, arg_0: v_linkargs) -> client.UnpackedRPCMsg[stat]:
+    async def LINK(self, arg_0: linkargs) -> client.UnpackedRPCMsg[stat]:
         return await self.send_call(12, arg_0)
 
-    async def SYMLINK(self, arg_0: v_symlinkargs) -> client.UnpackedRPCMsg[stat]:
+    async def SYMLINK(self, arg_0: symlinkargs) -> client.UnpackedRPCMsg[stat]:
         return await self.send_call(13, arg_0)
 
-    async def MKDIR(self, arg_0: v_createargs) -> client.UnpackedRPCMsg[v_diropres]:
+    async def MKDIR(self, arg_0: createargs) -> client.UnpackedRPCMsg[v_diropres]:
         return await self.send_call(14, arg_0)
 
-    async def RMDIR(self, arg_0: v_diropargs) -> client.UnpackedRPCMsg[stat]:
+    async def RMDIR(self, arg_0: diropargs) -> client.UnpackedRPCMsg[stat]:
         return await self.send_call(15, arg_0)
 
-    async def READDIR(self, arg_0: v_readdirargs) -> client.UnpackedRPCMsg[v_readdirres]:
+    async def READDIR(self, arg_0: readdirargs) -> client.UnpackedRPCMsg[v_readdirres]:
         return await self.send_call(16, arg_0)
 
     async def STATFS(self, arg_0: bytes) -> client.UnpackedRPCMsg[v_statfsres]:
@@ -569,7 +476,7 @@ class MOUNTPROG_1_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def DUMP(self) -> typing.List[v_mountlist]:
+    def DUMP(self) -> typing.List[mountlist]:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -581,7 +488,7 @@ class MOUNTPROG_1_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def EXPORT(self) -> typing.List[v_exportlist]:
+    def EXPORT(self) -> typing.List[exportlist]:
         raise NotImplementedError()
 
 
@@ -603,7 +510,7 @@ class MOUNTPROG_1_CLIENT(client.BaseClient):
     async def MNT(self, arg_0: bytes) -> client.UnpackedRPCMsg[v_fhstatus]:
         return await self.send_call(1, arg_0)
 
-    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[v_mountlist]]:
+    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[mountlist]]:
         return await self.send_call(2, )
 
     async def UMNT(self, arg_0: bytes) -> client.UnpackedRPCMsg[None]:
@@ -612,7 +519,7 @@ class MOUNTPROG_1_CLIENT(client.BaseClient):
     async def UMNTALL(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(4, )
 
-    async def EXPORT(self) -> client.UnpackedRPCMsg[typing.List[v_exportlist]]:
+    async def EXPORT(self) -> client.UnpackedRPCMsg[typing.List[exportlist]]:
         return await self.send_call(5, )
 
-__all__ = ['stat', 'ftype', 'v_timeval', 'v_fattr', 'v_sattr', 'v_attrstat', 'v_diropargs', 'v_diropres_diropok', 'v_diropres', 'v_statfsres_info', 'v_statfsres', 'v_readdirargs', 'v_entry', 'v_readdirres_readdirok', 'v_readdirres', 'v_symlinkargs', 'v_linkargs', 'v_renameargs', 'v_createargs', 'v_writeargs', 'v_readargs', 'v_attrdat', 'v_readres', 'v_readlinkres', 'v_sattrargs', 'v_fhstatus', 'v_mountlist', 'v_grouplist', 'v_exportlist', 'NFS_PROGRAM_2_SERVER', 'MOUNTPROG_1_SERVER', 'TRUE', 'FALSE', 'NFS_OK', 'NFSERR_PERM', 'NFSERR_NOENT', 'NFSERR_IO', 'NFSERR_NXIO', 'NFSERR_ACCES', 'NFSERR_EXIST', 'NFSERR_NODEV', 'NFSERR_NOTDIR', 'NFSERR_ISDIR', 'NFSERR_FBIG', 'NFSERR_NOSPC', 'NFSERR_ROFS', 'NFSERR_NAMETOOLONG', 'NFSERR_NOTEMPTY', 'NFSERR_DQUOT', 'NFSERR_STALE', 'NFSERR_WFLUSH', 'NFNON', 'NFREG', 'NFDIR', 'NFBLK', 'NFCHR', 'NFLNK', 'MAXDATA', 'MAXPATHLEN', 'MAXNAMLEN', 'COOKIESIZE', 'FHSIZE', 'MNTPATHLEN']
+__all__ = ['stat', 'ftype', 'timeval', 'fattr', 'sattr', 'v_attrstat', 'diropargs', 'diropres_diropok', 'v_diropres', 'statfsres_info', 'v_statfsres', 'readdirargs', 'entry', 'readdirres_readdirok', 'v_readdirres', 'symlinkargs', 'linkargs', 'renameargs', 'createargs', 'writeargs', 'readargs', 'attrdat', 'v_readres', 'v_readlinkres', 'sattrargs', 'v_fhstatus', 'mountlist', 'grouplist', 'exportlist', 'NFS_PROGRAM_2_SERVER', 'MOUNTPROG_1_SERVER', 'TRUE', 'FALSE', 'MAXDATA', 'MAXPATHLEN', 'MAXNAMLEN', 'COOKIESIZE', 'FHSIZE', 'NFS_OK', 'NFSERR_PERM', 'NFSERR_NOENT', 'NFSERR_IO', 'NFSERR_NXIO', 'NFSERR_ACCES', 'NFSERR_EXIST', 'NFSERR_NODEV', 'NFSERR_NOTDIR', 'NFSERR_ISDIR', 'NFSERR_FBIG', 'NFSERR_NOSPC', 'NFSERR_ROFS', 'NFSERR_NAMETOOLONG', 'NFSERR_NOTEMPTY', 'NFSERR_DQUOT', 'NFSERR_STALE', 'NFSERR_WFLUSH', 'NFNON', 'NFREG', 'NFDIR', 'NFBLK', 'NFCHR', 'NFLNK', 'MNTPATHLEN']

@@ -33,13 +33,21 @@
 
 import abc
 import dataclasses
+import enum
 import enum as py_enum
 import typing
 import xdrlib
 
 
-fixed = 1
-var = 0
+def isinstance_or_subclass(val, to_check):
+    if isinstance(val, to_check):
+        return True
+    return isinstance(val, type) and issubclass(val, to_check)
+
+
+class LengthType(enum.IntEnum):
+    VAR = 0
+    FIXED = 1
 
 
 class LengthMismatchException(Exception):
@@ -69,32 +77,24 @@ class arr(packable):
     """Pack and unpack a fixed-length or variable-length array,
     both corresponding to a Python list"""
 
-    def __init__(self, base_type, fixed_len, length=None):
-        self.base_type = base_type
+    def __init__(self, base_typ, fixed_len, length=None):
+        self.base_type: packable = base_typ
         self.fixed_len = fixed_len
         self.length = length
         assert (not (fixed_len and length is None))
 
     def type_hint(self):
-        inner_hint_func = getattr(self.base_type, 'type_hint')
-        if getattr(base_type, 'override', False):
-            return inner_hint_func()
-        return f"typing.List[{inner_hint_func()}]"
-
-    def check_pack_len(self, v):
-        if self.fixed_len and self.length is not None:
-            # if it's a fixed type, xdrlib checks
-            val_len = len(v)
-            if val_len > self.length:
-                raise LengthMismatchException(self.length, val_len)
+        return f"typing.List[{self.base_type.type_hint()}]"
 
     def pack(self, p, val):
         def pack_one(v):
             self.base_type.pack(p, v)
 
-        self.check_pack_len(val)
         if self.fixed_len:
-            p.pack_farray(len(val), val, pack_one)
+            val_len = len(val)
+            if val_len > self.length:
+                raise LengthMismatchException(self.length, val_len)
+            p.pack_farray(val_len, val, pack_one)
         else:
             p.pack_array(val, pack_one)
 
@@ -108,22 +108,24 @@ class arr(packable):
             return up.unpack_array(unpack_one)
 
 
-class opaque_or_string(arr):
+class opaque_or_string(packable):
     """Pack and unpack an opaque or string type, both corresponding
     to a Python string"""
 
     def __init__(self, fixed_len, length=None):
-        super().__init__(bytes, fixed_len, length)
+        self.length = length
+        self.fixed_len = fixed_len
         assert (not (fixed_len and length is None))
 
     @classmethod
     def type_hint(cls):
         return "bytes"
-    type_hint.override = True
 
     def pack(self, p, val):
-        self.check_pack_len(val)
         if self.fixed_len:
+            val_len = len(val)
+            if val_len > self.length:
+                raise LengthMismatchException(self.length, val_len)
             p.pack_fopaque(len(val), val)
         else:
             p.pack_opaque(val)
@@ -140,107 +142,69 @@ opaque = opaque_or_string
 string = opaque_or_string
 
 
-class struct_val_base:
-    """Base class for struct or union data.  The packing code for
-    struct or union types doesn't require values to be derived
-    from this class, but it does provide some minor conveniences."""
-
-    def __init__(self, **kw):
-        for k, v in kw.items():
-            setattr(self, k, v)
-
-    def __repr__(self):
-        if hasattr(self, '__slots__'):
-            member_dict = dict(
-                (k, getattr(self, k, None))
-                for k in self.__slots__
-            )
-        else:
-            member_dict = self.__dict__
-        return f"<{self.__class__.__name__}: {member_dict!r}>"
-
-    def __str__(self):
-        return repr(self)
+PACKABLE_OR_PACKABLE_CLASS = typing.Union["packable", typing.Type["packable"]]
 
 
-def struct_val_factory(class_name, class_dict):
-    """Create a class type with name class_name, descended from
-    struct_or_union_base and object, to be a factory for instantiating
-    struct/union values."""
-    return type(class_name, (struct_val_base,), class_dict)
+def rpc_field(serializer: PACKABLE_OR_PACKABLE_CLASS):
+    return dataclasses.field(metadata={"serializer": serializer})
 
 
-class struct_base(packable):
-    """Base class for packing/unpacking structs/unions"""
-    name: str
-    nested_defs_list: typing.List
+@dataclasses.dataclass
+class struct(packable, abc.ABC):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-    def __init__(self, name, elt_list):
-        self.name = name
-        self.elt_list = elt_list
-        # Will only be used for dynamically constructed structs
-        self.val_base_class = self.mk_val_class()
+    @classmethod
+    def get_fields(cls) -> typing.Tuple[dataclasses.Field]:
+        return dataclasses.fields(cls)
 
-    @property
-    def val_name(self):
-        return "v_" + self.name
+    @classmethod
+    def have_single_field(cls):
+        return len(cls.get_fields()) == 1
 
-    def _base_mk_val_class(self, member_names, nested_typ_list):
-        class_dict = {'__slots__': member_names}
-        for typ in nested_typ_list:
-            if isinstance(typ, struct_base):
-                class_dict[typ.name] = typ
-        return struct_val_factory(self.val_name, class_dict)
-
-    def mk_val_class(self) -> typing.Type:
-        member_names = [elt[0] for elt in self.elt_list]
-        return self._base_mk_val_class(member_names, [elt[1] for elt in self.elt_list])
-
-    def __call__(self, **kw):
-        return self.val_base_class(**kw)
-
-
-class struct(struct_base):
-    """Pack and unpack an instance with member names as given
-    by the structure definition."""
-
-    @property
-    def single_elem(self):
-        return len(self.elt_list) == 1
-
-    def type_hint(self, want_single=False) -> str:
-        # If we're a single elem struct (like a linked list) we just
-        # (un)pack the bare value
-        val_name = self.val_base_class.__name__
-        if self.single_elem and want_single:
-            return f"typing.Union[{self.elt_list[0][1].type_hint()}, {val_name}]"
-        return val_name
-
-    def pack(self, p, val, want_single=False):
-        if self.single_elem and want_single:
-            self.elt_list[0][1].pack(p, val)
+    @classmethod
+    def pack(cls, p, val, want_single=False):
+        if cls.have_single_field() and want_single:
+            cls.get_fields()[0].metadata["serializer"].pack(p, val)
             return
 
-        for (nm, typ) in self.elt_list:
-            typ.pack(p, getattr(val, nm))
+        for field in cls.get_fields():
+            field.metadata["serializer"].pack(p, getattr(val, field.name))
 
-    def unpack(self, up, want_single=False):
-        if self.single_elem and want_single:
-            return self.elt_list[0][1].unpack(up)
-        return self(**{nm: typ.unpack(up) for nm, typ in self.elt_list})
+    @classmethod
+    def unpack(cls, up, want_single=False):
+        fields = cls.get_fields()
+        if cls.have_single_field() and want_single:
+            return fields[0].metadata["serializer"].unpack(up)
+        return cls(
+            **{f.name: f.metadata["serializer"].unpack(up) for f in fields}
+        )
+
+    @classmethod
+    def type_hint(cls, want_single=False) -> str:
+        # If we're a single elem struct (like a linked list) we just
+        # (un)pack the bare value
+        if cls.have_single_field() and want_single:
+            first_type = cls.get_fields()[0].metadata["serializer"]
+            type_hint = first_type.type_hint()
+            return f"typing.Union[{type_hint}, {cls.__name__}]"
+        return cls.__name__
 
 
-class linked_list(struct):
+class linked_list(struct, abc.ABC):
     """Pack and unpack an XDR linked list as a Python list."""
 
-    def type_hint(self, want_single=True) -> str:
+    @classmethod
+    def type_hint(cls, want_single=True) -> str:
         return f"typing.List[{super().type_hint(want_single)}]"
 
-    def pack(self, p, val_list, want_single=True):
-        return p.pack_list(val_list, lambda val: super(linked_list, self).pack(p, val, want_single))
+    @classmethod
+    def pack(cls, p, val_list, want_single=True):
+        return p.pack_list(val_list, lambda val: super(linked_list, cls).pack(p, val, want_single))
 
-    def unpack(self, up, want_single=True):
-        return up.unpack_list(lambda: super(linked_list, self).unpack(up, want_single))
+    @classmethod
+    def unpack(cls, up, want_single=True):
+        return up.unpack_list(lambda: super(linked_list, cls).unpack(up, want_single))
 
 
 class union(packable):
@@ -346,7 +310,7 @@ class opt_data(packable):
 
     @property
     def is_linked_list(self):
-        return isinstance(self.typ, linked_list)
+        return isinstance_or_subclass(self.typ, linked_list)
 
     def type_hint(self) -> str:
         # Ugh. Gross special case because of ambiguity in the IDL.

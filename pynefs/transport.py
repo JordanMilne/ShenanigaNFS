@@ -5,10 +5,9 @@ import xdrlib
 from io import BytesIO
 from typing import *
 
-from pynefs.generated.rfc1831 import *
 from pynefs.generated.rfc1831 import rpc_msg
 
-SPLIT_MSG = Tuple[v_rpc_msg, bytes]
+SPLIT_MSG = Tuple[rpc_msg, bytes]
 
 
 class BaseTransport(abc.ABC):
@@ -28,7 +27,7 @@ class BaseTransport(abc.ABC):
     def close(self):
         pass
 
-    async def write_msg(self, header: v_rpc_msg, body: bytes) -> None:
+    async def write_msg(self, header: rpc_msg, body: bytes) -> None:
         p = xdrlib.Packer()
         rpc_msg.pack(p, header)
         p.pack_fstring(len(body), body)

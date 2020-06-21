@@ -98,7 +98,9 @@ Neither seems to be defined in the grammar, but I should support them,
 and look around for an updated IDL specification.
 """
 import abc
+import os
 import re
+import string
 import sys
 
 import typing
@@ -214,9 +216,35 @@ def t_error(t):
 lexer = lex.lex()
 
 
+class RecasedName(str):
+    pass
+
+
 class Ctx:
-    def __init__(self):
+    # mostly specific to RPC2 / NFS
+    NAME_REPLACEMENTS: typing.List[typing.Tuple[typing.Any, str]] = [
+        (r"ok(\d*)$", r"OK\1"),
+        (r"fail(\d*)$", r"Fail\1"),
+        (r"rpc", r"RPC"),
+        (r"rpcb", r"RPCB"),
+        (r"nfs", r"NFS"),
+        (r"attr(\d*)$", r"Attr\1"),
+        (r"data(\d*)$", r"Data\1"),
+        (r"stat(\d*)$", r"Stat\1"),
+        (r"time(\d*)$", r"Time\1"),
+        (r"args(\d*)$", r"Args\1"),
+        (r"handle(\d*)$", r"Handle\1"),
+        (r"path(\d*)$", r"Path\1"),
+        (r"list(\d*)$", r"List\1"),
+        (r"res(\d*)$", r"Res\1"),
+        (r"status(\d*)$", r"Status\1"),
+        (r"dat(\d*)$", r"Dat\1"),
+        (r"^fh", r"FH"),
+    ]
+
+    def __init__(self, remap_names=False):
         self.indent = 0
+        self.remap_names = remap_names
         self.deferred_list = []  # used for deferring nested Enum definitions
         self.progs: typing.List["Program"] = []
         self.type_mapping: typing.Dict[str, rpchelp.PACKABLE_OR_PACKABLE_CLASS] = {}
@@ -236,6 +264,27 @@ class Ctx:
             print(self.locals, file=sys.stderr)
             raise
 
+    def get_name(self, name: str):
+        if not self.remap_names:
+            return name
+        if isinstance(name, RecasedName):
+            return name
+        if "." in name or name in reserved_tuple or name in types:
+            return name
+        if not any(x in string.ascii_lowercase for x in name):
+            return name
+
+        no_underscore = name.replace("_", "")
+        name = name.title().replace("_", "")
+        for regex, replace in self.NAME_REPLACEMENTS:
+            if not isinstance(regex, re.Pattern):
+                regex = re.compile(regex, re.I)
+            name = regex.sub(replace, name)
+
+        # Never make a character that was uppercase lowercase
+        name = ''.join(min(old, new) for old, new in zip(no_underscore, name))
+        return name
+
     def defer(self, val):
         self.deferred_list.append(val)
 
@@ -249,7 +298,7 @@ class Ctx:
         self.type_mapping.clear()
         self.const_mapping.clear()
         for name, val in self.locals.items():
-            if rpchelp.isinstance_or_subclass(val, rpchelp.packable):
+            if rpchelp.isinstance_or_subclass(val, rpchelp.Packable):
                 self.type_mapping[name] = val
             elif isinstance(val, int):
                 self.const_mapping[name] = val
@@ -368,7 +417,7 @@ class ArrType(Node):
 
         if is_string:
             return 'rpchelp.%s(%s, %s)' % (typ, var_fixed, self.maxind)
-        return 'rpchelp.arr(%s, %s, %s)' % (
+        return 'rpchelp.Array(%s, %s, %s)' % (
             typ.to_str(ctx), var_fixed, self.maxind)
 
 
@@ -379,7 +428,7 @@ class OptData(Node):
         Node.__init__(self)
 
     def to_str(self, ctx):
-        return 'rpchelp.opt_data(%s)' % (self.type_spec.to_str(ctx))
+        return 'rpchelp.OptData(%s)' % (self.type_spec.to_str(ctx))
 
 
 class TypeSpec(Node):
@@ -408,7 +457,7 @@ class TypeSpec(Node):
         else:
             if self.compound:
                 return self.val.to_str(ctx)
-            return self.val
+            return ctx.get_name(self.val)
 
 
 class Enum(Node):
@@ -464,10 +513,10 @@ class StructList(NodeList):
                 have_tail_pointer = True
             else:
                 children.append((decl.ident, decl.to_str(ctx)))
-        class_name = "struct"
+        class_name = "Struct"
         if have_tail_pointer:
-            class_name = "linked_list"
-        buf = f"\n\n\n@dataclass\nclass {self.name}(rpchelp.{class_name}):\n"
+            class_name = "LinkedList"
+        buf = f"\n\n\n@dataclass\nclass {ctx.get_name(self.name)}(rpchelp.{class_name}):  # {self.name}\n"
         for field in children:
             field_type = eval(field[1], globals(), ctx.locals)
             field_data = ' = rpchelp.rpc_field(%s)' % field[1]
@@ -496,7 +545,7 @@ class UnionBody(Node):
         Node.__init__(self)
 
     def to_str(self, ctx):
-        buf = f"\n\n\n@dataclass\nclass {self.name}(rpchelp.union):\n"
+        buf = f"\n\n\n@dataclass\nclass {ctx.get_name(self.name)}(rpchelp.Union):  # {self.name}\n"
         fields = {k: v for (k, v) in self.body.to_fields(ctx)}
         switch_options = ", ".join("%s: %r" % (k, v[0]) for (k, v) in fields.items())
         buf += f"\tSWITCH_OPTIONS = {{{switch_options}}}\n"
@@ -585,7 +634,7 @@ class Const(Node):
         self.val = val
 
     def to_str(self, ctx):
-        val = '%s = %s' % (self.ident, self.val)
+        val = '%s = %s' % (ctx.get_name(self.ident), self.val)
         ctx.exec(val)
         return val
 
@@ -601,7 +650,7 @@ class TypeDef(Node):
             # semantically useful.
             return '# "typedef void;" encountered'
         typestr = self.decl.to_str(ctx)
-        val = '%s = %s' % (self.decl.ident, typestr)
+        val = '%s = %s' % (ctx.get_name(self.decl.ident), typestr)
         ctx.exec(val)
         return val
 
@@ -615,9 +664,9 @@ class TypeDefCompound(Node):
         self.body = body
 
     def to_str(self, ctx):
-        params = (self.ident, self.body.to_str(ctx))
+        params = (ctx.get_name(self.ident), self.body.to_str(ctx))
         if self.typ == "enum":
-            val = "\n\n\nclass %s(rpchelp.enum):\n%s\n\n\n" % params
+            val = "\n\n\nclass %s(rpchelp.Enum):  # %s\n%s\n\n\n" % (params[0], self.ident, params[1])
         elif self.typ in ("struct", "union"):
             val = params[1]
         else:
@@ -650,7 +699,7 @@ class Program(Node):
         def _get_type(p_typ):
             if p_typ.base:
                 return getattr(rpchelp, 'r_' + p_typ.val)
-            return ctx.type_mapping[p_typ.val]
+            return ctx.type_mapping[ctx.get_name(p_typ.val)]
 
         for proc in vers.proc_defs.children:
             if not as_client:
@@ -1025,16 +1074,16 @@ class StructHoistingVisitor(NodeVisitor):
         root = self.node_stack[0]
         base_typedef = self.node_stack[-4]
 
+        # XXX: How do we handle naming conflicts anyways? Can there be any?
+
         # Extract the struct def and create a new top-level node for it
-        new_name = f"{base_typedef.ident}_{typ_spec.val.body.name}"
         struct_val = typ_spec.val
-        struct_val.body.name = new_name
         new_typ_spec = TypeDefCompound(struct_val.body.name, "struct", struct_val.body)
 
         # Have the union reference this instead
         typ_spec.base = False
         typ_spec.compound = False
-        typ_spec.val = new_name
+        typ_spec.val = struct_val.body.name
 
         # Insert the struct just before the union
         root.children.insert(root.children.index(base_typedef), new_typ_spec)
@@ -1042,7 +1091,7 @@ class StructHoistingVisitor(NodeVisitor):
 
 def test(s):
     ast = parser.parse(s)
-    ctx = Ctx()
+    ctx = Ctx(os.environ.get("REMAP_NAMES") == "1")
     hoister = StructHoistingVisitor(ctx)
     ast.visit(hoister)
 

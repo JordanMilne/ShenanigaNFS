@@ -67,26 +67,26 @@ NFS3_FHSIZE = 64
 NFS3_COOKIEVERFSIZE = 8
 NFS3_CREATEVERFSIZE = 8
 NFS3_WRITEVERFSIZE = 8
-uint64 = rpchelp.r_uhyper
-int64 = rpchelp.r_hyper
-uint32 = rpchelp.r_uint
-int32 = rpchelp.r_int
-filename3 = rpchelp.string(rpchelp.LengthType.VAR, None)
-nfspath3 = rpchelp.string(rpchelp.LengthType.VAR, None)
-fileid3 = uint64
-cookie3 = uint64
-cookieverf3 = rpchelp.opaque(rpchelp.LengthType.FIXED, NFS3_COOKIEVERFSIZE)
-createverf3 = rpchelp.opaque(rpchelp.LengthType.FIXED, NFS3_CREATEVERFSIZE)
-writeverf3 = rpchelp.opaque(rpchelp.LengthType.FIXED, NFS3_WRITEVERFSIZE)
-uid3 = uint32
-gid3 = uint32
-size3 = uint64
-offset3 = uint64
-mode3 = uint32
-count3 = uint32
+Uint64 = rpchelp.r_uhyper
+Int64 = rpchelp.r_hyper
+Uint32 = rpchelp.r_uint
+Int32 = rpchelp.r_int
+Filename3 = rpchelp.string(rpchelp.LengthType.VAR, None)
+NFSPath3 = rpchelp.string(rpchelp.LengthType.VAR, None)
+Fileid3 = Uint64
+Cookie3 = Uint64
+Cookieverf3 = rpchelp.opaque(rpchelp.LengthType.FIXED, NFS3_COOKIEVERFSIZE)
+Createverf3 = rpchelp.opaque(rpchelp.LengthType.FIXED, NFS3_CREATEVERFSIZE)
+Writeverf3 = rpchelp.opaque(rpchelp.LengthType.FIXED, NFS3_WRITEVERFSIZE)
+Uid3 = Uint32
+Gid3 = Uint32
+Size3 = Uint64
+Offset3 = Uint64
+Mode3 = Uint32
+Count3 = Uint32
 
 
-class nfsstat3(rpchelp.enum):
+class NFSStat3(rpchelp.Enum):  # nfsstat3
     NFS3_OK = 0
     NFS3ERR_PERM = 1
     NFS3ERR_NOENT = 2
@@ -118,7 +118,7 @@ class nfsstat3(rpchelp.enum):
     NFS3ERR_JUKEBOX = 10008
 
 
-class ftype3(rpchelp.enum):
+class Ftype3(rpchelp.Enum):  # ftype3
     NF3REG = 1
     NF3DIR = 2
     NF3BLK = 3
@@ -129,171 +129,171 @@ class ftype3(rpchelp.enum):
 
 
 @dataclass
-class specdata3(rpchelp.struct):
-    specdata1: int = rpchelp.rpc_field(uint32)
-    specdata2: int = rpchelp.rpc_field(uint32)
+class SpecData3(rpchelp.Struct):  # specdata3
+    specdata1: int = rpchelp.rpc_field(Uint32)
+    specdata2: int = rpchelp.rpc_field(Uint32)
 
 
-nfs_fh3 = rpchelp.opaque(rpchelp.LengthType.VAR, NFS3_FHSIZE)
-
-
-@dataclass
-class nfstime3(rpchelp.struct):
-    seconds: int = rpchelp.rpc_field(uint32)
-    nseconds: int = rpchelp.rpc_field(uint32)
+NFSFh3 = rpchelp.opaque(rpchelp.LengthType.VAR, NFS3_FHSIZE)
 
 
 @dataclass
-class fattr3(rpchelp.struct):
-    type: ftype3 = rpchelp.rpc_field(ftype3)
-    mode: int = rpchelp.rpc_field(mode3)
-    nlink: int = rpchelp.rpc_field(uint32)
-    uid: int = rpchelp.rpc_field(uid3)
-    gid: int = rpchelp.rpc_field(gid3)
-    size: int = rpchelp.rpc_field(size3)
-    used: int = rpchelp.rpc_field(size3)
-    rdev: specdata3 = rpchelp.rpc_field(specdata3)
-    fsid: int = rpchelp.rpc_field(uint64)
-    fileid: int = rpchelp.rpc_field(fileid3)
-    atime: nfstime3 = rpchelp.rpc_field(nfstime3)
-    mtime: nfstime3 = rpchelp.rpc_field(nfstime3)
-    ctime: nfstime3 = rpchelp.rpc_field(nfstime3)
+class NFSTime3(rpchelp.Struct):  # nfstime3
+    seconds: int = rpchelp.rpc_field(Uint32)
+    nseconds: int = rpchelp.rpc_field(Uint32)
 
 
 @dataclass
-class wcc_attr(rpchelp.struct):
-    size: int = rpchelp.rpc_field(size3)
-    mtime: nfstime3 = rpchelp.rpc_field(nfstime3)
-    ctime: nfstime3 = rpchelp.rpc_field(nfstime3)
-
-
-post_op_attr = rpchelp.opt_data(fattr3)
-pre_op_attr = rpchelp.opt_data(wcc_attr)
+class FAttr3(rpchelp.Struct):  # fattr3
+    type: typing.Union[Ftype3, int] = rpchelp.rpc_field(Ftype3)
+    mode: int = rpchelp.rpc_field(Mode3)
+    nlink: int = rpchelp.rpc_field(Uint32)
+    uid: int = rpchelp.rpc_field(Uid3)
+    gid: int = rpchelp.rpc_field(Gid3)
+    size: int = rpchelp.rpc_field(Size3)
+    used: int = rpchelp.rpc_field(Size3)
+    rdev: SpecData3 = rpchelp.rpc_field(SpecData3)
+    fsid: int = rpchelp.rpc_field(Uint64)
+    fileid: int = rpchelp.rpc_field(Fileid3)
+    atime: NFSTime3 = rpchelp.rpc_field(NFSTime3)
+    mtime: NFSTime3 = rpchelp.rpc_field(NFSTime3)
+    ctime: NFSTime3 = rpchelp.rpc_field(NFSTime3)
 
 
 @dataclass
-class wcc_data(rpchelp.struct):
-    before: typing.Optional[wcc_attr] = rpchelp.rpc_field(pre_op_attr)
-    after: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
+class WccAttr(rpchelp.Struct):  # wcc_attr
+    size: int = rpchelp.rpc_field(Size3)
+    mtime: NFSTime3 = rpchelp.rpc_field(NFSTime3)
+    ctime: NFSTime3 = rpchelp.rpc_field(NFSTime3)
 
 
-post_op_fh3 = rpchelp.opt_data(nfs_fh3)
+PostOpAttr = rpchelp.OptData(FAttr3)
+PreOpAttr = rpchelp.OptData(WccAttr)
 
 
-class time_how(rpchelp.enum):
+@dataclass
+class WccData(rpchelp.Struct):  # wcc_data
+    before: typing.Optional[WccAttr] = rpchelp.rpc_field(PreOpAttr)
+    after: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
+
+
+PostOpFh3 = rpchelp.OptData(NFSFh3)
+
+
+class TimeHow(rpchelp.Enum):  # time_how
     DONT_CHANGE = 0
     SET_TO_SERVER_TIME = 1
     SET_TO_CLIENT_TIME = 2
 
 
-set_mode3 = rpchelp.opt_data(mode3)
-set_uid3 = rpchelp.opt_data(uid3)
-set_gid3 = rpchelp.opt_data(gid3)
-set_size3 = rpchelp.opt_data(size3)
+SetMode3 = rpchelp.OptData(Mode3)
+SetUid3 = rpchelp.OptData(Uid3)
+SetGid3 = rpchelp.OptData(Gid3)
+SetSize3 = rpchelp.OptData(Size3)
 
 
 @dataclass
-class set_atime(rpchelp.union):
+class SetATime(rpchelp.Union):  # set_atime
     SWITCH_OPTIONS = {SET_TO_CLIENT_TIME: 'atime', None: None}
-    set_it: time_how = rpchelp.rpc_field(time_how)
-    atime: typing.Optional[nfstime3] = rpchelp.rpc_field(nfstime3, default=None)
+    set_it: typing.Union[TimeHow, int] = rpchelp.rpc_field(TimeHow)
+    atime: typing.Optional[NFSTime3] = rpchelp.rpc_field(NFSTime3, default=None)
 
 
 @dataclass
-class set_mtime(rpchelp.union):
+class SetMTime(rpchelp.Union):  # set_mtime
     SWITCH_OPTIONS = {SET_TO_CLIENT_TIME: 'mtime', None: None}
-    set_it: time_how = rpchelp.rpc_field(time_how)
-    mtime: typing.Optional[nfstime3] = rpchelp.rpc_field(nfstime3, default=None)
+    set_it: typing.Union[TimeHow, int] = rpchelp.rpc_field(TimeHow)
+    mtime: typing.Optional[NFSTime3] = rpchelp.rpc_field(NFSTime3, default=None)
 
 
 @dataclass
-class sattr3(rpchelp.struct):
-    mode: typing.Optional[int] = rpchelp.rpc_field(set_mode3)
-    uid: typing.Optional[int] = rpchelp.rpc_field(set_uid3)
-    gid: typing.Optional[int] = rpchelp.rpc_field(set_gid3)
-    size: typing.Optional[int] = rpchelp.rpc_field(set_size3)
-    atime: set_atime = rpchelp.rpc_field(set_atime)
-    mtime: set_mtime = rpchelp.rpc_field(set_mtime)
+class SAttr3(rpchelp.Struct):  # sattr3
+    mode: typing.Optional[int] = rpchelp.rpc_field(SetMode3)
+    uid: typing.Optional[int] = rpchelp.rpc_field(SetUid3)
+    gid: typing.Optional[int] = rpchelp.rpc_field(SetGid3)
+    size: typing.Optional[int] = rpchelp.rpc_field(SetSize3)
+    atime: SetATime = rpchelp.rpc_field(SetATime)
+    mtime: SetMTime = rpchelp.rpc_field(SetMTime)
 
 
 @dataclass
-class diropargs3(rpchelp.struct):
-    dir_handle: bytes = rpchelp.rpc_field(nfs_fh3)
-    name: bytes = rpchelp.rpc_field(filename3)
+class DiropArgs3(rpchelp.Struct):  # diropargs3
+    dir_handle: bytes = rpchelp.rpc_field(NFSFh3)
+    name: bytes = rpchelp.rpc_field(Filename3)
 
 
 @dataclass
-class GETATTR3args(rpchelp.struct):
-    obj_handle: bytes = rpchelp.rpc_field(nfs_fh3)
+class GETATTR3Args(rpchelp.Struct):  # GETATTR3args
+    obj_handle: bytes = rpchelp.rpc_field(NFSFh3)
 
 
 @dataclass
-class GETATTR3resok(rpchelp.struct):
-    obj_attributes: fattr3 = rpchelp.rpc_field(fattr3)
+class GETATTR3ResOK(rpchelp.Struct):  # GETATTR3resok
+    obj_attributes: FAttr3 = rpchelp.rpc_field(FAttr3)
 
 
 @dataclass
-class GETATTR3res(rpchelp.union):
+class GETATTR3Res(rpchelp.Union):  # GETATTR3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: None}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resok: typing.Optional[GETATTR3resok] = rpchelp.rpc_field(GETATTR3resok, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resok: typing.Optional[GETATTR3ResOK] = rpchelp.rpc_field(GETATTR3ResOK, default=None)
 
 
 @dataclass
-class sattrguard3(rpchelp.union):
+class Sattrguard3(rpchelp.Union):  # sattrguard3
     SWITCH_OPTIONS = {TRUE: 'obj_ctime', FALSE: None}
     check: bool = rpchelp.rpc_field(rpchelp.r_bool)
-    obj_ctime: typing.Optional[nfstime3] = rpchelp.rpc_field(nfstime3, default=None)
+    obj_ctime: typing.Optional[NFSTime3] = rpchelp.rpc_field(NFSTime3, default=None)
 
 
 @dataclass
-class SETATTR3args(rpchelp.struct):
-    obj_handle: bytes = rpchelp.rpc_field(nfs_fh3)
-    new_attributes: sattr3 = rpchelp.rpc_field(sattr3)
-    guard: sattrguard3 = rpchelp.rpc_field(sattrguard3)
+class SETATTR3Args(rpchelp.Struct):  # SETATTR3args
+    obj_handle: bytes = rpchelp.rpc_field(NFSFh3)
+    new_attributes: SAttr3 = rpchelp.rpc_field(SAttr3)
+    guard: Sattrguard3 = rpchelp.rpc_field(Sattrguard3)
 
 
 @dataclass
-class SETATTR3resok(rpchelp.struct):
-    obj_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class SETATTR3ResOK(rpchelp.Struct):  # SETATTR3resok
+    obj_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class SETATTR3resfail(rpchelp.struct):
-    obj_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class SETATTR3ResFail(rpchelp.Struct):  # SETATTR3resfail
+    obj_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class SETATTR3res(rpchelp.union):
+class SETATTR3Res(rpchelp.Union):  # SETATTR3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resok: typing.Optional[SETATTR3resok] = rpchelp.rpc_field(SETATTR3resok, default=None)
-    resfail: typing.Optional[SETATTR3resfail] = rpchelp.rpc_field(SETATTR3resfail, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resfail: typing.Optional[SETATTR3ResFail] = rpchelp.rpc_field(SETATTR3ResFail, default=None)
+    resok: typing.Optional[SETATTR3ResOK] = rpchelp.rpc_field(SETATTR3ResOK, default=None)
 
 
 @dataclass
-class LOOKUP3args(rpchelp.struct):
-    what: diropargs3 = rpchelp.rpc_field(diropargs3)
+class LOOKUP3Args(rpchelp.Struct):  # LOOKUP3args
+    what: DiropArgs3 = rpchelp.rpc_field(DiropArgs3)
 
 
 @dataclass
-class LOOKUP3resok(rpchelp.struct):
-    obj_handle: bytes = rpchelp.rpc_field(nfs_fh3)
-    obj_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
-    dir_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
+class LOOKUP3ResOK(rpchelp.Struct):  # LOOKUP3resok
+    obj_handle: bytes = rpchelp.rpc_field(NFSFh3)
+    obj_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
+    dir_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
 
 
 @dataclass
-class LOOKUP3resfail(rpchelp.struct):
-    dir_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
+class LOOKUP3ResFail(rpchelp.Struct):  # LOOKUP3resfail
+    dir_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
 
 
 @dataclass
-class LOOKUP3res(rpchelp.union):
+class LOOKUP3Res(rpchelp.Union):  # LOOKUP3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resok: typing.Optional[LOOKUP3resok] = rpchelp.rpc_field(LOOKUP3resok, default=None)
-    resfail: typing.Optional[LOOKUP3resfail] = rpchelp.rpc_field(LOOKUP3resfail, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resfail: typing.Optional[LOOKUP3ResFail] = rpchelp.rpc_field(LOOKUP3ResFail, default=None)
+    resok: typing.Optional[LOOKUP3ResOK] = rpchelp.rpc_field(LOOKUP3ResOK, default=None)
 
 
 ACCESS3_READ = 0x0001
@@ -305,469 +305,469 @@ ACCESS3_EXECUTE = 0x0020
 
 
 @dataclass
-class ACCESS3args(rpchelp.struct):
-    obj_handle: bytes = rpchelp.rpc_field(nfs_fh3)
-    access: int = rpchelp.rpc_field(uint32)
+class ACCESS3Args(rpchelp.Struct):  # ACCESS3args
+    obj_handle: bytes = rpchelp.rpc_field(NFSFh3)
+    access: int = rpchelp.rpc_field(Uint32)
 
 
 @dataclass
-class ACCESS3resok(rpchelp.struct):
-    obj_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
-    access: int = rpchelp.rpc_field(uint32)
+class ACCESS3ResOK(rpchelp.Struct):  # ACCESS3resok
+    obj_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
+    access: int = rpchelp.rpc_field(Uint32)
 
 
 @dataclass
-class ACCESS3resfail(rpchelp.struct):
-    obj_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
+class ACCESS3ResFail(rpchelp.Struct):  # ACCESS3resfail
+    obj_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
 
 
 @dataclass
-class ACCESS3res(rpchelp.union):
+class ACCESS3Res(rpchelp.Union):  # ACCESS3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resok: typing.Optional[ACCESS3resok] = rpchelp.rpc_field(ACCESS3resok, default=None)
-    resfail: typing.Optional[ACCESS3resfail] = rpchelp.rpc_field(ACCESS3resfail, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resok: typing.Optional[ACCESS3ResOK] = rpchelp.rpc_field(ACCESS3ResOK, default=None)
+    resfail: typing.Optional[ACCESS3ResFail] = rpchelp.rpc_field(ACCESS3ResFail, default=None)
 
 
 @dataclass
-class READLINK3args(rpchelp.struct):
-    symlink_handle: bytes = rpchelp.rpc_field(nfs_fh3)
+class READLINK3Args(rpchelp.Struct):  # READLINK3args
+    symlink_handle: bytes = rpchelp.rpc_field(NFSFh3)
 
 
 @dataclass
-class READLINK3resok(rpchelp.struct):
-    symlink_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
-    data: bytes = rpchelp.rpc_field(nfspath3)
+class READLINK3ResOK(rpchelp.Struct):  # READLINK3resok
+    symlink_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
+    data: bytes = rpchelp.rpc_field(NFSPath3)
 
 
 @dataclass
-class READLINK3resfail(rpchelp.struct):
-    symlink_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
+class READLINK3ResFail(rpchelp.Struct):  # READLINK3resfail
+    symlink_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
 
 
 @dataclass
-class READLINK3res(rpchelp.union):
+class READLINK3Res(rpchelp.Union):  # READLINK3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resok: typing.Optional[READLINK3resok] = rpchelp.rpc_field(READLINK3resok, default=None)
-    resfail: typing.Optional[READLINK3resfail] = rpchelp.rpc_field(READLINK3resfail, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resok: typing.Optional[READLINK3ResOK] = rpchelp.rpc_field(READLINK3ResOK, default=None)
+    resfail: typing.Optional[READLINK3ResFail] = rpchelp.rpc_field(READLINK3ResFail, default=None)
 
 
 @dataclass
-class READ3args(rpchelp.struct):
-    file_handle: bytes = rpchelp.rpc_field(nfs_fh3)
-    offset: int = rpchelp.rpc_field(offset3)
-    count: int = rpchelp.rpc_field(count3)
+class READ3Args(rpchelp.Struct):  # READ3args
+    file_handle: bytes = rpchelp.rpc_field(NFSFh3)
+    offset: int = rpchelp.rpc_field(Offset3)
+    count: int = rpchelp.rpc_field(Count3)
 
 
 @dataclass
-class READ3resok(rpchelp.struct):
-    file_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
-    count: int = rpchelp.rpc_field(count3)
+class READ3ResOK(rpchelp.Struct):  # READ3resok
+    file_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
+    count: int = rpchelp.rpc_field(Count3)
     eof: bool = rpchelp.rpc_field(rpchelp.r_bool)
     data: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, None))
 
 
 @dataclass
-class READ3resfail(rpchelp.struct):
-    file_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
+class READ3ResFail(rpchelp.Struct):  # READ3resfail
+    file_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
 
 
 @dataclass
-class READ3res(rpchelp.union):
+class READ3Res(rpchelp.Union):  # READ3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resfail: typing.Optional[READ3resfail] = rpchelp.rpc_field(READ3resfail, default=None)
-    resok: typing.Optional[READ3resok] = rpchelp.rpc_field(READ3resok, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resok: typing.Optional[READ3ResOK] = rpchelp.rpc_field(READ3ResOK, default=None)
+    resfail: typing.Optional[READ3ResFail] = rpchelp.rpc_field(READ3ResFail, default=None)
 
 
-class stable_how(rpchelp.enum):
+class StableHow(rpchelp.Enum):  # stable_how
     UNSTABLE = 0
     DATA_SYNC = 1
     FILE_SYNC = 2
 
 
 @dataclass
-class WRITE3args(rpchelp.struct):
-    file_handle: bytes = rpchelp.rpc_field(nfs_fh3)
-    offset: int = rpchelp.rpc_field(offset3)
-    count: int = rpchelp.rpc_field(count3)
-    stable: stable_how = rpchelp.rpc_field(stable_how)
+class WRITE3Args(rpchelp.Struct):  # WRITE3args
+    file_handle: bytes = rpchelp.rpc_field(NFSFh3)
+    offset: int = rpchelp.rpc_field(Offset3)
+    count: int = rpchelp.rpc_field(Count3)
+    stable: typing.Union[StableHow, int] = rpchelp.rpc_field(StableHow)
     data: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, None))
 
 
 @dataclass
-class WRITE3resok(rpchelp.struct):
-    file_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
-    count: int = rpchelp.rpc_field(count3)
-    committed: stable_how = rpchelp.rpc_field(stable_how)
-    verf: bytes = rpchelp.rpc_field(writeverf3)
+class WRITE3ResOK(rpchelp.Struct):  # WRITE3resok
+    file_wcc: WccData = rpchelp.rpc_field(WccData)
+    count: int = rpchelp.rpc_field(Count3)
+    committed: typing.Union[StableHow, int] = rpchelp.rpc_field(StableHow)
+    verf: bytes = rpchelp.rpc_field(Writeverf3)
 
 
 @dataclass
-class WRITE3resfail(rpchelp.struct):
-    file_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class WRITE3ResFail(rpchelp.Struct):  # WRITE3resfail
+    file_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class WRITE3res(rpchelp.union):
+class WRITE3Res(rpchelp.Union):  # WRITE3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resfail: typing.Optional[WRITE3resfail] = rpchelp.rpc_field(WRITE3resfail, default=None)
-    resok: typing.Optional[WRITE3resok] = rpchelp.rpc_field(WRITE3resok, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resok: typing.Optional[WRITE3ResOK] = rpchelp.rpc_field(WRITE3ResOK, default=None)
+    resfail: typing.Optional[WRITE3ResFail] = rpchelp.rpc_field(WRITE3ResFail, default=None)
 
 
-class createmode3(rpchelp.enum):
+class Createmode3(rpchelp.Enum):  # createmode3
     UNCHECKED = 0
     GUARDED = 1
     EXCLUSIVE = 2
 
 
 @dataclass
-class createhow3(rpchelp.union):
+class Createhow3(rpchelp.Union):  # createhow3
     SWITCH_OPTIONS = {UNCHECKED: 'obj_attributes', GUARDED: 'obj_attributes', EXCLUSIVE: 'verf'}
-    mode: createmode3 = rpchelp.rpc_field(createmode3)
-    verf: typing.Optional[bytes] = rpchelp.rpc_field(createverf3, default=None)
-    obj_attributes: typing.Optional[sattr3] = rpchelp.rpc_field(sattr3, default=None)
+    mode: typing.Union[Createmode3, int] = rpchelp.rpc_field(Createmode3)
+    obj_attributes: typing.Optional[SAttr3] = rpchelp.rpc_field(SAttr3, default=None)
+    verf: typing.Optional[bytes] = rpchelp.rpc_field(Createverf3, default=None)
 
 
 @dataclass
-class CREATE3args(rpchelp.struct):
-    where: diropargs3 = rpchelp.rpc_field(diropargs3)
-    how: createhow3 = rpchelp.rpc_field(createhow3)
+class CREATE3Args(rpchelp.Struct):  # CREATE3args
+    where: DiropArgs3 = rpchelp.rpc_field(DiropArgs3)
+    how: Createhow3 = rpchelp.rpc_field(Createhow3)
 
 
 @dataclass
-class CREATE3resok(rpchelp.struct):
-    obj_handle: typing.Optional[bytes] = rpchelp.rpc_field(post_op_fh3)
-    obj_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
-    dir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class CREATE3ResOK(rpchelp.Struct):  # CREATE3resok
+    obj_handle: typing.Optional[bytes] = rpchelp.rpc_field(PostOpFh3)
+    obj_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
+    dir_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class CREATE3resfail(rpchelp.struct):
-    dir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class CREATE3ResFail(rpchelp.Struct):  # CREATE3resfail
+    dir_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class CREATE3res(rpchelp.union):
+class CREATE3Res(rpchelp.Union):  # CREATE3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resok: typing.Optional[CREATE3resok] = rpchelp.rpc_field(CREATE3resok, default=None)
-    resfail: typing.Optional[CREATE3resfail] = rpchelp.rpc_field(CREATE3resfail, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resfail: typing.Optional[CREATE3ResFail] = rpchelp.rpc_field(CREATE3ResFail, default=None)
+    resok: typing.Optional[CREATE3ResOK] = rpchelp.rpc_field(CREATE3ResOK, default=None)
 
 
 @dataclass
-class MKDIR3args(rpchelp.struct):
-    where: diropargs3 = rpchelp.rpc_field(diropargs3)
-    attributes: sattr3 = rpchelp.rpc_field(sattr3)
+class MKDIR3Args(rpchelp.Struct):  # MKDIR3args
+    where: DiropArgs3 = rpchelp.rpc_field(DiropArgs3)
+    attributes: SAttr3 = rpchelp.rpc_field(SAttr3)
 
 
 @dataclass
-class MKDIR3resok(rpchelp.struct):
-    obj_handle: typing.Optional[bytes] = rpchelp.rpc_field(post_op_fh3)
-    obj_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
-    dir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class MKDIR3ResOK(rpchelp.Struct):  # MKDIR3resok
+    obj_handle: typing.Optional[bytes] = rpchelp.rpc_field(PostOpFh3)
+    obj_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
+    dir_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class MKDIR3resfail(rpchelp.struct):
-    dir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class MKDIR3ResFail(rpchelp.Struct):  # MKDIR3resfail
+    dir_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class MKDIR3res(rpchelp.union):
+class MKDIR3Res(rpchelp.Union):  # MKDIR3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resok: typing.Optional[MKDIR3resok] = rpchelp.rpc_field(MKDIR3resok, default=None)
-    resfail: typing.Optional[MKDIR3resfail] = rpchelp.rpc_field(MKDIR3resfail, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resok: typing.Optional[MKDIR3ResOK] = rpchelp.rpc_field(MKDIR3ResOK, default=None)
+    resfail: typing.Optional[MKDIR3ResFail] = rpchelp.rpc_field(MKDIR3ResFail, default=None)
 
 
 @dataclass
-class symlinkdata3(rpchelp.struct):
-    symlink_attributes: sattr3 = rpchelp.rpc_field(sattr3)
-    symlink_data: bytes = rpchelp.rpc_field(nfspath3)
+class SymlinkData3(rpchelp.Struct):  # symlinkdata3
+    symlink_attributes: SAttr3 = rpchelp.rpc_field(SAttr3)
+    symlink_data: bytes = rpchelp.rpc_field(NFSPath3)
 
 
 @dataclass
-class SYMLINK3args(rpchelp.struct):
-    where: diropargs3 = rpchelp.rpc_field(diropargs3)
-    symlink: symlinkdata3 = rpchelp.rpc_field(symlinkdata3)
+class SYMLINK3Args(rpchelp.Struct):  # SYMLINK3args
+    where: DiropArgs3 = rpchelp.rpc_field(DiropArgs3)
+    symlink: SymlinkData3 = rpchelp.rpc_field(SymlinkData3)
 
 
 @dataclass
-class SYMLINK3resok(rpchelp.struct):
-    obj_handle: typing.Optional[bytes] = rpchelp.rpc_field(post_op_fh3)
-    obj_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
-    dir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class SYMLINK3ResOK(rpchelp.Struct):  # SYMLINK3resok
+    obj_handle: typing.Optional[bytes] = rpchelp.rpc_field(PostOpFh3)
+    obj_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
+    dir_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class SYMLINK3resfail(rpchelp.struct):
-    dir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class SYMLINK3ResFail(rpchelp.Struct):  # SYMLINK3resfail
+    dir_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class SYMLINK3res(rpchelp.union):
+class SYMLINK3Res(rpchelp.Union):  # SYMLINK3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resok: typing.Optional[SYMLINK3resok] = rpchelp.rpc_field(SYMLINK3resok, default=None)
-    resfail: typing.Optional[SYMLINK3resfail] = rpchelp.rpc_field(SYMLINK3resfail, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resok: typing.Optional[SYMLINK3ResOK] = rpchelp.rpc_field(SYMLINK3ResOK, default=None)
+    resfail: typing.Optional[SYMLINK3ResFail] = rpchelp.rpc_field(SYMLINK3ResFail, default=None)
 
 
 @dataclass
-class devicedata3(rpchelp.struct):
-    dev_attributes: sattr3 = rpchelp.rpc_field(sattr3)
-    spec: specdata3 = rpchelp.rpc_field(specdata3)
+class DeviceData3(rpchelp.Struct):  # devicedata3
+    dev_attributes: SAttr3 = rpchelp.rpc_field(SAttr3)
+    spec: SpecData3 = rpchelp.rpc_field(SpecData3)
 
 
 @dataclass
-class mknoddata3(rpchelp.union):
+class MknodData3(rpchelp.Union):  # mknoddata3
     SWITCH_OPTIONS = {NF3CHR: 'chr_device', NF3BLK: 'blk_device', NF3SOCK: 'sock_pipe_attributes', NF3FIFO: 'fifo_pipe_attributes', None: None}
-    type: ftype3 = rpchelp.rpc_field(ftype3)
-    fifo_pipe_attributes: typing.Optional[sattr3] = rpchelp.rpc_field(sattr3, default=None)
-    chr_device: typing.Optional[devicedata3] = rpchelp.rpc_field(devicedata3, default=None)
-    sock_pipe_attributes: typing.Optional[sattr3] = rpchelp.rpc_field(sattr3, default=None)
-    blk_device: typing.Optional[devicedata3] = rpchelp.rpc_field(devicedata3, default=None)
+    type: typing.Union[Ftype3, int] = rpchelp.rpc_field(Ftype3)
+    fifo_pipe_attributes: typing.Optional[SAttr3] = rpchelp.rpc_field(SAttr3, default=None)
+    chr_device: typing.Optional[DeviceData3] = rpchelp.rpc_field(DeviceData3, default=None)
+    blk_device: typing.Optional[DeviceData3] = rpchelp.rpc_field(DeviceData3, default=None)
+    sock_pipe_attributes: typing.Optional[SAttr3] = rpchelp.rpc_field(SAttr3, default=None)
 
 
 @dataclass
-class MKNOD3args(rpchelp.struct):
-    where: diropargs3 = rpchelp.rpc_field(diropargs3)
-    what: mknoddata3 = rpchelp.rpc_field(mknoddata3)
+class MKNOD3Args(rpchelp.Struct):  # MKNOD3args
+    where: DiropArgs3 = rpchelp.rpc_field(DiropArgs3)
+    what: MknodData3 = rpchelp.rpc_field(MknodData3)
 
 
 @dataclass
-class MKNOD3resok(rpchelp.struct):
-    obj_handle: typing.Optional[bytes] = rpchelp.rpc_field(post_op_fh3)
-    obj_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
-    dir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class MKNOD3ResOK(rpchelp.Struct):  # MKNOD3resok
+    obj_handle: typing.Optional[bytes] = rpchelp.rpc_field(PostOpFh3)
+    obj_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
+    dir_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class MKNOD3resfail(rpchelp.struct):
-    dir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class MKNOD3ResFail(rpchelp.Struct):  # MKNOD3resfail
+    dir_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class MKNOD3res(rpchelp.union):
+class MKNOD3Res(rpchelp.Union):  # MKNOD3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resok: typing.Optional[MKNOD3resok] = rpchelp.rpc_field(MKNOD3resok, default=None)
-    resfail: typing.Optional[MKNOD3resfail] = rpchelp.rpc_field(MKNOD3resfail, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resok: typing.Optional[MKNOD3ResOK] = rpchelp.rpc_field(MKNOD3ResOK, default=None)
+    resfail: typing.Optional[MKNOD3ResFail] = rpchelp.rpc_field(MKNOD3ResFail, default=None)
 
 
 @dataclass
-class REMOVE3args(rpchelp.struct):
-    object: diropargs3 = rpchelp.rpc_field(diropargs3)
+class REMOVE3Args(rpchelp.Struct):  # REMOVE3args
+    object: DiropArgs3 = rpchelp.rpc_field(DiropArgs3)
 
 
 @dataclass
-class REMOVE3resok(rpchelp.struct):
-    dir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class REMOVE3ResOK(rpchelp.Struct):  # REMOVE3resok
+    dir_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class REMOVE3resfail(rpchelp.struct):
-    dir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class REMOVE3ResFail(rpchelp.Struct):  # REMOVE3resfail
+    dir_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class REMOVE3res(rpchelp.union):
+class REMOVE3Res(rpchelp.Union):  # REMOVE3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resfail: typing.Optional[REMOVE3resfail] = rpchelp.rpc_field(REMOVE3resfail, default=None)
-    resok: typing.Optional[REMOVE3resok] = rpchelp.rpc_field(REMOVE3resok, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resok: typing.Optional[REMOVE3ResOK] = rpchelp.rpc_field(REMOVE3ResOK, default=None)
+    resfail: typing.Optional[REMOVE3ResFail] = rpchelp.rpc_field(REMOVE3ResFail, default=None)
 
 
 @dataclass
-class RMDIR3args(rpchelp.struct):
-    object: diropargs3 = rpchelp.rpc_field(diropargs3)
+class RMDIR3Args(rpchelp.Struct):  # RMDIR3args
+    object: DiropArgs3 = rpchelp.rpc_field(DiropArgs3)
 
 
 @dataclass
-class RMDIR3resok(rpchelp.struct):
-    dir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class RMDIR3ResOK(rpchelp.Struct):  # RMDIR3resok
+    dir_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class RMDIR3resfail(rpchelp.struct):
-    dir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class RMDIR3ResFail(rpchelp.Struct):  # RMDIR3resfail
+    dir_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class RMDIR3res(rpchelp.union):
+class RMDIR3Res(rpchelp.Union):  # RMDIR3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resok: typing.Optional[RMDIR3resok] = rpchelp.rpc_field(RMDIR3resok, default=None)
-    resfail: typing.Optional[RMDIR3resfail] = rpchelp.rpc_field(RMDIR3resfail, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resfail: typing.Optional[RMDIR3ResFail] = rpchelp.rpc_field(RMDIR3ResFail, default=None)
+    resok: typing.Optional[RMDIR3ResOK] = rpchelp.rpc_field(RMDIR3ResOK, default=None)
 
 
 @dataclass
-class RENAME3args(rpchelp.struct):
-    from_: diropargs3 = rpchelp.rpc_field(diropargs3)
-    to: diropargs3 = rpchelp.rpc_field(diropargs3)
+class RENAME3Args(rpchelp.Struct):  # RENAME3args
+    from_: DiropArgs3 = rpchelp.rpc_field(DiropArgs3)
+    to: DiropArgs3 = rpchelp.rpc_field(DiropArgs3)
 
 
 @dataclass
-class RENAME3resok(rpchelp.struct):
-    fromdir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
-    todir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class RENAME3ResOK(rpchelp.Struct):  # RENAME3resok
+    fromdir_wcc: WccData = rpchelp.rpc_field(WccData)
+    todir_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class RENAME3resfail(rpchelp.struct):
-    fromdir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
-    todir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class RENAME3ResFail(rpchelp.Struct):  # RENAME3resfail
+    fromdir_wcc: WccData = rpchelp.rpc_field(WccData)
+    todir_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class RENAME3res(rpchelp.union):
+class RENAME3Res(rpchelp.Union):  # RENAME3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resok: typing.Optional[RENAME3resok] = rpchelp.rpc_field(RENAME3resok, default=None)
-    resfail: typing.Optional[RENAME3resfail] = rpchelp.rpc_field(RENAME3resfail, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resok: typing.Optional[RENAME3ResOK] = rpchelp.rpc_field(RENAME3ResOK, default=None)
+    resfail: typing.Optional[RENAME3ResFail] = rpchelp.rpc_field(RENAME3ResFail, default=None)
 
 
 @dataclass
-class LINK3args(rpchelp.struct):
-    file_handle: bytes = rpchelp.rpc_field(nfs_fh3)
-    link: diropargs3 = rpchelp.rpc_field(diropargs3)
+class LINK3Args(rpchelp.Struct):  # LINK3args
+    file_handle: bytes = rpchelp.rpc_field(NFSFh3)
+    link: DiropArgs3 = rpchelp.rpc_field(DiropArgs3)
 
 
 @dataclass
-class LINK3resok(rpchelp.struct):
-    file_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
-    linkdir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class LINK3ResOK(rpchelp.Struct):  # LINK3resok
+    file_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
+    linkdir_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class LINK3resfail(rpchelp.struct):
-    file_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
-    linkdir_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class LINK3ResFail(rpchelp.Struct):  # LINK3resfail
+    file_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
+    linkdir_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class LINK3res(rpchelp.union):
+class LINK3Res(rpchelp.Union):  # LINK3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resok: typing.Optional[LINK3resok] = rpchelp.rpc_field(LINK3resok, default=None)
-    resfail: typing.Optional[LINK3resfail] = rpchelp.rpc_field(LINK3resfail, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resfail: typing.Optional[LINK3ResFail] = rpchelp.rpc_field(LINK3ResFail, default=None)
+    resok: typing.Optional[LINK3ResOK] = rpchelp.rpc_field(LINK3ResOK, default=None)
 
 
 @dataclass
-class READDIR3args(rpchelp.struct):
-    dir_handle: bytes = rpchelp.rpc_field(nfs_fh3)
-    cookie: int = rpchelp.rpc_field(cookie3)
-    cookieverf: bytes = rpchelp.rpc_field(cookieverf3)
-    count: int = rpchelp.rpc_field(count3)
+class READDIR3Args(rpchelp.Struct):  # READDIR3args
+    dir_handle: bytes = rpchelp.rpc_field(NFSFh3)
+    cookie: int = rpchelp.rpc_field(Cookie3)
+    cookieverf: bytes = rpchelp.rpc_field(Cookieverf3)
+    count: int = rpchelp.rpc_field(Count3)
 
 
 @dataclass
-class entry3(rpchelp.linked_list):
-    fileid: int = rpchelp.rpc_field(fileid3)
-    name: bytes = rpchelp.rpc_field(filename3)
-    cookie: int = rpchelp.rpc_field(cookie3)
+class Entry3(rpchelp.LinkedList):  # entry3
+    fileid: int = rpchelp.rpc_field(Fileid3)
+    name: bytes = rpchelp.rpc_field(Filename3)
+    cookie: int = rpchelp.rpc_field(Cookie3)
 
 
 @dataclass
-class dirlist3(rpchelp.struct):
-    entries: typing.List[entry3] = rpchelp.rpc_field(rpchelp.opt_data(entry3))
+class DirList3(rpchelp.Struct):  # dirlist3
+    entries: typing.List[Entry3] = rpchelp.rpc_field(rpchelp.OptData(Entry3))
     eof: bool = rpchelp.rpc_field(rpchelp.r_bool)
 
 
 @dataclass
-class READDIR3resok(rpchelp.struct):
-    dir_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
-    cookieverf: bytes = rpchelp.rpc_field(cookieverf3)
-    reply: dirlist3 = rpchelp.rpc_field(dirlist3)
+class READDIR3ResOK(rpchelp.Struct):  # READDIR3resok
+    dir_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
+    cookieverf: bytes = rpchelp.rpc_field(Cookieverf3)
+    reply: DirList3 = rpchelp.rpc_field(DirList3)
 
 
 @dataclass
-class READDIR3resfail(rpchelp.struct):
-    dir_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
+class READDIR3ResFail(rpchelp.Struct):  # READDIR3resfail
+    dir_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
 
 
 @dataclass
-class READDIR3res(rpchelp.union):
+class READDIR3Res(rpchelp.Union):  # READDIR3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resok: typing.Optional[READDIR3resok] = rpchelp.rpc_field(READDIR3resok, default=None)
-    resfail: typing.Optional[READDIR3resfail] = rpchelp.rpc_field(READDIR3resfail, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resok: typing.Optional[READDIR3ResOK] = rpchelp.rpc_field(READDIR3ResOK, default=None)
+    resfail: typing.Optional[READDIR3ResFail] = rpchelp.rpc_field(READDIR3ResFail, default=None)
 
 
 @dataclass
-class READDIRPLUS3args(rpchelp.struct):
-    dir_handle: bytes = rpchelp.rpc_field(nfs_fh3)
-    cookie: int = rpchelp.rpc_field(cookie3)
-    cookieverf: bytes = rpchelp.rpc_field(cookieverf3)
-    dircount: int = rpchelp.rpc_field(count3)
-    maxcount: int = rpchelp.rpc_field(count3)
+class READDIRPLUS3Args(rpchelp.Struct):  # READDIRPLUS3args
+    dir_handle: bytes = rpchelp.rpc_field(NFSFh3)
+    cookie: int = rpchelp.rpc_field(Cookie3)
+    cookieverf: bytes = rpchelp.rpc_field(Cookieverf3)
+    dircount: int = rpchelp.rpc_field(Count3)
+    maxcount: int = rpchelp.rpc_field(Count3)
 
 
 @dataclass
-class entryplus3(rpchelp.linked_list):
-    fileid: int = rpchelp.rpc_field(fileid3)
-    name: bytes = rpchelp.rpc_field(filename3)
-    cookie: int = rpchelp.rpc_field(cookie3)
-    name_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
-    name_handle: typing.Optional[bytes] = rpchelp.rpc_field(post_op_fh3)
+class Entryplus3(rpchelp.LinkedList):  # entryplus3
+    fileid: int = rpchelp.rpc_field(Fileid3)
+    name: bytes = rpchelp.rpc_field(Filename3)
+    cookie: int = rpchelp.rpc_field(Cookie3)
+    name_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
+    name_handle: typing.Optional[bytes] = rpchelp.rpc_field(PostOpFh3)
 
 
 @dataclass
-class dirlistplus3(rpchelp.struct):
-    entries: typing.List[entryplus3] = rpchelp.rpc_field(rpchelp.opt_data(entryplus3))
+class Dirlistplus3(rpchelp.Struct):  # dirlistplus3
+    entries: typing.List[Entryplus3] = rpchelp.rpc_field(rpchelp.OptData(Entryplus3))
     eof: bool = rpchelp.rpc_field(rpchelp.r_bool)
 
 
 @dataclass
-class READDIRPLUS3resok(rpchelp.struct):
-    dir_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
-    cookieverf: bytes = rpchelp.rpc_field(cookieverf3)
-    reply: dirlistplus3 = rpchelp.rpc_field(dirlistplus3)
+class READDIRPLUS3ResOK(rpchelp.Struct):  # READDIRPLUS3resok
+    dir_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
+    cookieverf: bytes = rpchelp.rpc_field(Cookieverf3)
+    reply: Dirlistplus3 = rpchelp.rpc_field(Dirlistplus3)
 
 
 @dataclass
-class READDIRPLUS3resfail(rpchelp.struct):
-    dir_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
+class READDIRPLUS3ResFail(rpchelp.Struct):  # READDIRPLUS3resfail
+    dir_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
 
 
 @dataclass
-class READDIRPLUS3res(rpchelp.union):
+class READDIRPLUS3Res(rpchelp.Union):  # READDIRPLUS3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resfail: typing.Optional[READDIRPLUS3resfail] = rpchelp.rpc_field(READDIRPLUS3resfail, default=None)
-    resok: typing.Optional[READDIRPLUS3resok] = rpchelp.rpc_field(READDIRPLUS3resok, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resfail: typing.Optional[READDIRPLUS3ResFail] = rpchelp.rpc_field(READDIRPLUS3ResFail, default=None)
+    resok: typing.Optional[READDIRPLUS3ResOK] = rpchelp.rpc_field(READDIRPLUS3ResOK, default=None)
 
 
 @dataclass
-class FSSTAT3args(rpchelp.struct):
-    fsroot_handle: bytes = rpchelp.rpc_field(nfs_fh3)
+class FSSTAT3Args(rpchelp.Struct):  # FSSTAT3args
+    fsroot_handle: bytes = rpchelp.rpc_field(NFSFh3)
 
 
 @dataclass
-class FSSTAT3resok(rpchelp.struct):
-    obj_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
-    tbytes: int = rpchelp.rpc_field(size3)
-    fbytes: int = rpchelp.rpc_field(size3)
-    abytes: int = rpchelp.rpc_field(size3)
-    tfiles: int = rpchelp.rpc_field(size3)
-    ffiles: int = rpchelp.rpc_field(size3)
-    afiles: int = rpchelp.rpc_field(size3)
-    invarsec: int = rpchelp.rpc_field(uint32)
+class FSSTAT3ResOK(rpchelp.Struct):  # FSSTAT3resok
+    obj_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
+    tbytes: int = rpchelp.rpc_field(Size3)
+    fbytes: int = rpchelp.rpc_field(Size3)
+    abytes: int = rpchelp.rpc_field(Size3)
+    tfiles: int = rpchelp.rpc_field(Size3)
+    ffiles: int = rpchelp.rpc_field(Size3)
+    afiles: int = rpchelp.rpc_field(Size3)
+    invarsec: int = rpchelp.rpc_field(Uint32)
 
 
 @dataclass
-class FSSTAT3resfail(rpchelp.struct):
-    obj_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
+class FSSTAT3ResFail(rpchelp.Struct):  # FSSTAT3resfail
+    obj_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
 
 
 @dataclass
-class FSSTAT3res(rpchelp.union):
+class FSSTAT3Res(rpchelp.Union):  # FSSTAT3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resok: typing.Optional[FSSTAT3resok] = rpchelp.rpc_field(FSSTAT3resok, default=None)
-    resfail: typing.Optional[FSSTAT3resfail] = rpchelp.rpc_field(FSSTAT3resfail, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resfail: typing.Optional[FSSTAT3ResFail] = rpchelp.rpc_field(FSSTAT3ResFail, default=None)
+    resok: typing.Optional[FSSTAT3ResOK] = rpchelp.rpc_field(FSSTAT3ResOK, default=None)
 
 
 FSF3_LINK = 0x0001
@@ -777,48 +777,48 @@ FSF3_CANSETTIME = 0x0010
 
 
 @dataclass
-class FSINFO3args(rpchelp.struct):
-    fsroot_handle: bytes = rpchelp.rpc_field(nfs_fh3)
+class FSINFO3Args(rpchelp.Struct):  # FSINFO3args
+    fsroot_handle: bytes = rpchelp.rpc_field(NFSFh3)
 
 
 @dataclass
-class FSINFO3resok(rpchelp.struct):
-    obj_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
-    rtmax: int = rpchelp.rpc_field(uint32)
-    rtpref: int = rpchelp.rpc_field(uint32)
-    rtmult: int = rpchelp.rpc_field(uint32)
-    wtmax: int = rpchelp.rpc_field(uint32)
-    wtpref: int = rpchelp.rpc_field(uint32)
-    wtmult: int = rpchelp.rpc_field(uint32)
-    dtpref: int = rpchelp.rpc_field(uint32)
-    maxfilesize: int = rpchelp.rpc_field(size3)
-    time_delta: nfstime3 = rpchelp.rpc_field(nfstime3)
-    properties: int = rpchelp.rpc_field(uint32)
+class FSINFO3ResOK(rpchelp.Struct):  # FSINFO3resok
+    obj_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
+    rtmax: int = rpchelp.rpc_field(Uint32)
+    rtpref: int = rpchelp.rpc_field(Uint32)
+    rtmult: int = rpchelp.rpc_field(Uint32)
+    wtmax: int = rpchelp.rpc_field(Uint32)
+    wtpref: int = rpchelp.rpc_field(Uint32)
+    wtmult: int = rpchelp.rpc_field(Uint32)
+    dtpref: int = rpchelp.rpc_field(Uint32)
+    maxfilesize: int = rpchelp.rpc_field(Size3)
+    time_delta: NFSTime3 = rpchelp.rpc_field(NFSTime3)
+    properties: int = rpchelp.rpc_field(Uint32)
 
 
 @dataclass
-class FSINFO3resfail(rpchelp.struct):
-    obj_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
+class FSINFO3ResFail(rpchelp.Struct):  # FSINFO3resfail
+    obj_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
 
 
 @dataclass
-class FSINFO3res(rpchelp.union):
+class FSINFO3Res(rpchelp.Union):  # FSINFO3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resok: typing.Optional[FSINFO3resok] = rpchelp.rpc_field(FSINFO3resok, default=None)
-    resfail: typing.Optional[FSINFO3resfail] = rpchelp.rpc_field(FSINFO3resfail, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resok: typing.Optional[FSINFO3ResOK] = rpchelp.rpc_field(FSINFO3ResOK, default=None)
+    resfail: typing.Optional[FSINFO3ResFail] = rpchelp.rpc_field(FSINFO3ResFail, default=None)
 
 
 @dataclass
-class PATHCONF3args(rpchelp.struct):
-    obj_handle: bytes = rpchelp.rpc_field(nfs_fh3)
+class PATHCONF3Args(rpchelp.Struct):  # PATHCONF3args
+    obj_handle: bytes = rpchelp.rpc_field(NFSFh3)
 
 
 @dataclass
-class PATHCONF3resok(rpchelp.struct):
-    obj_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
-    linkmax: int = rpchelp.rpc_field(uint32)
-    name_max: int = rpchelp.rpc_field(uint32)
+class PATHCONF3ResOK(rpchelp.Struct):  # PATHCONF3resok
+    obj_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
+    linkmax: int = rpchelp.rpc_field(Uint32)
+    name_max: int = rpchelp.rpc_field(Uint32)
     no_trunc: bool = rpchelp.rpc_field(rpchelp.r_bool)
     chown_restricted: bool = rpchelp.rpc_field(rpchelp.r_bool)
     case_insensitive: bool = rpchelp.rpc_field(rpchelp.r_bool)
@@ -826,53 +826,53 @@ class PATHCONF3resok(rpchelp.struct):
 
 
 @dataclass
-class PATHCONF3resfail(rpchelp.struct):
-    obj_attributes: typing.Optional[fattr3] = rpchelp.rpc_field(post_op_attr)
+class PATHCONF3ResFail(rpchelp.Struct):  # PATHCONF3resfail
+    obj_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
 
 
 @dataclass
-class PATHCONF3res(rpchelp.union):
+class PATHCONF3Res(rpchelp.Union):  # PATHCONF3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resok: typing.Optional[PATHCONF3resok] = rpchelp.rpc_field(PATHCONF3resok, default=None)
-    resfail: typing.Optional[PATHCONF3resfail] = rpchelp.rpc_field(PATHCONF3resfail, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resfail: typing.Optional[PATHCONF3ResFail] = rpchelp.rpc_field(PATHCONF3ResFail, default=None)
+    resok: typing.Optional[PATHCONF3ResOK] = rpchelp.rpc_field(PATHCONF3ResOK, default=None)
 
 
 @dataclass
-class COMMIT3args(rpchelp.struct):
-    file_handle: bytes = rpchelp.rpc_field(nfs_fh3)
-    offset: int = rpchelp.rpc_field(offset3)
-    count: int = rpchelp.rpc_field(count3)
+class COMMIT3Args(rpchelp.Struct):  # COMMIT3args
+    file_handle: bytes = rpchelp.rpc_field(NFSFh3)
+    offset: int = rpchelp.rpc_field(Offset3)
+    count: int = rpchelp.rpc_field(Count3)
 
 
 @dataclass
-class COMMIT3resok(rpchelp.struct):
-    file_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
-    verf: bytes = rpchelp.rpc_field(writeverf3)
+class COMMIT3ResOK(rpchelp.Struct):  # COMMIT3resok
+    file_wcc: WccData = rpchelp.rpc_field(WccData)
+    verf: bytes = rpchelp.rpc_field(Writeverf3)
 
 
 @dataclass
-class COMMIT3resfail(rpchelp.struct):
-    file_wcc: wcc_data = rpchelp.rpc_field(wcc_data)
+class COMMIT3ResFail(rpchelp.Struct):  # COMMIT3resfail
+    file_wcc: WccData = rpchelp.rpc_field(WccData)
 
 
 @dataclass
-class COMMIT3res(rpchelp.union):
+class COMMIT3Res(rpchelp.Union):  # COMMIT3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
-    status: nfsstat3 = rpchelp.rpc_field(nfsstat3)
-    resok: typing.Optional[COMMIT3resok] = rpchelp.rpc_field(COMMIT3resok, default=None)
-    resfail: typing.Optional[COMMIT3resfail] = rpchelp.rpc_field(COMMIT3resfail, default=None)
+    status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
+    resfail: typing.Optional[COMMIT3ResFail] = rpchelp.rpc_field(COMMIT3ResFail, default=None)
+    resok: typing.Optional[COMMIT3ResOK] = rpchelp.rpc_field(COMMIT3ResOK, default=None)
 
 
 MNTPATHLEN = 1024
 MNTNAMLEN = 255
 FHSIZE3 = 64
-fhandle3 = rpchelp.opaque(rpchelp.LengthType.VAR, FHSIZE3)
-dirpath = rpchelp.string(rpchelp.LengthType.VAR, MNTPATHLEN)
-name = rpchelp.string(rpchelp.LengthType.VAR, MNTNAMLEN)
+FHandle3 = rpchelp.opaque(rpchelp.LengthType.VAR, FHSIZE3)
+DirPath = rpchelp.string(rpchelp.LengthType.VAR, MNTPATHLEN)
+Name = rpchelp.string(rpchelp.LengthType.VAR, MNTNAMLEN)
 
 
-class mountstat3(rpchelp.enum):
+class MountStat3(rpchelp.Enum):  # mountstat3
     MNT3_OK = 0
     MNT3ERR_PERM = 1
     MNT3ERR_NOENT = 2
@@ -886,33 +886,33 @@ class mountstat3(rpchelp.enum):
 
 
 @dataclass
-class mountres3_ok(rpchelp.struct):
-    fhandle: bytes = rpchelp.rpc_field(fhandle3)
-    auth_flavors: typing.List[int] = rpchelp.rpc_field(rpchelp.arr(rpchelp.r_int, rpchelp.LengthType.VAR, None))
+class Mountres3OK(rpchelp.Struct):  # mountres3_ok
+    fhandle: bytes = rpchelp.rpc_field(FHandle3)
+    auth_flavors: typing.List[int] = rpchelp.rpc_field(rpchelp.Array(rpchelp.r_int, rpchelp.LengthType.VAR, None))
 
 
 @dataclass
-class mountres3(rpchelp.union):
+class MountRes3(rpchelp.Union):  # mountres3
     SWITCH_OPTIONS = {MNT3_OK: 'mountinfo', None: None}
-    fhs_status: mountstat3 = rpchelp.rpc_field(mountstat3)
-    mountinfo: typing.Optional[mountres3_ok] = rpchelp.rpc_field(mountres3_ok, default=None)
+    fhs_status: typing.Union[MountStat3, int] = rpchelp.rpc_field(MountStat3)
+    mountinfo: typing.Optional[Mountres3OK] = rpchelp.rpc_field(Mountres3OK, default=None)
 
 
 @dataclass
-class mountlist(rpchelp.linked_list):
-    hostname: bytes = rpchelp.rpc_field(name)
-    directory: bytes = rpchelp.rpc_field(dirpath)
+class MountList(rpchelp.LinkedList):  # mountlist
+    hostname: bytes = rpchelp.rpc_field(Name)
+    directory: bytes = rpchelp.rpc_field(DirPath)
 
 
 @dataclass
-class grouplist(rpchelp.linked_list):
-    grname: bytes = rpchelp.rpc_field(name)
+class GroupList(rpchelp.LinkedList):  # grouplist
+    grname: bytes = rpchelp.rpc_field(Name)
 
 
 @dataclass
-class exportlist(rpchelp.linked_list):
-    filesys: bytes = rpchelp.rpc_field(dirpath)
-    groups: typing.List[typing.Union[bytes, grouplist]] = rpchelp.rpc_field(grouplist)
+class ExportList(rpchelp.LinkedList):  # exportlist
+    filesys: bytes = rpchelp.rpc_field(DirPath)
+    groups: typing.List[typing.Union[bytes, GroupList]] = rpchelp.rpc_field(GroupList)
 
 
 from pynefs import client
@@ -923,27 +923,27 @@ class NFS_PROGRAM_3_SERVER(rpchelp.Prog):
     vers = 3
     procs = {
         0: rpchelp.Proc('NULL', rpchelp.r_void, []),
-        1: rpchelp.Proc('GETATTR', GETATTR3res, [GETATTR3args]),
-        2: rpchelp.Proc('SETATTR', SETATTR3res, [SETATTR3args]),
-        3: rpchelp.Proc('LOOKUP', LOOKUP3res, [LOOKUP3args]),
-        4: rpchelp.Proc('ACCESS', ACCESS3res, [ACCESS3args]),
-        5: rpchelp.Proc('READLINK', READLINK3res, [READLINK3args]),
-        6: rpchelp.Proc('READ', READ3res, [READ3args]),
-        7: rpchelp.Proc('WRITE', WRITE3res, [WRITE3args]),
-        8: rpchelp.Proc('CREATE', CREATE3res, [CREATE3args]),
-        9: rpchelp.Proc('MKDIR', MKDIR3res, [MKDIR3args]),
-        10: rpchelp.Proc('SYMLINK', SYMLINK3res, [SYMLINK3args]),
-        11: rpchelp.Proc('MKNOD', MKNOD3res, [MKNOD3args]),
-        12: rpchelp.Proc('REMOVE', REMOVE3res, [REMOVE3args]),
-        13: rpchelp.Proc('RMDIR', RMDIR3res, [RMDIR3args]),
-        14: rpchelp.Proc('RENAME', RENAME3res, [RENAME3args]),
-        15: rpchelp.Proc('LINK', LINK3res, [LINK3args]),
-        16: rpchelp.Proc('READDIR', READDIR3res, [READDIR3args]),
-        17: rpchelp.Proc('READDIRPLUS', READDIRPLUS3res, [READDIRPLUS3args]),
-        18: rpchelp.Proc('FSSTAT', FSSTAT3res, [FSSTAT3args]),
-        19: rpchelp.Proc('FSINFO', FSINFO3res, [FSINFO3args]),
-        20: rpchelp.Proc('PATHCONF', PATHCONF3res, [PATHCONF3args]),
-        21: rpchelp.Proc('COMMIT', COMMIT3res, [COMMIT3args]),
+        1: rpchelp.Proc('GETATTR', GETATTR3Res, [GETATTR3Args]),
+        2: rpchelp.Proc('SETATTR', SETATTR3Res, [SETATTR3Args]),
+        3: rpchelp.Proc('LOOKUP', LOOKUP3Res, [LOOKUP3Args]),
+        4: rpchelp.Proc('ACCESS', ACCESS3Res, [ACCESS3Args]),
+        5: rpchelp.Proc('READLINK', READLINK3Res, [READLINK3Args]),
+        6: rpchelp.Proc('READ', READ3Res, [READ3Args]),
+        7: rpchelp.Proc('WRITE', WRITE3Res, [WRITE3Args]),
+        8: rpchelp.Proc('CREATE', CREATE3Res, [CREATE3Args]),
+        9: rpchelp.Proc('MKDIR', MKDIR3Res, [MKDIR3Args]),
+        10: rpchelp.Proc('SYMLINK', SYMLINK3Res, [SYMLINK3Args]),
+        11: rpchelp.Proc('MKNOD', MKNOD3Res, [MKNOD3Args]),
+        12: rpchelp.Proc('REMOVE', REMOVE3Res, [REMOVE3Args]),
+        13: rpchelp.Proc('RMDIR', RMDIR3Res, [RMDIR3Args]),
+        14: rpchelp.Proc('RENAME', RENAME3Res, [RENAME3Args]),
+        15: rpchelp.Proc('LINK', LINK3Res, [LINK3Args]),
+        16: rpchelp.Proc('READDIR', READDIR3Res, [READDIR3Args]),
+        17: rpchelp.Proc('READDIRPLUS', READDIRPLUS3Res, [READDIRPLUS3Args]),
+        18: rpchelp.Proc('FSSTAT', FSSTAT3Res, [FSSTAT3Args]),
+        19: rpchelp.Proc('FSINFO', FSINFO3Res, [FSINFO3Args]),
+        20: rpchelp.Proc('PATHCONF', PATHCONF3Res, [PATHCONF3Args]),
+        21: rpchelp.Proc('COMMIT', COMMIT3Res, [COMMIT3Args]),
     }
 
     @abc.abstractmethod
@@ -951,87 +951,87 @@ class NFS_PROGRAM_3_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETATTR(self, arg_0: GETATTR3args) -> GETATTR3res:
+    def GETATTR(self, arg_0: GETATTR3Args) -> GETATTR3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def SETATTR(self, arg_0: SETATTR3args) -> SETATTR3res:
+    def SETATTR(self, arg_0: SETATTR3Args) -> SETATTR3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def LOOKUP(self, arg_0: LOOKUP3args) -> LOOKUP3res:
+    def LOOKUP(self, arg_0: LOOKUP3Args) -> LOOKUP3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def ACCESS(self, arg_0: ACCESS3args) -> ACCESS3res:
+    def ACCESS(self, arg_0: ACCESS3Args) -> ACCESS3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def READLINK(self, arg_0: READLINK3args) -> READLINK3res:
+    def READLINK(self, arg_0: READLINK3Args) -> READLINK3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def READ(self, arg_0: READ3args) -> READ3res:
+    def READ(self, arg_0: READ3Args) -> READ3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def WRITE(self, arg_0: WRITE3args) -> WRITE3res:
+    def WRITE(self, arg_0: WRITE3Args) -> WRITE3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def CREATE(self, arg_0: CREATE3args) -> CREATE3res:
+    def CREATE(self, arg_0: CREATE3Args) -> CREATE3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def MKDIR(self, arg_0: MKDIR3args) -> MKDIR3res:
+    def MKDIR(self, arg_0: MKDIR3Args) -> MKDIR3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def SYMLINK(self, arg_0: SYMLINK3args) -> SYMLINK3res:
+    def SYMLINK(self, arg_0: SYMLINK3Args) -> SYMLINK3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def MKNOD(self, arg_0: MKNOD3args) -> MKNOD3res:
+    def MKNOD(self, arg_0: MKNOD3Args) -> MKNOD3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def REMOVE(self, arg_0: REMOVE3args) -> REMOVE3res:
+    def REMOVE(self, arg_0: REMOVE3Args) -> REMOVE3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def RMDIR(self, arg_0: RMDIR3args) -> RMDIR3res:
+    def RMDIR(self, arg_0: RMDIR3Args) -> RMDIR3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def RENAME(self, arg_0: RENAME3args) -> RENAME3res:
+    def RENAME(self, arg_0: RENAME3Args) -> RENAME3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def LINK(self, arg_0: LINK3args) -> LINK3res:
+    def LINK(self, arg_0: LINK3Args) -> LINK3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def READDIR(self, arg_0: READDIR3args) -> READDIR3res:
+    def READDIR(self, arg_0: READDIR3Args) -> READDIR3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def READDIRPLUS(self, arg_0: READDIRPLUS3args) -> READDIRPLUS3res:
+    def READDIRPLUS(self, arg_0: READDIRPLUS3Args) -> READDIRPLUS3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def FSSTAT(self, arg_0: FSSTAT3args) -> FSSTAT3res:
+    def FSSTAT(self, arg_0: FSSTAT3Args) -> FSSTAT3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def FSINFO(self, arg_0: FSINFO3args) -> FSINFO3res:
+    def FSINFO(self, arg_0: FSINFO3Args) -> FSINFO3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def PATHCONF(self, arg_0: PATHCONF3args) -> PATHCONF3res:
+    def PATHCONF(self, arg_0: PATHCONF3Args) -> PATHCONF3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def COMMIT(self, arg_0: COMMIT3args) -> COMMIT3res:
+    def COMMIT(self, arg_0: COMMIT3Args) -> COMMIT3Res:
         raise NotImplementedError()
 
 
@@ -1040,93 +1040,93 @@ class NFS_PROGRAM_3_CLIENT(client.BaseClient):
     vers = 3
     procs = {
         0: rpchelp.Proc('NULL', rpchelp.r_void, []),
-        1: rpchelp.Proc('GETATTR', GETATTR3res, [GETATTR3args]),
-        2: rpchelp.Proc('SETATTR', SETATTR3res, [SETATTR3args]),
-        3: rpchelp.Proc('LOOKUP', LOOKUP3res, [LOOKUP3args]),
-        4: rpchelp.Proc('ACCESS', ACCESS3res, [ACCESS3args]),
-        5: rpchelp.Proc('READLINK', READLINK3res, [READLINK3args]),
-        6: rpchelp.Proc('READ', READ3res, [READ3args]),
-        7: rpchelp.Proc('WRITE', WRITE3res, [WRITE3args]),
-        8: rpchelp.Proc('CREATE', CREATE3res, [CREATE3args]),
-        9: rpchelp.Proc('MKDIR', MKDIR3res, [MKDIR3args]),
-        10: rpchelp.Proc('SYMLINK', SYMLINK3res, [SYMLINK3args]),
-        11: rpchelp.Proc('MKNOD', MKNOD3res, [MKNOD3args]),
-        12: rpchelp.Proc('REMOVE', REMOVE3res, [REMOVE3args]),
-        13: rpchelp.Proc('RMDIR', RMDIR3res, [RMDIR3args]),
-        14: rpchelp.Proc('RENAME', RENAME3res, [RENAME3args]),
-        15: rpchelp.Proc('LINK', LINK3res, [LINK3args]),
-        16: rpchelp.Proc('READDIR', READDIR3res, [READDIR3args]),
-        17: rpchelp.Proc('READDIRPLUS', READDIRPLUS3res, [READDIRPLUS3args]),
-        18: rpchelp.Proc('FSSTAT', FSSTAT3res, [FSSTAT3args]),
-        19: rpchelp.Proc('FSINFO', FSINFO3res, [FSINFO3args]),
-        20: rpchelp.Proc('PATHCONF', PATHCONF3res, [PATHCONF3args]),
-        21: rpchelp.Proc('COMMIT', COMMIT3res, [COMMIT3args]),
+        1: rpchelp.Proc('GETATTR', GETATTR3Res, [GETATTR3Args]),
+        2: rpchelp.Proc('SETATTR', SETATTR3Res, [SETATTR3Args]),
+        3: rpchelp.Proc('LOOKUP', LOOKUP3Res, [LOOKUP3Args]),
+        4: rpchelp.Proc('ACCESS', ACCESS3Res, [ACCESS3Args]),
+        5: rpchelp.Proc('READLINK', READLINK3Res, [READLINK3Args]),
+        6: rpchelp.Proc('READ', READ3Res, [READ3Args]),
+        7: rpchelp.Proc('WRITE', WRITE3Res, [WRITE3Args]),
+        8: rpchelp.Proc('CREATE', CREATE3Res, [CREATE3Args]),
+        9: rpchelp.Proc('MKDIR', MKDIR3Res, [MKDIR3Args]),
+        10: rpchelp.Proc('SYMLINK', SYMLINK3Res, [SYMLINK3Args]),
+        11: rpchelp.Proc('MKNOD', MKNOD3Res, [MKNOD3Args]),
+        12: rpchelp.Proc('REMOVE', REMOVE3Res, [REMOVE3Args]),
+        13: rpchelp.Proc('RMDIR', RMDIR3Res, [RMDIR3Args]),
+        14: rpchelp.Proc('RENAME', RENAME3Res, [RENAME3Args]),
+        15: rpchelp.Proc('LINK', LINK3Res, [LINK3Args]),
+        16: rpchelp.Proc('READDIR', READDIR3Res, [READDIR3Args]),
+        17: rpchelp.Proc('READDIRPLUS', READDIRPLUS3Res, [READDIRPLUS3Args]),
+        18: rpchelp.Proc('FSSTAT', FSSTAT3Res, [FSSTAT3Args]),
+        19: rpchelp.Proc('FSINFO', FSINFO3Res, [FSINFO3Args]),
+        20: rpchelp.Proc('PATHCONF', PATHCONF3Res, [PATHCONF3Args]),
+        21: rpchelp.Proc('COMMIT', COMMIT3Res, [COMMIT3Args]),
     }
 
     async def NULL(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(0, )
 
-    async def GETATTR(self, arg_0: GETATTR3args) -> client.UnpackedRPCMsg[GETATTR3res]:
+    async def GETATTR(self, arg_0: GETATTR3Args) -> client.UnpackedRPCMsg[GETATTR3Res]:
         return await self.send_call(1, arg_0)
 
-    async def SETATTR(self, arg_0: SETATTR3args) -> client.UnpackedRPCMsg[SETATTR3res]:
+    async def SETATTR(self, arg_0: SETATTR3Args) -> client.UnpackedRPCMsg[SETATTR3Res]:
         return await self.send_call(2, arg_0)
 
-    async def LOOKUP(self, arg_0: LOOKUP3args) -> client.UnpackedRPCMsg[LOOKUP3res]:
+    async def LOOKUP(self, arg_0: LOOKUP3Args) -> client.UnpackedRPCMsg[LOOKUP3Res]:
         return await self.send_call(3, arg_0)
 
-    async def ACCESS(self, arg_0: ACCESS3args) -> client.UnpackedRPCMsg[ACCESS3res]:
+    async def ACCESS(self, arg_0: ACCESS3Args) -> client.UnpackedRPCMsg[ACCESS3Res]:
         return await self.send_call(4, arg_0)
 
-    async def READLINK(self, arg_0: READLINK3args) -> client.UnpackedRPCMsg[READLINK3res]:
+    async def READLINK(self, arg_0: READLINK3Args) -> client.UnpackedRPCMsg[READLINK3Res]:
         return await self.send_call(5, arg_0)
 
-    async def READ(self, arg_0: READ3args) -> client.UnpackedRPCMsg[READ3res]:
+    async def READ(self, arg_0: READ3Args) -> client.UnpackedRPCMsg[READ3Res]:
         return await self.send_call(6, arg_0)
 
-    async def WRITE(self, arg_0: WRITE3args) -> client.UnpackedRPCMsg[WRITE3res]:
+    async def WRITE(self, arg_0: WRITE3Args) -> client.UnpackedRPCMsg[WRITE3Res]:
         return await self.send_call(7, arg_0)
 
-    async def CREATE(self, arg_0: CREATE3args) -> client.UnpackedRPCMsg[CREATE3res]:
+    async def CREATE(self, arg_0: CREATE3Args) -> client.UnpackedRPCMsg[CREATE3Res]:
         return await self.send_call(8, arg_0)
 
-    async def MKDIR(self, arg_0: MKDIR3args) -> client.UnpackedRPCMsg[MKDIR3res]:
+    async def MKDIR(self, arg_0: MKDIR3Args) -> client.UnpackedRPCMsg[MKDIR3Res]:
         return await self.send_call(9, arg_0)
 
-    async def SYMLINK(self, arg_0: SYMLINK3args) -> client.UnpackedRPCMsg[SYMLINK3res]:
+    async def SYMLINK(self, arg_0: SYMLINK3Args) -> client.UnpackedRPCMsg[SYMLINK3Res]:
         return await self.send_call(10, arg_0)
 
-    async def MKNOD(self, arg_0: MKNOD3args) -> client.UnpackedRPCMsg[MKNOD3res]:
+    async def MKNOD(self, arg_0: MKNOD3Args) -> client.UnpackedRPCMsg[MKNOD3Res]:
         return await self.send_call(11, arg_0)
 
-    async def REMOVE(self, arg_0: REMOVE3args) -> client.UnpackedRPCMsg[REMOVE3res]:
+    async def REMOVE(self, arg_0: REMOVE3Args) -> client.UnpackedRPCMsg[REMOVE3Res]:
         return await self.send_call(12, arg_0)
 
-    async def RMDIR(self, arg_0: RMDIR3args) -> client.UnpackedRPCMsg[RMDIR3res]:
+    async def RMDIR(self, arg_0: RMDIR3Args) -> client.UnpackedRPCMsg[RMDIR3Res]:
         return await self.send_call(13, arg_0)
 
-    async def RENAME(self, arg_0: RENAME3args) -> client.UnpackedRPCMsg[RENAME3res]:
+    async def RENAME(self, arg_0: RENAME3Args) -> client.UnpackedRPCMsg[RENAME3Res]:
         return await self.send_call(14, arg_0)
 
-    async def LINK(self, arg_0: LINK3args) -> client.UnpackedRPCMsg[LINK3res]:
+    async def LINK(self, arg_0: LINK3Args) -> client.UnpackedRPCMsg[LINK3Res]:
         return await self.send_call(15, arg_0)
 
-    async def READDIR(self, arg_0: READDIR3args) -> client.UnpackedRPCMsg[READDIR3res]:
+    async def READDIR(self, arg_0: READDIR3Args) -> client.UnpackedRPCMsg[READDIR3Res]:
         return await self.send_call(16, arg_0)
 
-    async def READDIRPLUS(self, arg_0: READDIRPLUS3args) -> client.UnpackedRPCMsg[READDIRPLUS3res]:
+    async def READDIRPLUS(self, arg_0: READDIRPLUS3Args) -> client.UnpackedRPCMsg[READDIRPLUS3Res]:
         return await self.send_call(17, arg_0)
 
-    async def FSSTAT(self, arg_0: FSSTAT3args) -> client.UnpackedRPCMsg[FSSTAT3res]:
+    async def FSSTAT(self, arg_0: FSSTAT3Args) -> client.UnpackedRPCMsg[FSSTAT3Res]:
         return await self.send_call(18, arg_0)
 
-    async def FSINFO(self, arg_0: FSINFO3args) -> client.UnpackedRPCMsg[FSINFO3res]:
+    async def FSINFO(self, arg_0: FSINFO3Args) -> client.UnpackedRPCMsg[FSINFO3Res]:
         return await self.send_call(19, arg_0)
 
-    async def PATHCONF(self, arg_0: PATHCONF3args) -> client.UnpackedRPCMsg[PATHCONF3res]:
+    async def PATHCONF(self, arg_0: PATHCONF3Args) -> client.UnpackedRPCMsg[PATHCONF3Res]:
         return await self.send_call(20, arg_0)
 
-    async def COMMIT(self, arg_0: COMMIT3args) -> client.UnpackedRPCMsg[COMMIT3res]:
+    async def COMMIT(self, arg_0: COMMIT3Args) -> client.UnpackedRPCMsg[COMMIT3Res]:
         return await self.send_call(21, arg_0)
 
 
@@ -1135,11 +1135,11 @@ class MOUNT_PROGRAM_3_SERVER(rpchelp.Prog):
     vers = 3
     procs = {
         0: rpchelp.Proc('NULL', rpchelp.r_void, []),
-        1: rpchelp.Proc('MNT', mountres3, [dirpath]),
-        2: rpchelp.Proc('DUMP', mountlist, []),
-        3: rpchelp.Proc('UMNT', rpchelp.r_void, [dirpath]),
+        1: rpchelp.Proc('MNT', MountRes3, [DirPath]),
+        2: rpchelp.Proc('DUMP', MountList, []),
+        3: rpchelp.Proc('UMNT', rpchelp.r_void, [DirPath]),
         4: rpchelp.Proc('UMNTALL', rpchelp.r_void, []),
-        5: rpchelp.Proc('EXPORT', exportlist, []),
+        5: rpchelp.Proc('EXPORT', ExportList, []),
     }
 
     @abc.abstractmethod
@@ -1147,11 +1147,11 @@ class MOUNT_PROGRAM_3_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def MNT(self, arg_0: bytes) -> mountres3:
+    def MNT(self, arg_0: bytes) -> MountRes3:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def DUMP(self) -> typing.List[mountlist]:
+    def DUMP(self) -> typing.List[MountList]:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -1163,7 +1163,7 @@ class MOUNT_PROGRAM_3_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def EXPORT(self) -> typing.List[exportlist]:
+    def EXPORT(self) -> typing.List[ExportList]:
         raise NotImplementedError()
 
 
@@ -1172,20 +1172,20 @@ class MOUNT_PROGRAM_3_CLIENT(client.BaseClient):
     vers = 3
     procs = {
         0: rpchelp.Proc('NULL', rpchelp.r_void, []),
-        1: rpchelp.Proc('MNT', mountres3, [dirpath]),
-        2: rpchelp.Proc('DUMP', mountlist, []),
-        3: rpchelp.Proc('UMNT', rpchelp.r_void, [dirpath]),
+        1: rpchelp.Proc('MNT', MountRes3, [DirPath]),
+        2: rpchelp.Proc('DUMP', MountList, []),
+        3: rpchelp.Proc('UMNT', rpchelp.r_void, [DirPath]),
         4: rpchelp.Proc('UMNTALL', rpchelp.r_void, []),
-        5: rpchelp.Proc('EXPORT', exportlist, []),
+        5: rpchelp.Proc('EXPORT', ExportList, []),
     }
 
     async def NULL(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(0, )
 
-    async def MNT(self, arg_0: bytes) -> client.UnpackedRPCMsg[mountres3]:
+    async def MNT(self, arg_0: bytes) -> client.UnpackedRPCMsg[MountRes3]:
         return await self.send_call(1, arg_0)
 
-    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[mountlist]]:
+    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[MountList]]:
         return await self.send_call(2, )
 
     async def UMNT(self, arg_0: bytes) -> client.UnpackedRPCMsg[None]:
@@ -1194,8 +1194,8 @@ class MOUNT_PROGRAM_3_CLIENT(client.BaseClient):
     async def UMNTALL(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(4, )
 
-    async def EXPORT(self) -> client.UnpackedRPCMsg[typing.List[exportlist]]:
+    async def EXPORT(self) -> client.UnpackedRPCMsg[typing.List[ExportList]]:
         return await self.send_call(5, )
 
 
-__all__ = ['NFS_PROGRAM_3_SERVER', 'NFS_PROGRAM_3_CLIENT', 'MOUNT_PROGRAM_3_SERVER', 'MOUNT_PROGRAM_3_CLIENT', 'TRUE', 'FALSE', 'NFS3_FHSIZE', 'NFS3_COOKIEVERFSIZE', 'NFS3_CREATEVERFSIZE', 'NFS3_WRITEVERFSIZE', 'NFS3_OK', 'NFS3ERR_PERM', 'NFS3ERR_NOENT', 'NFS3ERR_IO', 'NFS3ERR_NXIO', 'NFS3ERR_ACCES', 'NFS3ERR_EXIST', 'NFS3ERR_XDEV', 'NFS3ERR_NODEV', 'NFS3ERR_NOTDIR', 'NFS3ERR_ISDIR', 'NFS3ERR_INVAL', 'NFS3ERR_FBIG', 'NFS3ERR_NOSPC', 'NFS3ERR_ROFS', 'NFS3ERR_MLINK', 'NFS3ERR_NAMETOOLONG', 'NFS3ERR_NOTEMPTY', 'NFS3ERR_DQUOT', 'NFS3ERR_STALE', 'NFS3ERR_REMOTE', 'NFS3ERR_BADHANDLE', 'NFS3ERR_NOT_SYNC', 'NFS3ERR_BAD_COOKIE', 'NFS3ERR_NOTSUPP', 'NFS3ERR_TOOSMALL', 'NFS3ERR_SERVERFAULT', 'NFS3ERR_BADTYPE', 'NFS3ERR_JUKEBOX', 'NF3REG', 'NF3DIR', 'NF3BLK', 'NF3CHR', 'NF3LNK', 'NF3SOCK', 'NF3FIFO', 'DONT_CHANGE', 'SET_TO_SERVER_TIME', 'SET_TO_CLIENT_TIME', 'ACCESS3_READ', 'ACCESS3_LOOKUP', 'ACCESS3_MODIFY', 'ACCESS3_EXTEND', 'ACCESS3_DELETE', 'ACCESS3_EXECUTE', 'UNSTABLE', 'DATA_SYNC', 'FILE_SYNC', 'UNCHECKED', 'GUARDED', 'EXCLUSIVE', 'FSF3_LINK', 'FSF3_SYMLINK', 'FSF3_HOMOGENEOUS', 'FSF3_CANSETTIME', 'MNTPATHLEN', 'MNTNAMLEN', 'FHSIZE3', 'MNT3_OK', 'MNT3ERR_PERM', 'MNT3ERR_NOENT', 'MNT3ERR_IO', 'MNT3ERR_ACCES', 'MNT3ERR_NOTDIR', 'MNT3ERR_INVAL', 'MNT3ERR_NAMETOOLONG', 'MNT3ERR_NOTSUPP', 'MNT3ERR_SERVERFAULT', 'uint64', 'int64', 'uint32', 'int32', 'filename3', 'nfspath3', 'fileid3', 'cookie3', 'cookieverf3', 'createverf3', 'writeverf3', 'uid3', 'gid3', 'size3', 'offset3', 'mode3', 'count3', 'nfsstat3', 'ftype3', 'specdata3', 'nfs_fh3', 'nfstime3', 'fattr3', 'wcc_attr', 'post_op_attr', 'pre_op_attr', 'wcc_data', 'post_op_fh3', 'time_how', 'set_mode3', 'set_uid3', 'set_gid3', 'set_size3', 'set_atime', 'set_mtime', 'sattr3', 'diropargs3', 'GETATTR3args', 'GETATTR3resok', 'GETATTR3res', 'sattrguard3', 'SETATTR3args', 'SETATTR3resok', 'SETATTR3resfail', 'SETATTR3res', 'LOOKUP3args', 'LOOKUP3resok', 'LOOKUP3resfail', 'LOOKUP3res', 'ACCESS3args', 'ACCESS3resok', 'ACCESS3resfail', 'ACCESS3res', 'READLINK3args', 'READLINK3resok', 'READLINK3resfail', 'READLINK3res', 'READ3args', 'READ3resok', 'READ3resfail', 'READ3res', 'stable_how', 'WRITE3args', 'WRITE3resok', 'WRITE3resfail', 'WRITE3res', 'createmode3', 'createhow3', 'CREATE3args', 'CREATE3resok', 'CREATE3resfail', 'CREATE3res', 'MKDIR3args', 'MKDIR3resok', 'MKDIR3resfail', 'MKDIR3res', 'symlinkdata3', 'SYMLINK3args', 'SYMLINK3resok', 'SYMLINK3resfail', 'SYMLINK3res', 'devicedata3', 'mknoddata3', 'MKNOD3args', 'MKNOD3resok', 'MKNOD3resfail', 'MKNOD3res', 'REMOVE3args', 'REMOVE3resok', 'REMOVE3resfail', 'REMOVE3res', 'RMDIR3args', 'RMDIR3resok', 'RMDIR3resfail', 'RMDIR3res', 'RENAME3args', 'RENAME3resok', 'RENAME3resfail', 'RENAME3res', 'LINK3args', 'LINK3resok', 'LINK3resfail', 'LINK3res', 'READDIR3args', 'entry3', 'dirlist3', 'READDIR3resok', 'READDIR3resfail', 'READDIR3res', 'READDIRPLUS3args', 'entryplus3', 'dirlistplus3', 'READDIRPLUS3resok', 'READDIRPLUS3resfail', 'READDIRPLUS3res', 'FSSTAT3args', 'FSSTAT3resok', 'FSSTAT3resfail', 'FSSTAT3res', 'FSINFO3args', 'FSINFO3resok', 'FSINFO3resfail', 'FSINFO3res', 'PATHCONF3args', 'PATHCONF3resok', 'PATHCONF3resfail', 'PATHCONF3res', 'COMMIT3args', 'COMMIT3resok', 'COMMIT3resfail', 'COMMIT3res', 'fhandle3', 'dirpath', 'name', 'mountstat3', 'mountres3_ok', 'mountres3', 'mountlist', 'grouplist', 'exportlist']
+__all__ = ['NFS_PROGRAM_3_SERVER', 'NFS_PROGRAM_3_CLIENT', 'MOUNT_PROGRAM_3_SERVER', 'MOUNT_PROGRAM_3_CLIENT', 'TRUE', 'FALSE', 'NFS3_FHSIZE', 'NFS3_COOKIEVERFSIZE', 'NFS3_CREATEVERFSIZE', 'NFS3_WRITEVERFSIZE', 'NFS3_OK', 'NFS3ERR_PERM', 'NFS3ERR_NOENT', 'NFS3ERR_IO', 'NFS3ERR_NXIO', 'NFS3ERR_ACCES', 'NFS3ERR_EXIST', 'NFS3ERR_XDEV', 'NFS3ERR_NODEV', 'NFS3ERR_NOTDIR', 'NFS3ERR_ISDIR', 'NFS3ERR_INVAL', 'NFS3ERR_FBIG', 'NFS3ERR_NOSPC', 'NFS3ERR_ROFS', 'NFS3ERR_MLINK', 'NFS3ERR_NAMETOOLONG', 'NFS3ERR_NOTEMPTY', 'NFS3ERR_DQUOT', 'NFS3ERR_STALE', 'NFS3ERR_REMOTE', 'NFS3ERR_BADHANDLE', 'NFS3ERR_NOT_SYNC', 'NFS3ERR_BAD_COOKIE', 'NFS3ERR_NOTSUPP', 'NFS3ERR_TOOSMALL', 'NFS3ERR_SERVERFAULT', 'NFS3ERR_BADTYPE', 'NFS3ERR_JUKEBOX', 'NF3REG', 'NF3DIR', 'NF3BLK', 'NF3CHR', 'NF3LNK', 'NF3SOCK', 'NF3FIFO', 'DONT_CHANGE', 'SET_TO_SERVER_TIME', 'SET_TO_CLIENT_TIME', 'ACCESS3_READ', 'ACCESS3_LOOKUP', 'ACCESS3_MODIFY', 'ACCESS3_EXTEND', 'ACCESS3_DELETE', 'ACCESS3_EXECUTE', 'UNSTABLE', 'DATA_SYNC', 'FILE_SYNC', 'UNCHECKED', 'GUARDED', 'EXCLUSIVE', 'FSF3_LINK', 'FSF3_SYMLINK', 'FSF3_HOMOGENEOUS', 'FSF3_CANSETTIME', 'MNTPATHLEN', 'MNTNAMLEN', 'FHSIZE3', 'MNT3_OK', 'MNT3ERR_PERM', 'MNT3ERR_NOENT', 'MNT3ERR_IO', 'MNT3ERR_ACCES', 'MNT3ERR_NOTDIR', 'MNT3ERR_INVAL', 'MNT3ERR_NAMETOOLONG', 'MNT3ERR_NOTSUPP', 'MNT3ERR_SERVERFAULT', 'Uint64', 'Int64', 'Uint32', 'Int32', 'Filename3', 'NFSPath3', 'Fileid3', 'Cookie3', 'Cookieverf3', 'Createverf3', 'Writeverf3', 'Uid3', 'Gid3', 'Size3', 'Offset3', 'Mode3', 'Count3', 'NFSStat3', 'Ftype3', 'SpecData3', 'NFSFh3', 'NFSTime3', 'FAttr3', 'WccAttr', 'PostOpAttr', 'PreOpAttr', 'WccData', 'PostOpFh3', 'TimeHow', 'SetMode3', 'SetUid3', 'SetGid3', 'SetSize3', 'SetATime', 'SetMTime', 'SAttr3', 'DiropArgs3', 'GETATTR3Args', 'GETATTR3ResOK', 'GETATTR3Res', 'Sattrguard3', 'SETATTR3Args', 'SETATTR3ResOK', 'SETATTR3ResFail', 'SETATTR3Res', 'LOOKUP3Args', 'LOOKUP3ResOK', 'LOOKUP3ResFail', 'LOOKUP3Res', 'ACCESS3Args', 'ACCESS3ResOK', 'ACCESS3ResFail', 'ACCESS3Res', 'READLINK3Args', 'READLINK3ResOK', 'READLINK3ResFail', 'READLINK3Res', 'READ3Args', 'READ3ResOK', 'READ3ResFail', 'READ3Res', 'StableHow', 'WRITE3Args', 'WRITE3ResOK', 'WRITE3ResFail', 'WRITE3Res', 'Createmode3', 'Createhow3', 'CREATE3Args', 'CREATE3ResOK', 'CREATE3ResFail', 'CREATE3Res', 'MKDIR3Args', 'MKDIR3ResOK', 'MKDIR3ResFail', 'MKDIR3Res', 'SymlinkData3', 'SYMLINK3Args', 'SYMLINK3ResOK', 'SYMLINK3ResFail', 'SYMLINK3Res', 'DeviceData3', 'MknodData3', 'MKNOD3Args', 'MKNOD3ResOK', 'MKNOD3ResFail', 'MKNOD3Res', 'REMOVE3Args', 'REMOVE3ResOK', 'REMOVE3ResFail', 'REMOVE3Res', 'RMDIR3Args', 'RMDIR3ResOK', 'RMDIR3ResFail', 'RMDIR3Res', 'RENAME3Args', 'RENAME3ResOK', 'RENAME3ResFail', 'RENAME3Res', 'LINK3Args', 'LINK3ResOK', 'LINK3ResFail', 'LINK3Res', 'READDIR3Args', 'Entry3', 'DirList3', 'READDIR3ResOK', 'READDIR3ResFail', 'READDIR3Res', 'READDIRPLUS3Args', 'Entryplus3', 'Dirlistplus3', 'READDIRPLUS3ResOK', 'READDIRPLUS3ResFail', 'READDIRPLUS3Res', 'FSSTAT3Args', 'FSSTAT3ResOK', 'FSSTAT3ResFail', 'FSSTAT3Res', 'FSINFO3Args', 'FSINFO3ResOK', 'FSINFO3ResFail', 'FSINFO3Res', 'PATHCONF3Args', 'PATHCONF3ResOK', 'PATHCONF3ResFail', 'PATHCONF3Res', 'COMMIT3Args', 'COMMIT3ResOK', 'COMMIT3ResFail', 'COMMIT3Res', 'FHandle3', 'DirPath', 'Name', 'MountStat3', 'Mountres3OK', 'MountRes3', 'MountList', 'GroupList', 'ExportList']

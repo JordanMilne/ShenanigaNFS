@@ -13,7 +13,7 @@ T = TypeVar("T")
 
 class UnpackedRPCMsg(Generic[T]):
     """Wrapper for a parsed message header and parsed return data"""
-    def __init__(self, msg: rpc_msg, body: T):
+    def __init__(self, msg: RPCMsg, body: T):
         self.msg = msg
         self.body: Optional[T] = body
 
@@ -40,9 +40,9 @@ class UnpackedRPCMsg(Generic[T]):
     def success(self):
         if self.msg.header.mtype != REPLY:
             raise ValueError("Tried to check success of call message?")
-        if self.msg.header.rbody.stat != MSG_ACCEPTED:
+        if self.msg.header.rbody.stat != ReplyStat.MSG_ACCEPTED:
             return False
-        if self.msg.header.rbody.areply.data.stat != accept_stat.SUCCESS:
+        if self.msg.header.rbody.areply.data.stat != AcceptStat.SUCCESS:
             return False
         return True
 
@@ -102,7 +102,7 @@ class BaseClient(rpchelp.Prog):
         if not xid_future:
             # Got a reply for a message we didn't send???
             return
-        if reply.header.mtype == msg_type.REPLY:
+        if reply.header.mtype == MsgType.REPLY:
             xid_future.set_result(msg)
         else:
             xid_future.set_exception(ValueError(f"Expected REPLY, got {reply.header.mtype}"))
@@ -121,22 +121,22 @@ class BaseClient(rpchelp.Prog):
         if not self.transport:
             await self.connect()
 
-        msg = rpc_msg(
+        msg = RPCMsg(
             xid=xid,
-            header=rpc_body(
-                mtype=msg_type.CALL,
-                cbody=call_body(
+            header=RPCBody(
+                mtype=MsgType.CALL,
+                cbody=CallBody(
                     rpcvers=2,
                     prog=self.prog,
                     vers=self.vers,
                     proc=proc_id,
                     # always null auth for now
-                    cred=opaque_auth(
-                        flavor=auth_flavor.AUTH_NONE,
+                    cred=OpaqueAuth(
+                        flavor=AuthFlavor.AUTH_NONE,
                         body=b""
                     ),
-                    verf=opaque_auth(
-                        flavor=auth_flavor.AUTH_NONE,
+                    verf=OpaqueAuth(
+                        flavor=AuthFlavor.AUTH_NONE,
                         body=b""
                     ),
                 )
@@ -148,12 +148,12 @@ class BaseClient(rpchelp.Prog):
 
         # TODO: timeout?
         reply_msg = await fut
-        reply: rpc_msg = reply_msg[0]
+        reply: RPCMsg = reply_msg[0]
         reply_body_bytes: bytes = reply_msg[1]
 
         assert(reply.header.mtype == REPLY)
         rbody = reply.header.rbody
-        if rbody.stat != reply_stat.MSG_ACCEPTED or rbody.areply.data.stat != accept_stat.SUCCESS:
+        if rbody.stat != ReplyStat.MSG_ACCEPTED or rbody.areply.data.stat != AcceptStat.SUCCESS:
             return UnpackedRPCMsg(reply, None)
         return UnpackedRPCMsg(reply, self.unpack_return(proc_id, reply_body_bytes))
 

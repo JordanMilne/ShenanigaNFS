@@ -27,21 +27,21 @@ class TransportServer:
                 await pmap_client.SET(self.get_prog_port_mapping(prog))
 
     @abc.abstractmethod
-    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> pmap.mapping:
+    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> pmap.Mapping:
         pass
 
     async def handle_message(self, transport: BaseTransport, msg: SPLIT_MSG):
         call, body_bytes = msg
-        if call.header.mtype == msg_type.CALL:
+        if call.header.mtype == MsgType.CALL:
             await self.handle_call(transport, call, body_bytes)
         else:
             # TODO: what's the proper error code for this?
-            err_msg = self.make_reply(call.xid, reply_stat.MSG_ACCEPTED, accept_stat.GARBAGE_ARGS)
+            err_msg = self.make_reply(call.xid, ReplyStat.MSG_ACCEPTED, AcceptStat.GARBAGE_ARGS)
             await transport.write_msg(err_msg, b"")
 
-    async def handle_call(self, transport: BaseTransport, call: rpc_msg, call_body_bytes: bytes):
-        stat: accept_stat = accept_stat.SUCCESS
-        mismatch: Optional[mismatch_info] = None
+    async def handle_call(self, transport: BaseTransport, call: RPCMsg, call_body_bytes: bytes):
+        stat = AcceptStat.SUCCESS
+        mismatch: Optional[MismatchInfo] = None
         reply_body_bytes = b""
         cbody = call.header.cbody
 
@@ -53,39 +53,39 @@ class TransportServer:
                     reply_body_bytes = vers_progs[0].handle_proc_call(cbody.proc, call_body_bytes)
                 else:
                     prog_versions = [p.vers for p in progs]
-                    mismatch = mismatch_info(min(prog_versions), max(prog_versions))
-                    stat = accept_stat.PROG_MISMATCH
+                    mismatch = MismatchInfo(min(prog_versions), max(prog_versions))
+                    stat = AcceptStat.PROG_MISMATCH
             else:
-                stat = accept_stat.PROG_UNAVAIL
+                stat = AcceptStat.PROG_UNAVAIL
 
         except NotImplementedError:
-            stat = accept_stat.PROC_UNAVAIL
+            stat = AcceptStat.PROC_UNAVAIL
         except Exception:
             print(f"Failed in {cbody.prog}.{cbody.vers}.{cbody.proc}")
-            reply_header = self.make_reply(call.xid, reply_stat.MSG_ACCEPTED, accept_stat.SYSTEM_ERR)
+            reply_header = self.make_reply(call.xid, ReplyStat.MSG_ACCEPTED, AcceptStat.SYSTEM_ERR)
             await transport.write_msg(reply_header, b"")
             # Might not be able to gracefully handle this. try to kill the transport.
             transport.close()
             raise
 
-        reply_header = self.make_reply(call.xid, reply_stat.MSG_ACCEPTED, stat, mismatch)
+        reply_header = self.make_reply(call.xid, ReplyStat.MSG_ACCEPTED, stat, mismatch)
         await transport.write_msg(reply_header, reply_body_bytes)
 
     @staticmethod
-    def make_reply(xid, stat: reply_stat = 0, msg_stat: Union[accept_stat, reject_stat] = 0,
-                   mismatch: Optional[mismatch_info] = None) -> rpc_msg:
-        return rpc_msg(
+    def make_reply(xid, stat: ReplyStat = 0, msg_stat: Union[AcceptStat, RejectStat] = 0,
+                   mismatch: Optional[MismatchInfo] = None) -> RPCMsg:
+        return RPCMsg(
             xid=xid,
-            header=rpc_body(
-                mtype=msg_type.REPLY,
-                rbody=reply_body(
+            header=RPCBody(
+                mtype=MsgType.REPLY,
+                rbody=ReplyBody(
                     stat=stat,
-                    areply=accepted_reply(
-                        verf=opaque_auth(
-                            auth_flavor.AUTH_NONE,
+                    areply=AcceptedReply(
+                        verf=OpaqueAuth(
+                            AuthFlavor.AUTH_NONE,
                             body=b""
                         ),
-                        data=reply_data(
+                        data=ReplyData(
                             stat=msg_stat,
                             mismatch=mismatch,
                         )
@@ -117,8 +117,8 @@ class TCPTransportServer(TransportServer):
             await self.handle_message(transport, read_ret)
         transport.close()
 
-    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> pmap.mapping:
-        return pmap.mapping(
+    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> pmap.Mapping:
+        return pmap.Mapping(
             prog=prog.prog,
             vers=prog.vers,
             prot=pmap.IPPROTO_TCP,

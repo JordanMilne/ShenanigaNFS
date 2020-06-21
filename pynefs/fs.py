@@ -39,18 +39,18 @@ class FileType(enum.IntEnum):
             self.FIFO: 0o0140000,
         }[self]
 
-    def to_nfs2(self, mode) -> Tuple[int, nfs2.ftype]:
+    def to_nfs2(self, mode) -> Tuple[int, nfs2.Ftype]:
         if self in (self.SOCK, self.FIFO):
-            f_type = nfs2.ftype.NFNON
+            f_type = nfs2.Ftype.NFNON
         else:
-            f_type = nfs2.ftype(self)
+            f_type = nfs2.Ftype(self)
         return mode | self._nfs2_mode_mask(), f_type
 
 
-def date_to_nfs2(date: dt.datetime) -> nfs2.timeval:
+def date_to_nfs2(date: dt.datetime) -> nfs2.Timeval:
     ts = date.timestamp()
     frac, whole = math.modf(ts)
-    return nfs2.timeval(math.floor(whole), math.floor(frac * 1_000_000))
+    return nfs2.Timeval(math.floor(whole), math.floor(frac * 1_000_000))
 
 
 @dataclasses.dataclass
@@ -76,9 +76,9 @@ class BaseFSEntry:
     def nfs2_cookie(self) -> bytes:
         return struct.pack("!L", self.fileid)
 
-    def to_nfs2_fattr(self) -> nfs2.fattr:
+    def to_nfs2_fattr(self) -> nfs2.FAttr:
         mode, f_type = self.type.to_nfs2(self.mode)
-        return nfs2.fattr(
+        return nfs2.FAttr(
             type=f_type,
             mode=mode,
             nlink=self.nlink,

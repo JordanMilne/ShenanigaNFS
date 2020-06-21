@@ -34,7 +34,6 @@
 import abc
 import dataclasses
 import enum
-import enum as py_enum
 import typing
 import xdrlib
 
@@ -58,7 +57,7 @@ class BadUnionSwitchException(Exception):
     pass
 
 
-class packable:
+class Packable:
     @abc.abstractmethod
     def unpack(self, up: xdrlib.Unpacker):
         pass
@@ -73,12 +72,12 @@ class packable:
         pass
 
 
-class arr(packable):
+class Array(Packable):
     """Pack and unpack a fixed-length or variable-length array,
     both corresponding to a Python list"""
 
     def __init__(self, base_typ, fixed_len, length=None):
-        self.base_type: packable = base_typ
+        self.base_type: Packable = base_typ
         self.fixed_len = fixed_len
         self.length = length
         assert (not (fixed_len and length is None))
@@ -108,7 +107,7 @@ class arr(packable):
             return up.unpack_array(unpack_one)
 
 
-class opaque_or_string(packable):
+class Opaque(Packable):
     """Pack and unpack an opaque or string type, both corresponding
     to a Python string"""
 
@@ -138,8 +137,8 @@ class opaque_or_string(packable):
 
 
 # so happens that the underlying encodings are the same for opaque and string
-opaque = opaque_or_string
-string = opaque_or_string
+opaque = Opaque
+string = Opaque
 
 
 PACKABLE_OR_PACKABLE_CLASS = typing.Union["packable", typing.Type["packable"]]
@@ -150,7 +149,7 @@ def rpc_field(serializer: PACKABLE_OR_PACKABLE_CLASS, default=dataclasses.MISSIN
 
 
 @dataclasses.dataclass
-class struct_union_base(packable, abc.ABC):
+class StructUnionBase(Packable, abc.ABC):
     @classmethod
     def get_fields(cls) -> typing.Tuple[dataclasses.Field]:
         return dataclasses.fields(cls)
@@ -161,7 +160,7 @@ class struct_union_base(packable, abc.ABC):
 
 
 @dataclasses.dataclass
-class struct(struct_union_base, abc.ABC):
+class Struct(StructUnionBase, abc.ABC):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -198,7 +197,7 @@ class struct(struct_union_base, abc.ABC):
         return cls.__name__
 
 
-class linked_list(struct, abc.ABC):
+class LinkedList(Struct, abc.ABC):
     """Pack and unpack an XDR linked list as a Python list."""
 
     @classmethod
@@ -207,18 +206,18 @@ class linked_list(struct, abc.ABC):
 
     @classmethod
     def pack(cls, p, val_list, want_single=True):
-        return p.pack_list(val_list, lambda val: super(linked_list, cls).pack(p, val, want_single))
+        return p.pack_list(val_list, lambda val: super(LinkedList, cls).pack(p, val, want_single))
 
     @classmethod
     def unpack(cls, up, want_single=True):
-        return up.unpack_list(lambda: super(linked_list, cls).unpack(up, want_single))
+        return up.unpack_list(lambda: super(LinkedList, cls).unpack(up, want_single))
 
 
 UNION_DICT = typing.Dict[typing.Any, typing.Optional[str]]
 
 
 @dataclasses.dataclass
-class union(struct_union_base, abc.ABC):
+class Union(StructUnionBase, abc.ABC):
     SWITCH_OPTIONS: typing.ClassVar[UNION_DICT]
 
     def __init__(self, *args, **kwargs):
@@ -265,7 +264,7 @@ class union(struct_union_base, abc.ABC):
         return cls(sw_val)
 
 
-class opt_data(packable):
+class OptData(Packable):
     """Pack and unpack an optional value, as either None or the value
     itself.  This choice means that we can't encode declarations which
     resolve to void * in both ways (both void absent, and void
@@ -277,11 +276,11 @@ class opt_data(packable):
     "option" type ...)"""
 
     def __init__(self, typ):
-        self.typ: packable = typ
+        self.typ: Packable = typ
 
     @property
     def is_linked_list(self):
-        return isinstance_or_subclass(self.typ, linked_list)
+        return isinstance_or_subclass(self.typ, LinkedList)
 
     def type_hint(self) -> str:
         # Ugh. Gross special case because of ambiguity in the IDL.
@@ -313,7 +312,7 @@ class opt_data(packable):
             return None
 
 
-class base_type(packable):
+class BaseType(Packable):
     def __init__(self, p, up, python_type: typing.Optional[typing.Type]):
         self.p_proc = p
         self.up_proc = up
@@ -331,10 +330,10 @@ class base_type(packable):
         return self.python_type.__name__
 
 
-class enum(packable, py_enum.IntEnum):
+class Enum(Packable, enum.IntEnum):
     @classmethod
     def type_hint(cls) -> str:
-        return cls.__name__
+        return f"typing.Union[{cls.__name__}, int]"
 
     @classmethod
     def pack(cls, p: xdrlib.Packer, val):
@@ -346,15 +345,15 @@ class enum(packable, py_enum.IntEnum):
 
 
 # r_ prefix to avoid shadowing Python names
-r_uint = base_type(xdrlib.Packer.pack_uint, xdrlib.Unpacker.unpack_uint, int)
-r_int = base_type(xdrlib.Packer.pack_int, xdrlib.Unpacker.unpack_int, int)
-r_bool = base_type(xdrlib.Packer.pack_bool, xdrlib.Unpacker.unpack_bool, bool)
-r_void = base_type(lambda p, v: None, lambda up: None, None)
-r_hyper = base_type(xdrlib.Packer.pack_hyper, xdrlib.Unpacker.unpack_hyper, int)
-r_uhyper = base_type(xdrlib.Packer.pack_uhyper, xdrlib.Unpacker.unpack_uhyper, int)
-r_float = base_type(xdrlib.Packer.pack_float, xdrlib.Unpacker.unpack_float, float)
-r_double = base_type(xdrlib.Packer.pack_double, xdrlib.Unpacker.unpack_double, float)
-r_opaque = base_type(xdrlib.Packer.pack_opaque, xdrlib.Unpacker.unpack_opaque, bytes)
+r_uint = BaseType(xdrlib.Packer.pack_uint, xdrlib.Unpacker.unpack_uint, int)
+r_int = BaseType(xdrlib.Packer.pack_int, xdrlib.Unpacker.unpack_int, int)
+r_bool = BaseType(xdrlib.Packer.pack_bool, xdrlib.Unpacker.unpack_bool, bool)
+r_void = BaseType(lambda p, v: None, lambda up: None, None)
+r_hyper = BaseType(xdrlib.Packer.pack_hyper, xdrlib.Unpacker.unpack_hyper, int)
+r_uhyper = BaseType(xdrlib.Packer.pack_uhyper, xdrlib.Unpacker.unpack_uhyper, int)
+r_float = BaseType(xdrlib.Packer.pack_float, xdrlib.Unpacker.unpack_float, float)
+r_double = BaseType(xdrlib.Packer.pack_double, xdrlib.Unpacker.unpack_double, float)
+r_opaque = BaseType(xdrlib.Packer.pack_opaque, xdrlib.Unpacker.unpack_opaque, bytes)
 r_string = r_opaque
 # XXX should add quadruple, but no direct Python support for it.
 
@@ -364,8 +363,8 @@ class Proc:
 
     def __init__(self, name, ret_type, arg_types):
         self.name = name
-        self.ret_type: packable = ret_type
-        self.arg_types: typing.List[packable] = arg_types
+        self.ret_type: Packable = ret_type
+        self.arg_types: typing.List[Packable] = arg_types
 
     def __str__(self):
         return "Proc: %s %s %s" % (self.name, str(self.ret_type),

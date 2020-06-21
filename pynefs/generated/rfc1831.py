@@ -33,38 +33,38 @@ AUTH_INVALIDRESP = 6
 AUTH_FAILED = 7
 
 
-class auth_flavor(rpchelp.enum):
+class AuthFlavor(rpchelp.Enum):  # auth_flavor
     AUTH_NONE = 0
     AUTH_SYS = 1
     AUTH_SHORT = 2
 
 
 @dataclass
-class opaque_auth(rpchelp.struct):
-    flavor: auth_flavor = rpchelp.rpc_field(auth_flavor)
+class OpaqueAuth(rpchelp.Struct):  # opaque_auth
+    flavor: typing.Union[AuthFlavor, int] = rpchelp.rpc_field(AuthFlavor)
     body: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, 400))
 
 
 @dataclass
-class authsys_parms(rpchelp.struct):
+class AuthsysParms(rpchelp.Struct):  # authsys_parms
     stamp: int = rpchelp.rpc_field(rpchelp.r_uint)
     machinename: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, 255))
     uid: int = rpchelp.rpc_field(rpchelp.r_uint)
     gid: int = rpchelp.rpc_field(rpchelp.r_uint)
-    gids: typing.List[int] = rpchelp.rpc_field(rpchelp.arr(rpchelp.r_uint, rpchelp.LengthType.VAR, 16))
+    gids: typing.List[int] = rpchelp.rpc_field(rpchelp.Array(rpchelp.r_uint, rpchelp.LengthType.VAR, 16))
 
 
-class msg_type(rpchelp.enum):
+class MsgType(rpchelp.Enum):  # msg_type
     CALL = 0
     REPLY = 1
 
 
-class reply_stat(rpchelp.enum):
+class ReplyStat(rpchelp.Enum):  # reply_stat
     MSG_ACCEPTED = 0
     MSG_DENIED = 1
 
 
-class accept_stat(rpchelp.enum):
+class AcceptStat(rpchelp.Enum):  # accept_stat
     SUCCESS = 0
     PROG_UNAVAIL = 1
     PROG_MISMATCH = 2
@@ -73,12 +73,12 @@ class accept_stat(rpchelp.enum):
     SYSTEM_ERR = 5
 
 
-class reject_stat(rpchelp.enum):
+class RejectStat(rpchelp.Enum):  # reject_stat
     RPC_MISMATCH = 0
     AUTH_ERROR = 1
 
 
-class auth_stat(rpchelp.enum):
+class AuthStat(rpchelp.Enum):  # auth_stat
     AUTH_OK = 0
     AUTH_BADCRED = 1
     AUTH_REJECTEDCRED = 2
@@ -90,68 +90,68 @@ class auth_stat(rpchelp.enum):
 
 
 @dataclass
-class call_body(rpchelp.struct):
+class CallBody(rpchelp.Struct):  # call_body
     rpcvers: int = rpchelp.rpc_field(rpchelp.r_uint)
     prog: int = rpchelp.rpc_field(rpchelp.r_uint)
     vers: int = rpchelp.rpc_field(rpchelp.r_uint)
     proc: int = rpchelp.rpc_field(rpchelp.r_uint)
-    cred: opaque_auth = rpchelp.rpc_field(opaque_auth)
-    verf: opaque_auth = rpchelp.rpc_field(opaque_auth)
+    cred: OpaqueAuth = rpchelp.rpc_field(OpaqueAuth)
+    verf: OpaqueAuth = rpchelp.rpc_field(OpaqueAuth)
 
 
 @dataclass
-class mismatch_info(rpchelp.struct):
+class MismatchInfo(rpchelp.Struct):  # mismatch_info
     low: int = rpchelp.rpc_field(rpchelp.r_uint)
     high: int = rpchelp.rpc_field(rpchelp.r_uint)
 
 
 @dataclass
-class reply_data(rpchelp.union):
+class ReplyData(rpchelp.Union):  # reply_data
     SWITCH_OPTIONS = {SUCCESS: None, PROG_MISMATCH: 'mismatch', None: None}
-    stat: accept_stat = rpchelp.rpc_field(accept_stat)
-    mismatch: typing.Optional[mismatch_info] = rpchelp.rpc_field(mismatch_info, default=None)
+    stat: typing.Union[AcceptStat, int] = rpchelp.rpc_field(AcceptStat)
+    mismatch: typing.Optional[MismatchInfo] = rpchelp.rpc_field(MismatchInfo, default=None)
 
 
 @dataclass
-class accepted_reply(rpchelp.struct):
-    verf: opaque_auth = rpchelp.rpc_field(opaque_auth)
-    data: reply_data = rpchelp.rpc_field(reply_data)
+class AcceptedReply(rpchelp.Struct):  # accepted_reply
+    verf: OpaqueAuth = rpchelp.rpc_field(OpaqueAuth)
+    data: ReplyData = rpchelp.rpc_field(ReplyData)
 
 
 @dataclass
-class rejected_reply_mismatch_info(rpchelp.struct):
+class MismatchInfo(rpchelp.Struct):  # mismatch_info
     low: int = rpchelp.rpc_field(rpchelp.r_uint)
     high: int = rpchelp.rpc_field(rpchelp.r_uint)
 
 
 @dataclass
-class rejected_reply(rpchelp.union):
+class RejectedReply(rpchelp.Union):  # rejected_reply
     SWITCH_OPTIONS = {RPC_MISMATCH: 'mismatch_info', AUTH_ERROR: 'auth_error'}
-    r_stat: reject_stat = rpchelp.rpc_field(reject_stat)
-    auth_error: typing.Optional[auth_stat] = rpchelp.rpc_field(auth_stat, default=None)
-    mismatch_info: typing.Optional[rejected_reply_mismatch_info] = rpchelp.rpc_field(rejected_reply_mismatch_info, default=None)
+    r_stat: typing.Union[RejectStat, int] = rpchelp.rpc_field(RejectStat)
+    mismatch_info: typing.Optional[MismatchInfo] = rpchelp.rpc_field(MismatchInfo, default=None)
+    auth_error: typing.Optional[typing.Union[AuthStat, int]] = rpchelp.rpc_field(AuthStat, default=None)
 
 
 @dataclass
-class reply_body(rpchelp.union):
+class ReplyBody(rpchelp.Union):  # reply_body
     SWITCH_OPTIONS = {MSG_ACCEPTED: 'areply', MSG_DENIED: 'rreply'}
-    stat: reply_stat = rpchelp.rpc_field(reply_stat)
-    rreply: typing.Optional[rejected_reply] = rpchelp.rpc_field(rejected_reply, default=None)
-    areply: typing.Optional[accepted_reply] = rpchelp.rpc_field(accepted_reply, default=None)
+    stat: typing.Union[ReplyStat, int] = rpchelp.rpc_field(ReplyStat)
+    rreply: typing.Optional[RejectedReply] = rpchelp.rpc_field(RejectedReply, default=None)
+    areply: typing.Optional[AcceptedReply] = rpchelp.rpc_field(AcceptedReply, default=None)
 
 
 @dataclass
-class rpc_body(rpchelp.union):
+class RPCBody(rpchelp.Union):  # rpc_body
     SWITCH_OPTIONS = {CALL: 'cbody', REPLY: 'rbody'}
-    mtype: msg_type = rpchelp.rpc_field(msg_type)
-    cbody: typing.Optional[call_body] = rpchelp.rpc_field(call_body, default=None)
-    rbody: typing.Optional[reply_body] = rpchelp.rpc_field(reply_body, default=None)
+    mtype: typing.Union[MsgType, int] = rpchelp.rpc_field(MsgType)
+    cbody: typing.Optional[CallBody] = rpchelp.rpc_field(CallBody, default=None)
+    rbody: typing.Optional[ReplyBody] = rpchelp.rpc_field(ReplyBody, default=None)
 
 
 @dataclass
-class rpc_msg(rpchelp.struct):
+class RPCMsg(rpchelp.Struct):  # rpc_msg
     xid: int = rpchelp.rpc_field(rpchelp.r_uint)
-    header: rpc_body = rpchelp.rpc_field(rpc_body)
+    header: RPCBody = rpchelp.rpc_field(RPCBody)
 
 
-__all__ = ['TRUE', 'FALSE', 'AUTH_NONE', 'AUTH_SYS', 'AUTH_SHORT', 'CALL', 'REPLY', 'MSG_ACCEPTED', 'MSG_DENIED', 'SUCCESS', 'PROG_UNAVAIL', 'PROG_MISMATCH', 'PROC_UNAVAIL', 'GARBAGE_ARGS', 'SYSTEM_ERR', 'RPC_MISMATCH', 'AUTH_ERROR', 'AUTH_OK', 'AUTH_BADCRED', 'AUTH_REJECTEDCRED', 'AUTH_BADVERF', 'AUTH_REJECTEDVERF', 'AUTH_TOOWEAK', 'AUTH_INVALIDRESP', 'AUTH_FAILED', 'auth_flavor', 'opaque_auth', 'authsys_parms', 'msg_type', 'reply_stat', 'accept_stat', 'reject_stat', 'auth_stat', 'call_body', 'mismatch_info', 'reply_data', 'accepted_reply', 'rejected_reply_mismatch_info', 'rejected_reply', 'reply_body', 'rpc_body', 'rpc_msg']
+__all__ = ['TRUE', 'FALSE', 'AUTH_NONE', 'AUTH_SYS', 'AUTH_SHORT', 'CALL', 'REPLY', 'MSG_ACCEPTED', 'MSG_DENIED', 'SUCCESS', 'PROG_UNAVAIL', 'PROG_MISMATCH', 'PROC_UNAVAIL', 'GARBAGE_ARGS', 'SYSTEM_ERR', 'RPC_MISMATCH', 'AUTH_ERROR', 'AUTH_OK', 'AUTH_BADCRED', 'AUTH_REJECTEDCRED', 'AUTH_BADVERF', 'AUTH_REJECTEDVERF', 'AUTH_TOOWEAK', 'AUTH_INVALIDRESP', 'AUTH_FAILED', 'AuthFlavor', 'OpaqueAuth', 'AuthsysParms', 'MsgType', 'ReplyStat', 'AcceptStat', 'RejectStat', 'AuthStat', 'CallBody', 'MismatchInfo', 'ReplyData', 'AcceptedReply', 'RejectedReply', 'ReplyBody', 'RPCBody', 'RPCMsg']

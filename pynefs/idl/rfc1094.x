@@ -120,7 +120,7 @@ union statfsres switch (stat status) { /* original missing 'switch' XXX */
                    unsigned blocks;
                    unsigned bfree;
                    unsigned bavail;
-               } info;
+               } fs_info;
            default:
                    void;
            };
@@ -134,17 +134,17 @@ typedef opaque nfscookie[COOKIESIZE];
                    unsigned int count;
            };
 
-           struct entry {
+           struct dir_entry {
                    unsigned int fileid;
                    filename name;
                    nfscookie cookie;
-                   entry *nextentry;
+                   dir_entry *nextentry;
            };
 
            union readdirres switch (stat status) {
            case NFS_OK:
                    struct {
-                           entry *entries;
+                           dir_entry *entries;
                            bool eof;
                    } readdirok;
            default:

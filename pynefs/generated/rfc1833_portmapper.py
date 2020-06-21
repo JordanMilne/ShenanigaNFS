@@ -13,7 +13,7 @@ PMAP_PORT = 111
 
 
 @dataclass
-class mapping(rpchelp.struct):
+class Mapping(rpchelp.Struct):  # mapping
     prog: int = rpchelp.rpc_field(rpchelp.r_uint)
     vers: int = rpchelp.rpc_field(rpchelp.r_uint)
     prot: int = rpchelp.rpc_field(rpchelp.r_uint)
@@ -25,12 +25,12 @@ IPPROTO_UDP = 17
 
 
 @dataclass
-class pmaplist(rpchelp.linked_list):
-    map: mapping = rpchelp.rpc_field(mapping)
+class PmapList(rpchelp.LinkedList):  # pmaplist
+    map: Mapping = rpchelp.rpc_field(Mapping)
 
 
 @dataclass
-class call_args(rpchelp.struct):
+class CallArgs(rpchelp.Struct):  # call_args
     prog: int = rpchelp.rpc_field(rpchelp.r_uint)
     vers: int = rpchelp.rpc_field(rpchelp.r_uint)
     proc: int = rpchelp.rpc_field(rpchelp.r_uint)
@@ -38,7 +38,7 @@ class call_args(rpchelp.struct):
 
 
 @dataclass
-class call_result(rpchelp.struct):
+class CallResult(rpchelp.Struct):  # call_result
     port: int = rpchelp.rpc_field(rpchelp.r_uint)
     res: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, None))
 
@@ -51,11 +51,11 @@ class PMAP_PROG_2_SERVER(rpchelp.Prog):
     vers = 2
     procs = {
         0: rpchelp.Proc('NULL', rpchelp.r_void, []),
-        1: rpchelp.Proc('SET', rpchelp.r_bool, [mapping]),
-        2: rpchelp.Proc('UNSET', rpchelp.r_bool, [mapping]),
-        3: rpchelp.Proc('GETPORT', rpchelp.r_uint, [mapping]),
-        4: rpchelp.Proc('DUMP', pmaplist, []),
-        5: rpchelp.Proc('CALLIT', call_result, [call_args]),
+        1: rpchelp.Proc('SET', rpchelp.r_bool, [Mapping]),
+        2: rpchelp.Proc('UNSET', rpchelp.r_bool, [Mapping]),
+        3: rpchelp.Proc('GETPORT', rpchelp.r_uint, [Mapping]),
+        4: rpchelp.Proc('DUMP', PmapList, []),
+        5: rpchelp.Proc('CALLIT', CallResult, [CallArgs]),
     }
 
     @abc.abstractmethod
@@ -63,23 +63,23 @@ class PMAP_PROG_2_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def SET(self, arg_0: mapping) -> bool:
+    def SET(self, arg_0: Mapping) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def UNSET(self, arg_0: mapping) -> bool:
+    def UNSET(self, arg_0: Mapping) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETPORT(self, arg_0: mapping) -> int:
+    def GETPORT(self, arg_0: Mapping) -> int:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def DUMP(self) -> typing.List[typing.Union[mapping, pmaplist]]:
+    def DUMP(self) -> typing.List[typing.Union[Mapping, PmapList]]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def CALLIT(self, arg_0: call_args) -> call_result:
+    def CALLIT(self, arg_0: CallArgs) -> CallResult:
         raise NotImplementedError()
 
 
@@ -88,30 +88,30 @@ class PMAP_PROG_2_CLIENT(client.BaseClient):
     vers = 2
     procs = {
         0: rpchelp.Proc('NULL', rpchelp.r_void, []),
-        1: rpchelp.Proc('SET', rpchelp.r_bool, [mapping]),
-        2: rpchelp.Proc('UNSET', rpchelp.r_bool, [mapping]),
-        3: rpchelp.Proc('GETPORT', rpchelp.r_uint, [mapping]),
-        4: rpchelp.Proc('DUMP', pmaplist, []),
-        5: rpchelp.Proc('CALLIT', call_result, [call_args]),
+        1: rpchelp.Proc('SET', rpchelp.r_bool, [Mapping]),
+        2: rpchelp.Proc('UNSET', rpchelp.r_bool, [Mapping]),
+        3: rpchelp.Proc('GETPORT', rpchelp.r_uint, [Mapping]),
+        4: rpchelp.Proc('DUMP', PmapList, []),
+        5: rpchelp.Proc('CALLIT', CallResult, [CallArgs]),
     }
 
     async def NULL(self) -> client.UnpackedRPCMsg[None]:
         return await self.send_call(0, )
 
-    async def SET(self, arg_0: mapping) -> client.UnpackedRPCMsg[bool]:
+    async def SET(self, arg_0: Mapping) -> client.UnpackedRPCMsg[bool]:
         return await self.send_call(1, arg_0)
 
-    async def UNSET(self, arg_0: mapping) -> client.UnpackedRPCMsg[bool]:
+    async def UNSET(self, arg_0: Mapping) -> client.UnpackedRPCMsg[bool]:
         return await self.send_call(2, arg_0)
 
-    async def GETPORT(self, arg_0: mapping) -> client.UnpackedRPCMsg[int]:
+    async def GETPORT(self, arg_0: Mapping) -> client.UnpackedRPCMsg[int]:
         return await self.send_call(3, arg_0)
 
-    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[typing.Union[mapping, pmaplist]]]:
+    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[typing.Union[Mapping, PmapList]]]:
         return await self.send_call(4, )
 
-    async def CALLIT(self, arg_0: call_args) -> client.UnpackedRPCMsg[call_result]:
+    async def CALLIT(self, arg_0: CallArgs) -> client.UnpackedRPCMsg[CallResult]:
         return await self.send_call(5, arg_0)
 
 
-__all__ = ['PMAP_PROG_2_SERVER', 'PMAP_PROG_2_CLIENT', 'TRUE', 'FALSE', 'PMAP_PORT', 'IPPROTO_TCP', 'IPPROTO_UDP', 'mapping', 'pmaplist', 'call_args', 'call_result']
+__all__ = ['PMAP_PROG_2_SERVER', 'PMAP_PROG_2_CLIENT', 'TRUE', 'FALSE', 'PMAP_PORT', 'IPPROTO_TCP', 'IPPROTO_UDP', 'Mapping', 'PmapList', 'CallArgs', 'CallResult']

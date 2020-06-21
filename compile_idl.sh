@@ -3,7 +3,7 @@
 pushd `dirname $(readlink -f $0)` > /dev/null
 
 function compile_idl {
-  python rpcgen.py "pynefs/idl/${1}.x" > "pynefs/generated/${1}.py"
+  REMAP_NAMES=1 python rpcgen.py "pynefs/idl/${1}.x" > "pynefs/generated/${1}.py"
 }
 
 

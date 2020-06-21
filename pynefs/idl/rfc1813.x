@@ -97,37 +97,21 @@ struct fattr3 {
    nfstime3   ctime;
 };
 
-union post_op_attr switch (bool attributes_follow) {
-case TRUE:
-   fattr3   attributes;
-case FALSE:
-   void;
-};
-
 struct wcc_attr {
    size3       size;
    nfstime3    mtime;
    nfstime3    ctime;
 };
 
-
-union pre_op_attr switch (bool attributes_follow) {
-case TRUE:
-     wcc_attr  attributes;
-case FALSE:
-     void;
-};
+typedef fattr3 *post_op_attr;
+typedef wcc_attr *pre_op_attr;
 
 struct wcc_data {
    pre_op_attr    before;
    post_op_attr   after;
 };
-union post_op_fh3 switch (bool handle_follows) {
-case TRUE:
-     nfs_fh3  obj_handle;
-case FALSE:
-     void;
-};
+
+typedef nfs_fh3 *post_op_fh3;
 
 enum time_how {
    DONT_CHANGE        = 0,
@@ -135,33 +119,11 @@ enum time_how {
    SET_TO_CLIENT_TIME = 2
 };
 
-union set_mode3 switch (bool set_it) {
-case TRUE:
-   mode3    mode;
-default:
-   void;
-};
+typedef mode3 *set_mode3;
+typedef uid3 *set_uid3;
+typedef gid3 *set_gid3;
+typedef size3 *set_size3;
 
-union set_uid3 switch (bool set_it) {
-case TRUE:
-   uid3     uid;
-default:
-   void;
-};
-
-union set_gid3 switch (bool set_it) {
-case TRUE:
-   gid3     gid;
-default:
-   void;
-};
-
-union set_size3 switch (bool set_it) {
-case TRUE:
-   size3    size;
-default:
-   void;
-};
 
 union set_atime switch (time_how set_it) {
 case SET_TO_CLIENT_TIME:

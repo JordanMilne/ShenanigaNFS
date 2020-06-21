@@ -10,6 +10,8 @@ TRUE = True
 FALSE = False
 
 RPCB_PORT = 111
+
+
 @dataclass
 class rpcb(rpchelp.struct):
     r_prog: int = rpchelp.rpc_field(rpchelp.r_uint)
@@ -18,11 +20,15 @@ class rpcb(rpchelp.struct):
     r_addr: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
     r_owner: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
 
+
 @dataclass
 class rp__list(rpchelp.linked_list):
     rpcb_map: rpcb = rpchelp.rpc_field(rpcb)
 
+
 rpcblist = rp__list
+
+
 @dataclass
 class rpcb_rmtcallargs(rpchelp.struct):
     prog: int = rpchelp.rpc_field(rpchelp.r_uint)
@@ -30,10 +36,12 @@ class rpcb_rmtcallargs(rpchelp.struct):
     proc: int = rpchelp.rpc_field(rpchelp.r_uint)
     args: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, None))
 
+
 @dataclass
 class rpcb_rmtcallres(rpchelp.struct):
     addr: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
     results: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, None))
+
 
 @dataclass
 class rpcb_entry(rpchelp.struct):
@@ -43,9 +51,11 @@ class rpcb_entry(rpchelp.struct):
     r_nc_protofmly: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
     r_nc_proto: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
 
+
 @dataclass
 class rpcb_entry_list(rpchelp.linked_list):
     rpcb_entry_map: rpcb_entry = rpchelp.rpc_field(rpcb_entry)
+
 
 rpcb_highproc_2 = 5
 rpcb_highproc_3 = 8
@@ -55,6 +65,8 @@ RPCBVERS_STAT = 3
 RPCBVERS_4_STAT = 2
 RPCBVERS_3_STAT = 1
 RPCBVERS_2_STAT = 0
+
+
 @dataclass
 class rpcbs_addrlist(rpchelp.linked_list):
     prog: int = rpchelp.rpc_field(rpchelp.r_uint)
@@ -62,6 +74,7 @@ class rpcbs_addrlist(rpchelp.linked_list):
     success: int = rpchelp.rpc_field(rpchelp.r_int)
     failure: int = rpchelp.rpc_field(rpchelp.r_int)
     netid: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
+
 
 @dataclass
 class rpcbs_rmtcalllist(rpchelp.linked_list):
@@ -73,7 +86,10 @@ class rpcbs_rmtcalllist(rpchelp.linked_list):
     indirect: int = rpchelp.rpc_field(rpchelp.r_int)
     netid: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
 
+
 rpcbs_proc = rpchelp.arr(rpchelp.r_int, rpchelp.LengthType.FIXED, RPCBSTAT_HIGHPROC)
+
+
 @dataclass
 class rpcb_stat(rpchelp.struct):
     info: typing.List[int] = rpchelp.rpc_field(rpcbs_proc)
@@ -82,7 +98,10 @@ class rpcb_stat(rpchelp.struct):
     addrinfo: typing.List[rpcbs_addrlist] = rpchelp.rpc_field(rpchelp.opt_data(rpcbs_addrlist))
     rmtinfo: typing.List[rpcbs_rmtcalllist] = rpchelp.rpc_field(rpchelp.opt_data(rpcbs_rmtcalllist))
 
+
 rpcb_stat_byvers = rpchelp.arr(rpcb_stat, rpchelp.LengthType.FIXED, RPCBVERS_STAT)
+
+
 @dataclass
 class netbuf(rpchelp.struct):
     maxlen: int = rpchelp.rpc_field(rpchelp.r_uint)
@@ -317,4 +336,5 @@ class RPCBPROG_4_CLIENT(client.BaseClient):
     async def GETSTAT(self) -> client.UnpackedRPCMsg[typing.List[rpcb_stat]]:
         return await self.send_call(12, )
 
-__all__ = ['rpcb', 'rp__list', 'rpcblist', 'rpcb_rmtcallargs', 'rpcb_rmtcallres', 'rpcb_entry', 'rpcb_entry_list', 'rpcbs_addrlist', 'rpcbs_rmtcalllist', 'rpcb_stat', 'netbuf', 'RPCBPROG_3_SERVER', 'RPCBPROG_4_SERVER', 'TRUE', 'FALSE', 'RPCB_PORT', 'rpcb_highproc_2', 'rpcb_highproc_3', 'rpcb_highproc_4', 'RPCBSTAT_HIGHPROC', 'RPCBVERS_STAT', 'RPCBVERS_4_STAT', 'RPCBVERS_3_STAT', 'RPCBVERS_2_STAT']
+
+__all__ = ['RPCBPROG_3_SERVER', 'RPCBPROG_3_CLIENT', 'RPCBPROG_4_SERVER', 'RPCBPROG_4_CLIENT', 'TRUE', 'FALSE', 'RPCB_PORT', 'rpcb_highproc_2', 'rpcb_highproc_3', 'rpcb_highproc_4', 'RPCBSTAT_HIGHPROC', 'RPCBVERS_STAT', 'RPCBVERS_4_STAT', 'RPCBVERS_3_STAT', 'RPCBVERS_2_STAT', 'rpcb', 'rp__list', 'rpcblist', 'rpcb_rmtcallargs', 'rpcb_rmtcallres', 'rpcb_entry', 'rpcb_entry_list', 'rpcbs_addrlist', 'rpcbs_rmtcalllist', 'rpcbs_proc', 'rpcb_stat', 'rpcb_stat_byvers', 'netbuf']

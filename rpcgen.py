@@ -98,7 +98,7 @@ Neither seems to be defined in the grammar, but I should support them,
 and look around for an updated IDL specification.
 """
 import abc
-import itertools
+import re
 import sys
 
 import typing
@@ -221,7 +221,6 @@ class Ctx:
         self.progs: typing.List["Program"] = []
         self.type_mapping: typing.Dict[str, rpchelp.PACKABLE_OR_PACKABLE_CLASS] = {}
         self.const_mapping: typing.Dict[str, int] = {}
-        self.exportable = []
         self.locals = {}
         self.globals = {}
 
@@ -232,7 +231,7 @@ class Ctx:
         try:
             exec(src, self.globals, self.locals)
             self.globals.update(self.locals)
-        except:
+        except Exception:
             print(src, file=sys.stderr)
             print(self.locals, file=sys.stderr)
             raise
@@ -250,23 +249,10 @@ class Ctx:
         self.type_mapping.clear()
         self.const_mapping.clear()
         for name, val in self.locals.items():
-            if isinstance(val, rpchelp.packable):
+            if rpchelp.isinstance_or_subclass(val, rpchelp.packable):
                 self.type_mapping[name] = val
             elif isinstance(val, int):
                 self.const_mapping[name] = val
-            elif rpchelp.isinstance_or_subclass(val, (rpchelp.enum, rpchelp.struct)):
-                self.type_mapping[name] = val
-
-    def finish_struct_vals(self):
-        buf = ""
-        for nm, typ in self.type_mapping.items():
-            if rpchelp.isinstance_or_subclass(typ, rpchelp.struct):
-                self.exportable.append(nm)
-            if rpchelp.isinstance_or_subclass(typ, rpchelp.enum):
-                self.exportable.append(typ.__name__)
-            if isinstance(typ, rpchelp.union):
-                self.exportable.append(typ.val_name)
-        return buf
 
     def finish_progs(self):
         val = ""
@@ -280,11 +266,13 @@ class Ctx:
         ) for p in self.progs)
 
     def finish_exports(self):
-        # TODO: unscrew this. add client.
-        prog_names = list(itertools.chain(*[[
-            f"{p.ident}_{vers.version_id}_SERVER" for vers in p.versions.children
-        ] for p in self.progs]))
-        return f"__all__ = {repr(self.exportable + prog_names + list(self.const_mapping.keys()))}"
+        prog_names = []
+        for prog in self.progs:
+            for vers in prog.versions.children:
+                for variant in ("SERVER", "CLIENT"):
+                    prog_names.append(f"{prog.ident}_{vers.version_id}_{variant}")
+        exportable_types = list({**self.const_mapping, **self.type_mapping}.keys())
+        return f"__all__ = {repr(prog_names + exportable_types)}"
 
 
 class Node:
@@ -465,25 +453,26 @@ class Struct(Node):
 class StructList(NodeList):
     def to_str(self, ctx):
         children = []
-        l_count = 0
         have_tail_pointer = False
         for (decl, i) in zip(self.children, range(0, len(self.children))):
             # Self-referential tail pointer means we get treated like a linked list
             if (self.name and isinstance(decl, OptData)
                     and decl.type_spec.val == self.name):
                 # If it's not actually a tail pointer something's very wrong
-                assert(i == len(self.children) - 1)
-                l_count += 1
+                if i != len(self.children) - 1:
+                    raise ValueError(f"Self-referential pointer not at end of struct in {self.name}")
+                have_tail_pointer = True
             else:
                 children.append((decl.ident, decl.to_str(ctx)))
         class_name = "struct"
-        if l_count == 1:
+        if have_tail_pointer:
             class_name = "linked_list"
-        buf = f"@dataclass\nclass {self.name}(rpchelp.{class_name}):\n"
+        buf = f"\n\n\n@dataclass\nclass {self.name}(rpchelp.{class_name}):\n"
         for field in children:
             field_type = eval(field[1], globals(), ctx.locals)
             field_data = ' = rpchelp.rpc_field(%s)' % field[1]
             buf += f"\t{field[0]}: {field_type.type_hint()}{field_data}\n"
+        buf += "\n\n\n"
         ctx.exec(buf)
         return buf
 
@@ -500,10 +489,6 @@ class Union(Node):
         return self.body.to_str(ctx)
 
 
-class UnionList(NodeListComma):
-    pass
-
-
 class UnionBody(Node):
     def __init__(self, sw_decl, body):
         self.sw_decl = sw_decl
@@ -511,11 +496,32 @@ class UnionBody(Node):
         Node.__init__(self)
 
     def to_str(self, ctx):
-        return "rpchelp.union('%s', %s, '%s', {%s}, from_parser=True)" % (
-            self.name,
-            self.sw_decl.typ.to_str(ctx),
-            self.sw_decl.ident,
-            self.body.to_str(ctx))
+        buf = f"\n\n\n@dataclass\nclass {self.name}(rpchelp.union):\n"
+        fields = {k: v for (k, v) in self.body.to_fields(ctx)}
+        switch_options = ", ".join("%s: %r" % (k, v[0]) for (k, v) in fields.items())
+        buf += f"\tSWITCH_OPTIONS = {{{switch_options}}}\n"
+
+        sw_field = (self.sw_decl.ident, self.sw_decl.typ.to_str(ctx))
+        field_type = eval(sw_field[1], globals(), ctx.locals)
+        field_data = ' = rpchelp.rpc_field(%s)' % sw_field[1]
+        buf += f"\t{sw_field[0]}: {field_type.type_hint()}{field_data}\n"
+
+        # Don't output dupes of fields used in multiple branches
+        for field in set(fields.values()):
+            if not field[0]:
+                continue
+            field_type = eval(field[1], globals(), ctx.locals)
+            field_data = f' = rpchelp.rpc_field({field[1]}, default=None)'
+            buf += f"\t{field[0]}: typing.Optional[{field_type.type_hint()}]{field_data}\n"
+        buf += "\n\n\n"
+        ctx.exec(buf)
+        return buf
+
+
+class UnionList(NodeListComma):
+    def to_fields(self, ctx):
+        for child in self.children:
+            yield child.to_field(ctx)
 
 
 class UnionElt(Node):
@@ -527,6 +533,9 @@ class UnionElt(Node):
     def to_str(self, ctx):
         typestr = self.decl.to_str(ctx)
         return "%s: (%r, %s)" % (self.val, self.decl.ident, typestr)
+
+    def to_field(self, ctx):
+        return self.val, (self.decl.ident, self.decl.to_str(ctx))
 
 
 class UnionDefElt(UnionElt):
@@ -608,31 +617,12 @@ class TypeDefCompound(Node):
     def to_str(self, ctx):
         params = (self.ident, self.body.to_str(ctx))
         if self.typ == "enum":
-            val = "class %s(rpchelp.enum):\n%s" % params
-        elif self.typ in "struct":
+            val = "\n\n\nclass %s(rpchelp.enum):\n%s\n\n\n" % params
+        elif self.typ in ("struct", "union"):
             val = params[1]
         else:
             val = '%s = %s' % params
         ctx.exec(val)
-        if self.typ == "union":
-            # Need to create the val type for the union now
-            typ = ctx.locals[self.ident]
-            union_val = f"@dataclass\nclass {typ.val_name}:\n"
-            union_val += f"\t{typ.switch_name}: {typ.switch_decl.type_hint()}\n"
-            seen_members = {}
-            for member_name, member_typ in typ.union_dict.values():
-                if member_name is None and member_typ == rpchelp.r_void:
-                    continue
-                if member_name in seen_members:
-                    # case fallthrough in union, this is fine.
-                    if member_typ == seen_members[member_name]:
-                        continue
-                    raise ValueError(f"Union member collision in {typ.val_name}.{member_name}!")
-                seen_members[member_name] = member_typ
-                union_val += f"\t{member_name}: typing.Optional[{member_typ.type_hint()}] = None\n"
-            union_val += f"\n\n{self.ident}.val_base_class = {typ.val_name}\n\n\n"
-            ctx.exec(union_val)
-            val += "\n" + union_val
         return val
 
 
@@ -646,7 +636,7 @@ class Program(Node):
     def str_one_vers(self, ctx, vers, as_client=False):
         class_suffix = "CLIENT" if as_client else "SERVER"
         base_class = "client.BaseClient" if as_client else "rpchelp.Prog"
-        class_decl = f'\n\nclass {self.ident}_{vers.version_id}_{class_suffix}({base_class}):'
+        class_decl = f'\n\n\nclass {self.ident}_{vers.version_id}_{class_suffix}({base_class}):'
         prog = 'prog = %s' % (self.program_id,)
         vers_str = 'vers = %s' % (vers.version_id,)
         procs_str = "procs = {\n"
@@ -679,8 +669,7 @@ class Program(Node):
             else:
                 funcs_str += "\t\traise NotImplementedError()\n\n"
 
-        funcs_str = funcs_str.strip()
-        return "\n\t".join([class_decl, prog, vers_str, procs_str, funcs_str])
+        return "\n\t".join([class_decl, prog, vers_str, procs_str]) + "\n" + funcs_str
 
     def to_str(self, ctx):
         ctx.defer_prog(self)
@@ -698,6 +687,9 @@ class Version(Node):
             proc_defs.children.insert(0, Procedure("NULL", void_spec, TypeSpecList(void_spec), 0))
         self.proc_defs = proc_defs
         self.version_id = version_id
+
+    def to_str(self, ctx):
+        return ""
 
 
 class Procedure(Node):
@@ -981,7 +973,7 @@ def p_error(t):
 parser = yacc.yacc()
 
 
-def testlex(s, fn):
+def testlex(s):
     lexer.input(s)
     while 1:
         token = lexer.token()
@@ -1003,7 +995,7 @@ def print_ast(ast, level=0):
         print(ast)
 
 
-def testyacc(s, fn):
+def testyacc(s):
     ast = parser.parse(s)
     print_ast(ast)
 
@@ -1048,7 +1040,7 @@ class StructHoistingVisitor(NodeVisitor):
         root.children.insert(root.children.index(base_typedef), new_typ_spec)
 
 
-def test(s, fn):
+def test(s):
     ast = parser.parse(s)
     ctx = Ctx()
     hoister = StructHoistingVisitor(ctx)
@@ -1067,7 +1059,7 @@ FALSE = False
 """
     ctx.exec(src)
     tmp = ast.to_str(ctx)
-    src += "\n".join((ctx.finish(), tmp.strip()))
+    src += "\n".join((ctx.finish(), tmp))
 
     ctx.collect_types()
 
@@ -1075,12 +1067,14 @@ FALSE = False
     s.write(header)
     s.write(src)
     s.write("\n\n\n")
-    s.write(ctx.finish_struct_vals())
     s.write(ctx.finish_progs())
     s.write("\n\n")
     s.write(ctx.finish_exports())
 
-    print(s.getvalue().replace("\t", " " * 4))
+    strbuf = s.getvalue().replace("\t", " " * 4)
+    strbuf = re.sub(r"\n\n[\n]+", "\n\n\n", strbuf, flags=re.M | re.S)
+
+    print(strbuf)
 
 
 def main():
@@ -1091,7 +1085,7 @@ def main():
     for fn in sys.argv[1:]:
         with open(fn) as f:
             s = f.read()
-        testfn(s, fn)
+        testfn(s)
 
 
 if __name__ == '__main__':

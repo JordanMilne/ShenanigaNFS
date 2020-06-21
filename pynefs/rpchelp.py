@@ -145,18 +145,25 @@ string = opaque_or_string
 PACKABLE_OR_PACKABLE_CLASS = typing.Union["packable", typing.Type["packable"]]
 
 
-def rpc_field(serializer: PACKABLE_OR_PACKABLE_CLASS):
-    return dataclasses.field(metadata={"serializer": serializer})
+def rpc_field(serializer: PACKABLE_OR_PACKABLE_CLASS, default=dataclasses.MISSING):
+    return dataclasses.field(metadata={"serializer": serializer}, default=default)
 
 
 @dataclasses.dataclass
-class struct(packable, abc.ABC):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
+class struct_union_base(packable, abc.ABC):
     @classmethod
     def get_fields(cls) -> typing.Tuple[dataclasses.Field]:
         return dataclasses.fields(cls)
+
+    @classmethod
+    def get_fields_dict(cls) -> typing.Dict[str, dataclasses.Field]:
+        return {f.name: f for f in cls.get_fields()}
+
+
+@dataclasses.dataclass
+class struct(struct_union_base, abc.ABC):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     @classmethod
     def have_single_field(cls):
@@ -207,91 +214,55 @@ class linked_list(struct, abc.ABC):
         return up.unpack_list(lambda: super(linked_list, cls).unpack(up, want_single))
 
 
-class union(packable):
-    """Pack and unpack a union as a two-membered instance, with
-    members switch_name and '_data'.  Note that _data is not a valid
-    switch_name, and I use it for that reason, rather than because the
-    data member is private."""
+UNION_DICT = typing.Dict[typing.Any, typing.Optional[str]]
 
-    def __init__(self, union_name, switch_decl, switch_name, union_dict, from_parser=False):
-        super().__init__()
-        self.name = union_name
-        self.switch_decl: packable = switch_decl
-        self.switch_name: str = switch_name
-        self.union_dict: typing.Dict[typing.Any, typing.Tuple[str, packable]] = union_dict
-        self.def_typ = self.union_dict.get(None, (None, None))
-        self.val_base_class: typing.Optional[typing.Type] = None
-        self.from_parser = from_parser
 
-    @property
-    def is_simple_option(self):
-        """check if the union is basically just a fancy opt_data"""
-        type_hints = {k: v[1].type_hint() for k, v in self.union_dict.items()}
-        return len(type_hints) == 2 and type_hints.get(False, "") == "None"
+@dataclasses.dataclass
+class union(struct_union_base, abc.ABC):
+    SWITCH_OPTIONS: typing.ClassVar[UNION_DICT]
 
-    @property
-    def val_name(self):
-        return "v_" + self.name
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-    def _sw_val_to_typ(self, sw_val):
+    @classmethod
+    def _get_switch_details(cls, sw_val):
         """Get the type descriptor for the arm of the union specified by
         sw_val."""
-        typ = self.union_dict.get(sw_val, self.def_typ)[1]
-        if typ is None:  # no default clause
-            raise BadUnionSwitchException(sw_val)
-        return typ
-
-    def type_hint(self) -> str:
-        type_hints = {k: (v[0], v[1].type_hint()) for k, v in self.union_dict.items()}
-        type_values = list(type_hints.values())
-        if self.is_simple_option:
-            return f"typing.Optional[{type_hints[True][1]}]"
-        if self.val_base_class:
-            return self.val_base_class.__name__
-        if self.from_parser:
-            return self.val_name
-        type_str = f"typing.Tuple[{self.switch_decl.type_hint()}, "
-
-        # Might still be able to make just the type hint shorter
-        if "None" in type_values and len(type_values) == 2:
-            type_values.remove("None")
-            return type_str + f"typing.Optional[{', '.join(type_values)}]]"
-        return type_str + f"typing.Union[{', '.join(type_values)}]]"
-
-    def pack(self, p, val):
-        if self.is_simple_option:
-            p.pack_bool(val is not None)
-            if val is not None:
-                self.union_dict[True][1].pack(p, val)
-            return
-        if dataclasses.is_dataclass(val):
-            sw_val = getattr(val, self.switch_name)
-            name = self.union_dict.get(sw_val, self.def_typ)[0]
-            if name:
-                data = getattr(val, name)
-            else:
-                # void case
-                data = None
+        if sw_val in cls.SWITCH_OPTIONS:
+            field_name = cls.SWITCH_OPTIONS[sw_val]
+        elif None in cls.SWITCH_OPTIONS:
+            field_name = cls.SWITCH_OPTIONS[None]
         else:
-            sw_val, data = val
-        self.switch_decl.pack(p, sw_val)
-        typ = self._sw_val_to_typ(sw_val)
-        typ.pack(p, data)
+            raise BadUnionSwitchException(sw_val)
 
-    def unpack(self, up):
-        sw_val = self.switch_decl.unpack(up)
-        if self.is_simple_option:
-            if sw_val:
-                return self.union_dict[True][1].unpack(up)
-            return None
-        unpacked = self._sw_val_to_typ(sw_val).unpack(up)
-        if self.val_base_class:
-            name = self.union_dict.get(sw_val, self.def_typ)[0]
-            val_dict = {}
-            if unpacked is not None:
-                val_dict[name] = unpacked
-            return self.val_base_class(sw_val, **val_dict)
-        return sw_val, unpacked
+        # No field associated with this branch
+        if not field_name:
+            return None, None
+        return field_name, cls.get_fields_dict()[field_name].metadata["serializer"]
+
+    @classmethod
+    def type_hint(cls) -> str:
+        return cls.__name__
+
+    @classmethod
+    def pack(cls, p, val):
+        switch_field = cls.get_fields()[0]
+        sw_val = getattr(val, switch_field.name)
+        switch_field.metadata["serializer"].pack(p, sw_val)
+
+        name, typ = cls._get_switch_details(sw_val)
+        # There's a data field associated with this case
+        if name is not None:
+            typ.pack(p, getattr(val, name))
+
+    @classmethod
+    def unpack(cls, up):
+        switch_field = cls.get_fields()[0]
+        sw_val = switch_field.metadata["serializer"].unpack(up)
+        name, typ = cls._get_switch_details(sw_val)
+        if name is not None:
+            return cls(sw_val, **{name: typ.unpack(up)})
+        return cls(sw_val)
 
 
 class opt_data(packable):

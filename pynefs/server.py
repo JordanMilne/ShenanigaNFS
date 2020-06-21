@@ -5,8 +5,7 @@ from typing import *
 from pynefs import rpchelp
 from pynefs.client import TCPClient
 from pynefs.generated.rfc1831 import *
-from pynefs.generated.rfc1833_portmapper import *
-from pynefs.generated.rfc1833_portmapper import PMAP_PROG_2_CLIENT
+import pynefs.generated.rfc1833_portmapper as pmap
 from pynefs.transport import SPLIT_MSG, BaseTransport, TCPTransport
 
 
@@ -28,22 +27,22 @@ class TransportServer:
                 await pmap_client.SET(self.get_prog_port_mapping(prog))
 
     @abc.abstractmethod
-    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> mapping:
+    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> pmap.mapping:
         pass
 
     async def handle_message(self, transport: BaseTransport, msg: SPLIT_MSG):
-        call, call_body = msg
+        call, body_bytes = msg
         if call.header.mtype == msg_type.CALL:
-            await self.handle_call(transport, call, call_body)
+            await self.handle_call(transport, call, body_bytes)
         else:
             # TODO: what's the proper error code for this?
             err_msg = self.make_reply(call.xid, reply_stat.MSG_ACCEPTED, accept_stat.GARBAGE_ARGS)
             await transport.write_msg(err_msg, b"")
 
-    async def handle_call(self, transport: BaseTransport, call: rpc_msg, call_body: bytes):
+    async def handle_call(self, transport: BaseTransport, call: rpc_msg, call_body_bytes: bytes):
         stat: accept_stat = accept_stat.SUCCESS
         mismatch: Optional[mismatch_info] = None
-        reply_body = b""
+        reply_body_bytes = b""
         cbody = call.header.cbody
 
         try:
@@ -51,7 +50,7 @@ class TransportServer:
             if progs:
                 vers_progs = [p for p in progs if p.vers == cbody.vers]
                 if vers_progs:
-                    reply_body = vers_progs[0].handle_proc_call(cbody.proc, call_body)
+                    reply_body_bytes = vers_progs[0].handle_proc_call(cbody.proc, call_body_bytes)
                 else:
                     prog_versions = [p.vers for p in progs]
                     mismatch = mismatch_info(min(prog_versions), max(prog_versions))
@@ -70,23 +69,23 @@ class TransportServer:
             raise
 
         reply_header = self.make_reply(call.xid, reply_stat.MSG_ACCEPTED, stat, mismatch)
-        await transport.write_msg(reply_header, reply_body)
+        await transport.write_msg(reply_header, reply_body_bytes)
 
     @staticmethod
     def make_reply(xid, stat: reply_stat = 0, msg_stat: Union[accept_stat, reject_stat] = 0,
                    mismatch: Optional[mismatch_info] = None) -> rpc_msg:
         return rpc_msg(
             xid=xid,
-            header=v_rpc_body(
+            header=rpc_body(
                 mtype=msg_type.REPLY,
-                rbody=v_reply_body(
+                rbody=reply_body(
                     stat=stat,
                     areply=accepted_reply(
                         verf=opaque_auth(
                             auth_flavor.AUTH_NONE,
                             body=b""
                         ),
-                        data=v_reply_data(
+                        data=reply_data(
                             stat=msg_stat,
                             mismatch=mismatch,
                         )
@@ -118,14 +117,14 @@ class TCPTransportServer(TransportServer):
             await self.handle_message(transport, read_ret)
         transport.close()
 
-    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> mapping:
-        return mapping(
+    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> pmap.mapping:
+        return pmap.mapping(
             prog=prog.prog,
             vers=prog.vers,
-            prot=IPPROTO_TCP,
+            prot=pmap.IPPROTO_TCP,
             port=self.bind_port,
         )
 
 
-class SimplePortmapperClient(TCPClient, PMAP_PROG_2_CLIENT):
+class SimplePortmapperClient(TCPClient, pmap.PMAP_PROG_2_CLIENT):
     pass

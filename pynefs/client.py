@@ -97,7 +97,7 @@ class BaseClient(rpchelp.Prog):
         self.xid_map.clear()
 
     def pump_reply(self, msg: SPLIT_MSG):
-        reply, reply_body = msg
+        reply, _ = msg
         xid_future = self.xid_map.pop(reply.xid, None)
         if not xid_future:
             # Got a reply for a message we didn't send???
@@ -123,7 +123,7 @@ class BaseClient(rpchelp.Prog):
 
         msg = rpc_msg(
             xid=xid,
-            header=v_rpc_body(
+            header=rpc_body(
                 mtype=msg_type.CALL,
                 cbody=call_body(
                     rpcvers=2,
@@ -149,13 +149,13 @@ class BaseClient(rpchelp.Prog):
         # TODO: timeout?
         reply_msg = await fut
         reply: rpc_msg = reply_msg[0]
-        reply_body: bytes = reply_msg[1]
+        reply_body_bytes: bytes = reply_msg[1]
 
         assert(reply.header.mtype == REPLY)
         rbody = reply.header.rbody
         if rbody.stat != reply_stat.MSG_ACCEPTED or rbody.areply.data.stat != accept_stat.SUCCESS:
             return UnpackedRPCMsg(reply, None)
-        return UnpackedRPCMsg(reply, self.unpack_return(proc_id, reply_body))
+        return UnpackedRPCMsg(reply, self.unpack_return(proc_id, reply_body_bytes))
 
 
 class TCPClient(BaseClient):
@@ -170,7 +170,7 @@ class TCPClient(BaseClient):
         while self.transport and not self.transport.closed:
             try:
                 self.pump_reply(await self.transport.read_msg())
-            except asyncio.IncompleteReadError as e:
+            except asyncio.IncompleteReadError:
                 self.disconnect()
         self.disconnect()
 

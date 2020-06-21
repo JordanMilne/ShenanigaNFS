@@ -95,14 +95,14 @@
          reply_data data;
       };
 
-      union rejected_reply switch (reject_stat reject_stat) {
+      union rejected_reply switch (reject_stat r_stat) {
       case RPC_MISMATCH:
          struct {
             unsigned int low;
             unsigned int high;
          } mismatch_info;
       case AUTH_ERROR:
-         auth_stat auth_stat;
+         auth_stat auth_error;
       };
 
       union reply_body switch (reply_stat stat) {

@@ -2,7 +2,9 @@ import abc
 import datetime as dt
 import dataclasses
 import enum
+import hmac
 import math
+import secrets
 import struct
 import weakref
 from typing import *
@@ -53,11 +55,14 @@ def date_to_nfs2(date: dt.datetime) -> nfs2.Timeval:
     return nfs2.Timeval(math.floor(whole), math.floor(frac * 1_000_000))
 
 
+def fsid_to_nfs2(fsid: bytes) -> int:
+    return struct.unpack("!L", fsid[:4])[0]
+
+
 @dataclasses.dataclass
 class BaseFSEntry:
     fs: weakref.ReferenceType
-    fh: bytes
-    parent_fh: Optional[bytes]
+    parent_id: Optional[int]
     fileid: int
     name: bytes
     type: FileType = dataclasses.field(init=False)
@@ -71,6 +76,10 @@ class BaseFSEntry:
     atime: dt.datetime
     mtime: dt.datetime
     ctime: dt.datetime
+
+    @property
+    def fsid(self) -> bytes:
+        return self.fs().fsid
 
     @property
     def nfs2_cookie(self) -> bytes:
@@ -88,7 +97,7 @@ class BaseFSEntry:
             blocksize=self.fs().block_size,
             rdev=self.rdev,
             blocks=self.blocks,
-            fsid=self.fs().fsid,
+            fsid=fsid_to_nfs2(self.fsid),
             fileid=self.fileid,
             atime=date_to_nfs2(self.atime),
             mtime=date_to_nfs2(self.mtime),
@@ -114,18 +123,18 @@ class SymLink(BaseFSEntry):
 
 @dataclasses.dataclass
 class Directory(BaseFSEntry):
-    child_fhs: List[bytes]
+    child_ids: List[int]
     root_dir: bool = False
 
     def __post_init__(self):
         self.type = FileType.DIR
 
     def add_child(self, child: FSENTRY):
-        if child.fh in self.child_fhs:
+        if child.fileid in self.child_ids:
             return
         assert(child.fs == self.fs)
-        child.parent_fh = self.fh
-        self.child_fhs.append(child.fh)
+        child.parent_id = self.fileid
+        self.child_ids.append(child.fileid)
 
         fs: BaseFS = self.fs()
         if child not in fs.entries:
@@ -138,12 +147,12 @@ class Directory(BaseFSEntry):
         return None
 
     def _make_upper_dir_link(self):
-        if self.parent_fh:
-            parent: Directory = self.fs().get_entry_by_fh(self.parent_fh)
+        if self.parent_id is not None:
+            parent: Directory = self.fs().get_entry_by_id(self.parent_id)
             return dataclasses.replace(
                 parent,
                 name=b"..",
-                child_fhs=[self.fh],
+                child_ids=[self.fileid],
             )
 
         assert self.root_dir
@@ -166,11 +175,10 @@ class Directory(BaseFSEntry):
             atime=dt.datetime.utcnow(),
             mtime=dt.datetime.utcnow(),
             ctime=dt.datetime.utcnow(),
-            fh=b"\xff" * 32,
             name=b"..",
-            child_fhs=[self.fh],
+            child_ids=[self.fileid],
             root_dir=False,
-            parent_fh=None,
+            parent_id=None,
         )
 
     @property
@@ -179,14 +187,14 @@ class Directory(BaseFSEntry):
         files = [
             dataclasses.replace(self, name=b"."),
             self._make_upper_dir_link(),
-            *[fs.get_entry_by_fh(fh) for fh in self.child_fhs]
+            *[fs.get_entry_by_id(fileid) for fileid in self.child_ids]
         ]
         assert(all(files))
         return files
 
 
 class BaseFS(abc.ABC):
-    fsid: int
+    fsid: bytes
     fh: bytes
     block_size: int
     num_blocks: int
@@ -195,25 +203,25 @@ class BaseFS(abc.ABC):
     root_path: bytes
     entries: List[FSENTRY]
 
-    def get_entry_by_fh(self, fh) -> Optional[FSENTRY]:
+    def get_entry_by_id(self, fileid: int) -> Optional[FSENTRY]:
         for entry in self.entries:
-            if entry.fh == fh:
+            if entry.fileid == fileid:
                 return entry
         return None
 
     def get_descendants(self, entry: FSENTRY) -> Generator[FSENTRY, None, None]:
         if not isinstance(entry, Directory):
             return
-        for fh in entry.child_fhs:
-            child = self.get_entry_by_fh(fh)
+        for fileid in entry.child_ids:
+            child = self.get_entry_by_id(fileid)
             yield child
             yield from self.get_descendants(child)
 
     def remove_entry(self, entry: FSENTRY):
         """Completely remove an entry and its subtree from the FS"""
-        if entry.parent_fh:
-            parent: Directory = self.get_entry_by_fh(entry.parent_fh)
-            parent.child_fhs.remove(entry.fh)
+        if entry.parent_id is not None:
+            parent: Directory = self.get_entry_by_id(entry.parent_id)
+            parent.child_ids.remove(entry.fileid)
         for descendant in self.get_descendants(entry):
             self.entries.remove(descendant)
         self.entries.remove(entry)
@@ -222,37 +230,84 @@ class BaseFS(abc.ABC):
         # Not multi-rooted
         assert sum(getattr(entry, 'root_dir', False) for entry in self.entries) == 1
         # Everything correctly rooted
-        assert all(getattr(entry, 'root_dir', False) or entry.parent_fh for entry in self.entries)
-        # Unique FHs
-        assert len(set(e.fh for e in self.entries)) == len(self.entries)
+        assert all(getattr(entry, 'root_dir', False) or entry.parent_id is not None for entry in self.entries)
         # Unique fileids
         assert len(set(e.fileid for e in self.entries)) == len(self.entries)
         for entry in self.entries:
-            if entry.parent_fh:
-                parent = self.get_entry_by_fh(entry.parent_fh)
+            if entry.parent_id is not None:
+                parent = self.get_entry_by_id(entry.parent_id)
                 assert parent
-                assert entry.fh in parent.child_fhs
+                assert entry.fileid in parent.child_ids
+
+
+@dataclasses.dataclass
+class DecodedFileHandle:
+    fileid: int
+    fsid: bytes
+
+
+class FileHandleEncoder(abc.ABC):
+    @abc.abstractmethod
+    def encode(self, entry: Union[FSENTRY, DecodedFileHandle], nfs_v2=False) -> bytes:
+        pass
+
+    @abc.abstractmethod
+    def decode(self, fh: bytes, nfs_v2=False) -> DecodedFileHandle:
+        pass
+
+
+class VerifyingFileHandleEncoder(FileHandleEncoder):
+    def __init__(self, hmac_secret):
+        self.hmac_secret = hmac_secret
+
+    @staticmethod
+    def _mac_len(nfs_v2=False):
+        return 16 if nfs_v2 else 32
+
+    def _calc_mac(self, data: bytes, nfs_v2=False):
+        # Truncated sha256 isn't recommended, but fine for our purposes.
+        # We're limited to 32 byte FHs if we want to support NFSv2 so
+        # we don't really have a choice.
+        digest = hmac.new(self.hmac_secret, data, 'sha256').digest()
+        return digest[:self._mac_len(nfs_v2)]
+
+    def encode(self, entry: Union[FSENTRY, DecodedFileHandle], nfs_v2=False) -> bytes:
+        payload = struct.pack("!Q", entry.fileid) + entry.fsid
+        return self._calc_mac(payload, nfs_v2) + payload
+
+    def decode(self, fh: bytes, nfs_v2=False) -> DecodedFileHandle:
+        mac_len = self._mac_len(nfs_v2)
+        expected_len = 16 + mac_len
+        if len(fh) != expected_len:
+            raise ValueError(f"FH {fh!r} is not {expected_len} bytes")
+        mac, payload = fh[:mac_len], fh[mac_len:]
+        if not secrets.compare_digest(mac, self._calc_mac(payload, nfs_v2)):
+            raise ValueError(f"FH {fh!r} failed sig check")
+        return DecodedFileHandle(struct.unpack("!Q", payload[:8])[0], payload[8:])
 
 
 class FileSystemManager:
-    def __init__(self, filesystems):
-        self.filesystems: List[BaseFS] = filesystems
+    def __init__(self, handle_encoder, filesystems):
+        self.handle_encoder: FileHandleEncoder = handle_encoder
+        self.filesystems: Dict[bytes, BaseFS] = {f.fsid: f for f in filesystems}
 
     def get_fs_by_root(self, root_path) -> Optional[BaseFS]:
-        for fs in self.filesystems:
+        for fs in self.filesystems.values():
             if fs.root_path == root_path:
                 return fs
         return None
 
-    def get_fs_by_fh(self, fh: bytes) -> Optional[BaseFS]:
-        for fs in self.filesystems:
-            if fs.fh == fh:
-                return fs
-        return None
+    def get_fs_by_fh(self, fh: bytes, nfs_v2=False) -> Optional[BaseFS]:
+        decoded = self.handle_encoder.decode(fh, nfs_v2)
+        # TODO: check that fileid matches root dir?
+        return self.filesystems.get(decoded.fsid)
 
-    def get_entry_by_fh(self, fh: bytes) -> Optional[FSENTRY]:
-        for fs in self.filesystems:
-            entry = fs.get_entry_by_fh(fh)
-            if entry is not None:
-                return entry
-        return None
+    def get_entry_by_fh(self, fh: bytes, nfs_v2=False) -> Optional[FSENTRY]:
+        decoded = self.handle_encoder.decode(fh, nfs_v2)
+        fs = self.filesystems.get(decoded.fsid)
+        if not fs:
+            return None
+        return fs.get_entry_by_id(decoded.fileid)
+
+    def entry_to_fh(self, entry: FSENTRY, nfs_v2=False):
+        return self.handle_encoder.encode(entry, nfs_v2)

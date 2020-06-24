@@ -11,8 +11,7 @@ from pynefs.fs import BaseFS, Directory, File
 class ZipFS(BaseFS):
     def __init__(self, root_path, zip_path):
         super().__init__()
-        self.fh = secrets.token_bytes(32)
-        self.fsid = 0
+        self.fsid = secrets.token_bytes(8)
         self.block_size = 4096
         self.num_blocks = 1
         self.free_blocks = 0
@@ -28,15 +27,14 @@ class ZipFS(BaseFS):
             size=4096,
             rdev=0,
             blocks=1,
-            fileid=crc32(self.fh),
+            fileid=secrets.randbits(32),
             atime=dt.datetime.utcnow(),
             mtime=dt.datetime.utcnow(),
             ctime=dt.datetime.utcnow(),
-            fh=self.fh,
             name=b"",
-            child_fhs=[],
+            child_ids=[],
             root_dir=True,
-            parent_fh=None,
+            parent_id=None,
         )
 
         self.entries = [
@@ -53,9 +51,8 @@ class ZipFS(BaseFS):
 
         common_kwargs = dict(
             fs=parent.fs,
-            fh=secrets.token_bytes(32),
             # Will get filled in when added
-            parent_fh=None,
+            parent_id=None,
             # numeric ID based on the full path
             fileid=crc32(info.filename.encode("utf8")),
             # specifically the file portion
@@ -74,7 +71,7 @@ class ZipFS(BaseFS):
 
         if info.is_dir():
             entry = Directory(
-                child_fhs=[],
+                child_ids=[],
                 root_dir=False,
                 # we always have the `.` hard link, so at least 2
                 nlink=2,

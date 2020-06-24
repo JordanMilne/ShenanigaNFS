@@ -4,8 +4,9 @@ import typing
 
 from pynefs.generated.rfc1094 import *
 from pynefs.server import TCPTransportServer
-from pynefs.fs import FileSystemManager, FileType
+from pynefs.fs import FileSystemManager, FileType, VerifyingFileHandleEncoder
 from pynefs.nullfs import NullFS
+from pynefs.zipfs import ZipFS
 
 
 class MountV1Service(MOUNTPROG_1_SERVER):
@@ -16,15 +17,12 @@ class MountV1Service(MOUNTPROG_1_SERVER):
         pass
 
     def MNT(self, mount_path: bytes) -> FHStatus:
-        fs = self.fs_manager.get_fs_by_root(mount_path)
+        fs_mgr = self.fs_manager
+        fs = fs_mgr.get_fs_by_root(mount_path)
+
         if fs is None:
-            return FHStatus(
-                errno=errno.ENOENT
-            )
-        return FHStatus(
-            errno=0,
-            directory=fs.fh,
-        )
+            return FHStatus(errno=errno.ENOENT)
+        return FHStatus(errno=0, directory=fs_mgr.entry_to_fh(fs.entries[0], nfs_v2=True))
 
     def DUMP(self) -> typing.List[MountList]:
         # State maintenance is only for informational purposes?
@@ -40,7 +38,7 @@ class MountV1Service(MOUNTPROG_1_SERVER):
     def EXPORT(self) -> typing.List[ExportList]:
         return [
             ExportList(fs.root_path, [b"*"])
-            for fs in self.fs_manager.filesystems
+            for fs in self.fs_manager.filesystems.values()
         ]
 
 
@@ -53,7 +51,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         pass
 
     def GETATTR(self, fh: bytes) -> AttrStat:
-        fs_entry = self.fs_manager.get_entry_by_fh(fh)
+        fs_entry = self.fs_manager.get_entry_by_fh(fh, nfs_v2=True)
         if not fs_entry:
             return AttrStat(Stat.NFSERR_STALE)
         return AttrStat(Stat.NFS_OK, fs_entry.to_nfs2_fattr())
@@ -65,7 +63,8 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         pass
 
     def LOOKUP(self, arg_0: DiropArgs) -> DiropRes:
-        directory = self.fs_manager.get_entry_by_fh(arg_0.dir)
+        fs_mgr = self.fs_manager
+        directory = fs_mgr.get_entry_by_fh(arg_0.dir, nfs_v2=True)
         if not directory:
             return DiropRes(Stat.NFSERR_STALE)
         child = directory.get_child_by_name(arg_0.name)
@@ -73,11 +72,11 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
             return DiropRes(Stat.NFSERR_NOENT)
         return DiropRes(
             Stat.NFS_OK,
-            DiropOK(child.fh, child.to_nfs2_fattr())
+            DiropOK(fs_mgr.entry_to_fh(child, nfs_v2=True), child.to_nfs2_fattr())
         )
 
     def READLINK(self, fh: bytes) -> ReadlinkRes:
-        fs_entry = self.fs_manager.get_entry_by_fh(fh)
+        fs_entry = self.fs_manager.get_entry_by_fh(fh, nfs_v2=True)
         if not fs_entry:
             return ReadlinkRes(Stat.NFSERR_STALE)
         if fs_entry.type != FileType.LINK:
@@ -86,7 +85,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         return ReadlinkRes(Stat.NFS_OK, fs_entry.contents)
 
     def READ(self, read_args: ReadArgs) -> ReadRes:
-        fs_entry = self.fs_manager.get_entry_by_fh(read_args.file)
+        fs_entry = self.fs_manager.get_entry_by_fh(read_args.file, nfs_v2=True)
         if not fs_entry:
             return ReadRes(Stat.NFSERR_STALE)
         # No special devices for now!
@@ -125,7 +124,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         return Stat.NFSERR_ROFS
 
     def READDIR(self, arg_0: ReaddirArgs) -> ReaddirRes:
-        directory = self.fs_manager.get_entry_by_fh(arg_0.dir)
+        directory = self.fs_manager.get_entry_by_fh(arg_0.dir, nfs_v2=True)
         count = min(arg_0.count, 50)
         if not directory:
             return ReaddirRes(Stat.NFSERR_STALE)
@@ -153,7 +152,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         )
 
     def STATFS(self, fh: bytes) -> StatfsRes:
-        fs = self.fs_manager.get_fs_by_fh(fh)
+        fs = self.fs_manager.get_fs_by_fh(fh, nfs_v2=True)
         if not fs:
             return StatfsRes(Stat.NFSERR_STALE)
         return StatfsRes(
@@ -169,9 +168,12 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
 
 
 async def main():
-    fs_manager = FileSystemManager([
-        NullFS(b"/tmp/nfs2"),
-    ])
+    fs_manager = FileSystemManager(
+        VerifyingFileHandleEncoder(b"foobar"),
+        filesystems=[
+            NullFS(b"/tmp/nfs2"),
+        ]
+    )
 
     transport_server = TCPTransportServer("127.0.0.1", 2222)
     transport_server.register_prog(MountV1Service(fs_manager))

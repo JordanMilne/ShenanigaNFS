@@ -1,7 +1,6 @@
 import datetime as dt
 import secrets
 import weakref
-from zlib import crc32
 
 from pynefs.fs import BaseFS, Directory, File
 
@@ -9,8 +8,7 @@ from pynefs.fs import BaseFS, Directory, File
 class NullFS(BaseFS):
     def __init__(self, root_path):
         super().__init__()
-        self.fh = secrets.token_bytes(32)
-        self.fsid = 0
+        self.fsid = secrets.token_bytes(8)
         self.block_size = 4096
         self.num_blocks = 1
         self.free_blocks = 0
@@ -26,15 +24,14 @@ class NullFS(BaseFS):
             size=4096,
             rdev=0,
             blocks=1,
-            fileid=crc32(self.fh),
+            fileid=secrets.randbits(32),
             atime=dt.datetime.utcnow(),
             mtime=dt.datetime.utcnow(),
             ctime=dt.datetime.utcnow(),
-            fh=self.fh,
             name=b"",
-            child_fhs=[],
+            child_ids=[],
             root_dir=True,
-            parent_fh=None,
+            parent_id=None,
         )
 
         self.entries = [
@@ -43,10 +40,9 @@ class NullFS(BaseFS):
 
         root_dir.add_child(File(
             fs=weakref.ref(self),
-            fh=secrets.token_bytes(32),
             # Will be filled in later
-            parent_fh=None,
-            fileid=crc32(self.fh),
+            parent_id=None,
+            fileid=secrets.randbits(32),
             name=b"testfile.txt",
             mode=0o555,
             nlink=0,

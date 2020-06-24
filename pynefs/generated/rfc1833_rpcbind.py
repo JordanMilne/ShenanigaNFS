@@ -143,7 +143,7 @@ class RPCBPROG_3_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def DUMP(self) -> typing.List[typing.Union[RPCB, RpList]]:
+    def DUMP(self) -> typing.List[RPCB]:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -199,7 +199,7 @@ class RPCBPROG_4_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def DUMP(self) -> typing.List[typing.Union[RPCB, RpList]]:
+    def DUMP(self) -> typing.List[RPCB]:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -227,7 +227,7 @@ class RPCBPROG_4_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETADDRLIST(self, arg_0: RPCB) -> typing.List[typing.Union[RPCBEntry, RPCBEntryList]]:
+    def GETADDRLIST(self, arg_0: RPCB) -> typing.List[RPCBEntry]:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -262,7 +262,7 @@ class RPCBPROG_3_CLIENT(client.BaseClient):
     async def GETADDR(self, arg_0: RPCB) -> client.UnpackedRPCMsg[bytes]:
         return await self.send_call(3, arg_0)
 
-    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[typing.Union[RPCB, RpList]]]:
+    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[RPCB]]:
         return await self.send_call(4, )
 
     async def CALLIT(self, arg_0: RPCBRmtcallArgs) -> client.UnpackedRPCMsg[RPCBRmtcallRes]:
@@ -309,7 +309,7 @@ class RPCBPROG_4_CLIENT(client.BaseClient):
     async def GETADDR(self, arg_0: RPCB) -> client.UnpackedRPCMsg[bytes]:
         return await self.send_call(3, arg_0)
 
-    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[typing.Union[RPCB, RpList]]]:
+    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[RPCB]]:
         return await self.send_call(4, )
 
     async def BCAST(self, arg_0: RPCBRmtcallArgs) -> client.UnpackedRPCMsg[RPCBRmtcallRes]:
@@ -330,7 +330,7 @@ class RPCBPROG_4_CLIENT(client.BaseClient):
     async def INDIRECT(self, arg_0: RPCBRmtcallArgs) -> client.UnpackedRPCMsg[RPCBRmtcallRes]:
         return await self.send_call(10, arg_0)
 
-    async def GETADDRLIST(self, arg_0: RPCB) -> client.UnpackedRPCMsg[typing.List[typing.Union[RPCBEntry, RPCBEntryList]]]:
+    async def GETADDRLIST(self, arg_0: RPCB) -> client.UnpackedRPCMsg[typing.List[RPCBEntry]]:
         return await self.send_call(11, arg_0)
 
     async def GETSTAT(self) -> client.UnpackedRPCMsg[typing.List[RPCBStat]]:

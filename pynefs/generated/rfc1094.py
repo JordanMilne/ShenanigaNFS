@@ -277,7 +277,7 @@ class GroupList(rpchelp.LinkedList):  # grouplist
 @dataclass
 class ExportList(rpchelp.LinkedList):  # exportlist
     filesys: bytes = rpchelp.rpc_field(DirPath)
-    groups: typing.List[typing.Union[bytes, GroupList]] = rpchelp.rpc_field(GroupList)
+    groups: typing.List[bytes] = rpchelp.rpc_field(GroupList)
 
 
 from pynefs import client

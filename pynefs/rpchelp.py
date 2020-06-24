@@ -189,8 +189,7 @@ class Struct(StructUnionBase, abc.ABC):
         # (un)pack the bare value
         if cls.have_single_field() and want_single:
             first_type = cls.get_fields()[0].metadata["serializer"]
-            type_hint = first_type.type_hint()
-            return f"typing.Union[{type_hint}, {cls.__name__}]"
+            return first_type.type_hint()
         return cls.__name__
 
 

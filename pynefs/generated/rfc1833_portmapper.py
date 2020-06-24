@@ -75,7 +75,7 @@ class PMAP_PROG_2_SERVER(rpchelp.Prog):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def DUMP(self) -> typing.List[typing.Union[Mapping, PmapList]]:
+    def DUMP(self) -> typing.List[Mapping]:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -107,7 +107,7 @@ class PMAP_PROG_2_CLIENT(client.BaseClient):
     async def GETPORT(self, arg_0: Mapping) -> client.UnpackedRPCMsg[int]:
         return await self.send_call(3, arg_0)
 
-    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[typing.Union[Mapping, PmapList]]]:
+    async def DUMP(self) -> client.UnpackedRPCMsg[typing.List[Mapping]]:
         return await self.send_call(4, )
 
     async def CALLIT(self, arg_0: CallArgs) -> client.UnpackedRPCMsg[CallResult]:

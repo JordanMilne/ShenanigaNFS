@@ -1,6 +1,6 @@
 import abc
-import datetime as dt
 import dataclasses
+import datetime as dt
 import enum
 import hmac
 import math
@@ -12,7 +12,7 @@ from typing import *
 from pynefs.generated import rfc1094 as nfs2
 
 
-FSENTRY = Union["File", "Directory", "SymLink", "BaseFSEntry"]
+FSENTRY = Union["File", "Directory", "SymLink", "BaseFSEntry", "FSEntryProxy"]
 
 
 # Portable-ish between NFS2/3/4
@@ -55,17 +55,16 @@ def date_to_nfs2(date: dt.datetime) -> nfs2.Timeval:
     return nfs2.Timeval(math.floor(whole), math.floor(frac * 1_000_000))
 
 
-def fsid_to_nfs2(fsid: bytes) -> int:
-    return struct.unpack("!L", fsid[:4])[0]
+def fsid_to_nfs2(fsid: int) -> int:
+    return fsid & 0xFFffFFff
 
 
-@dataclasses.dataclass
-class BaseFSEntry:
+class BaseFSEntry(abc.ABC):
     fs: weakref.ReferenceType
     parent_id: Optional[int]
     fileid: int
     name: bytes
-    type: FileType = dataclasses.field(init=False)
+    type: FileType
     mode: int
     nlink: int
     uid: int
@@ -78,12 +77,12 @@ class BaseFSEntry:
     ctime: dt.datetime
 
     @property
-    def fsid(self) -> bytes:
+    def fsid(self):
         return self.fs().fsid
 
     @property
     def nfs2_cookie(self) -> bytes:
-        return struct.pack("!L", self.fileid)
+        return struct.pack("!L", self.fileid & 0xFFffFFff)
 
     def to_nfs2_fattr(self) -> nfs2.FAttr:
         mode, f_type = self.type.to_nfs2(self.mode)
@@ -97,7 +96,7 @@ class BaseFSEntry:
             blocksize=self.fs().block_size,
             rdev=self.rdev,
             blocks=self.blocks,
-            fsid=fsid_to_nfs2(self.fsid),
+            fsid=fsid_to_nfs2(self.fs().fsid),
             fileid=self.fileid,
             atime=date_to_nfs2(self.atime),
             mtime=date_to_nfs2(self.mtime),
@@ -105,29 +104,31 @@ class BaseFSEntry:
         )
 
 
-@dataclasses.dataclass
-class File(BaseFSEntry):
+class FSEntryProxy:
+    def __init__(self, base: FSENTRY, replacements: Dict[str, Any]):
+        self.base = base
+        self.replacements = replacements
+
+    def __getattr__(self, item):
+        if item in self.replacements:
+            return self.replacements[item]
+        return getattr(self.base, item)
+
+
+class File(BaseFSEntry, abc.ABC):
     contents: bytes
-
-    def __post_init__(self):
-        self.type = FileType.REG
+    type: Literal[FileType.REG]
 
 
-@dataclasses.dataclass
-class SymLink(BaseFSEntry):
+class SymLink(BaseFSEntry, abc.ABC):
     contents: bytes
-
-    def __post_init__(self):
-        self.type = FileType.LINK
+    type: Literal[FileType.LINK]
 
 
-@dataclasses.dataclass
-class Directory(BaseFSEntry):
+class Directory(BaseFSEntry, abc.ABC):
     child_ids: List[int]
+    type: Literal[FileType.DIR]
     root_dir: bool = False
-
-    def __post_init__(self):
-        self.type = FileType.DIR
 
     def add_child(self, child: FSENTRY):
         if child.fileid in self.child_ids:
@@ -149,10 +150,12 @@ class Directory(BaseFSEntry):
     def _make_upper_dir_link(self):
         if self.parent_id is not None:
             parent: Directory = self.fs().get_entry_by_id(self.parent_id)
-            return dataclasses.replace(
-                parent,
-                name=b"..",
-                child_ids=[self.fileid],
+            return FSEntryProxy(
+                base=parent,
+                replacements={
+                    "name": b"..",
+                    "child_ids": [self.fileid],
+                },
             )
 
         assert self.root_dir
@@ -160,32 +163,22 @@ class Directory(BaseFSEntry):
         # Need to make a fake entry for `..` since it's actually above
         # the root directory. Ironically none of the info other than the
         # name seems to be used in the dir listing.
-        return Directory(
-            fs=weakref.ref(self),
-            mode=0o0555,
-            nlink=2,
-            uid=1000,
-            gid=1000,
-            size=4096,
-            rdev=0,
-            blocks=1,
+        return FSEntryProxy(
+            base=self,
             # Not a real file so should be fine?
-            # fileid may NOT be 0 or clients will ignore it!
-            fileid=(~self.fileid) & 0xFFffFFff,
-            atime=dt.datetime.utcnow(),
-            mtime=dt.datetime.utcnow(),
-            ctime=dt.datetime.utcnow(),
-            name=b"..",
-            child_ids=[self.fileid],
-            root_dir=False,
-            parent_id=None,
+            replacements={
+                "fileid": (~self.fileid) & 0xFFffFFff,
+                "name": b"..",
+                "child_ids": [self.fileid],
+                "root_dir": False,
+            }
         )
 
     @property
     def children(self) -> List[FSENTRY]:
         fs: BaseFS = self.fs()
         files = [
-            dataclasses.replace(self, name=b"."),
+            FSEntryProxy(self, {"name": b"."}),
             self._make_upper_dir_link(),
             *[fs.get_entry_by_id(fileid) for fileid in self.child_ids]
         ]
@@ -193,15 +186,64 @@ class Directory(BaseFSEntry):
         return files
 
 
+@dataclasses.dataclass
+class SimpleFSEntry(BaseFSEntry):
+    fs: weakref.ReferenceType
+    fileid: int
+    name: bytes
+    mode: int
+    size: int = dataclasses.field(init=False, default=0)
+    type: FileType = dataclasses.field(init=False)
+    parent_id: Optional[int] = dataclasses.field(default=None)
+    nlink: int = dataclasses.field(default=1)
+    uid: int = dataclasses.field(default=65534)
+    gid: int = dataclasses.field(default=65534)
+    rdev: int = dataclasses.field(default=0)
+    blocks: int = dataclasses.field(default=1)
+    atime: dt.datetime = dataclasses.field(default_factory=dt.datetime.utcnow)
+    mtime: dt.datetime = dataclasses.field(default_factory=dt.datetime.utcnow)
+    ctime: dt.datetime = dataclasses.field(default_factory=dt.datetime.utcnow)
+
+
+@dataclasses.dataclass
+class SimpleFile(File, SimpleFSEntry):
+    contents: bytearray = dataclasses.field(default_factory=bytearray)
+    type: FileType = dataclasses.field(default=FileType.REG, init=False)
+
+    @property
+    def size(self) -> int:
+        return len(self.contents)
+
+
+@dataclasses.dataclass
+class SimpleSymlink(SymLink, SimpleFSEntry):
+    contents: bytearray = dataclasses.field(default_factory=bytearray)
+    type: FileType = dataclasses.field(default=FileType.LINK, init=False)
+
+    @property
+    def size(self) -> int:
+        return len(self.contents)
+
+
+@dataclasses.dataclass
+class SimpleDirectory(Directory, SimpleFSEntry):
+    type: FileType = dataclasses.field(default=FileType.DIR, init=False)
+    child_ids: List[int] = dataclasses.field(default_factory=list)
+    root_dir: bool = dataclasses.field(default=False)
+
+
 class BaseFS(abc.ABC):
-    fsid: bytes
-    fh: bytes
+    fsid: int
     block_size: int
     num_blocks: int
     free_blocks: int
     avail_blocks: int
     root_path: bytes
     entries: List[FSENTRY]
+
+    def __init__(self):
+        self.fsid = secrets.randbits(64)
+        self.block_size = 4096
 
     def get_entry_by_id(self, fileid: int) -> Optional[FSENTRY]:
         for entry in self.entries:
@@ -240,10 +282,9 @@ class BaseFS(abc.ABC):
                 assert entry.fileid in parent.child_ids
 
 
-@dataclasses.dataclass
-class DecodedFileHandle:
+class DecodedFileHandle(NamedTuple):
     fileid: int
-    fsid: bytes
+    fsid: int
 
 
 class FileHandleEncoder(abc.ABC):
@@ -272,7 +313,7 @@ class VerifyingFileHandleEncoder(FileHandleEncoder):
         return digest[:self._mac_len(nfs_v2)]
 
     def encode(self, entry: Union[FSENTRY, DecodedFileHandle], nfs_v2=False) -> bytes:
-        payload = struct.pack("!Q", entry.fileid) + entry.fsid
+        payload = struct.pack("!QQ", entry.fileid, entry.fsid)
         return self._calc_mac(payload, nfs_v2) + payload
 
     def decode(self, fh: bytes, nfs_v2=False) -> DecodedFileHandle:
@@ -283,13 +324,13 @@ class VerifyingFileHandleEncoder(FileHandleEncoder):
         mac, payload = fh[:mac_len], fh[mac_len:]
         if not secrets.compare_digest(mac, self._calc_mac(payload, nfs_v2)):
             raise ValueError(f"FH {fh!r} failed sig check")
-        return DecodedFileHandle(struct.unpack("!Q", payload[:8])[0], payload[8:])
+        return DecodedFileHandle(*struct.unpack("!QQ", payload))
 
 
 class FileSystemManager:
     def __init__(self, handle_encoder, filesystems):
         self.handle_encoder: FileHandleEncoder = handle_encoder
-        self.filesystems: Dict[bytes, BaseFS] = {f.fsid: f for f in filesystems}
+        self.filesystems: Dict[int, BaseFS] = {f.fsid: f for f in filesystems}
 
     def get_fs_by_root(self, root_path) -> Optional[BaseFS]:
         for fs in self.filesystems.values():

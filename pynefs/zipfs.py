@@ -5,32 +5,21 @@ import weakref
 import zipfile
 from zlib import crc32
 
-from pynefs.fs import BaseFS, Directory, File
+from pynefs.fs import BaseFS, Directory, SimpleDirectory, SimpleFile
 
 
 class ZipFS(BaseFS):
     def __init__(self, root_path, zip_path):
         super().__init__()
-        self.fsid = secrets.token_bytes(8)
-        self.block_size = 4096
         self.num_blocks = 1
         self.free_blocks = 0
         self.avail_blocks = 0
         self.root_path = root_path
 
-        root_dir = Directory(
+        root_dir = SimpleDirectory(
             fs=weakref.ref(self),
             mode=0o0555,
-            nlink=2,
-            uid=1000,
-            gid=1000,
-            size=4096,
-            rdev=0,
-            blocks=1,
             fileid=secrets.randbits(32),
-            atime=dt.datetime.utcnow(),
-            mtime=dt.datetime.utcnow(),
-            ctime=dt.datetime.utcnow(),
             name=b"",
             child_ids=[],
             root_dir=True,
@@ -59,18 +48,14 @@ class ZipFS(BaseFS):
             name=path.name.encode("utf8"),
             # Not writeable!
             mode=(info.external_attr >> 16) & ~0o222,
-            uid=1000,
-            gid=1000,
-            size=info.file_size,
-            rdev=0,
+            # size=info.file_size,
             blocks=math.ceil(info.file_size / self.block_size),
-            atime=dt.datetime.utcnow(),
             mtime=dt.datetime(*info.date_time),
             ctime=dt.datetime(*info.date_time),
         )
 
         if info.is_dir():
-            entry = Directory(
+            entry = SimpleDirectory(
                 child_ids=[],
                 root_dir=False,
                 # we always have the `.` hard link, so at least 2
@@ -78,7 +63,7 @@ class ZipFS(BaseFS):
                 **common_kwargs,
             )
         else:
-            entry = File(
+            entry = SimpleFile(
                 contents=path.read_bytes(),
                 nlink=1,
                 **common_kwargs

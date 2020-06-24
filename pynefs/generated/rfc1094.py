@@ -37,7 +37,7 @@ MAXPATHLEN = 1024
 MAXNAMLEN = 255
 COOKIESIZE = 4
 FHSIZE = 32
-NFSData = rpchelp.opaque(rpchelp.LengthType.VAR, MAXDATA)
+NFSData = rpchelp.Opaque(rpchelp.LengthType.VAR, MAXDATA)
 
 
 class Stat(rpchelp.Enum):  # stat
@@ -70,7 +70,7 @@ class Ftype(rpchelp.Enum):  # ftype
     NFLNK = 5
 
 
-FHandle = rpchelp.opaque(rpchelp.LengthType.FIXED, FHSIZE)
+FHandle = rpchelp.Opaque(rpchelp.LengthType.FIXED, FHSIZE)
 
 
 @dataclass
@@ -107,8 +107,8 @@ class SAttr(rpchelp.Struct):  # sattr
     mtime: Timeval = rpchelp.rpc_field(Timeval)
 
 
-Filename = rpchelp.string(rpchelp.LengthType.VAR, MAXNAMLEN)
-Path = rpchelp.string(rpchelp.LengthType.VAR, MAXPATHLEN)
+Filename = rpchelp.Opaque(rpchelp.LengthType.VAR, MAXNAMLEN)
+Path = rpchelp.Opaque(rpchelp.LengthType.VAR, MAXPATHLEN)
 
 
 @dataclass
@@ -153,7 +153,7 @@ class StatfsRes(rpchelp.Union):  # statfsres
     fs_info: typing.Optional[FsInfo] = rpchelp.rpc_field(FsInfo, default=None)
 
 
-NFScookie = rpchelp.opaque(rpchelp.LengthType.FIXED, COOKIESIZE)
+NFScookie = rpchelp.Opaque(rpchelp.LengthType.FIXED, COOKIESIZE)
 
 
 @dataclass
@@ -252,8 +252,8 @@ class SattrArgs(rpchelp.Struct):  # sattrargs
 
 
 MNTPATHLEN = 1024
-DirPath = rpchelp.string(rpchelp.LengthType.VAR, MNTPATHLEN)
-Name = rpchelp.string(rpchelp.LengthType.VAR, MNTPATHLEN)
+DirPath = rpchelp.Opaque(rpchelp.LengthType.VAR, MNTPATHLEN)
+Name = rpchelp.Opaque(rpchelp.LengthType.VAR, MNTPATHLEN)
 
 
 @dataclass

@@ -34,13 +34,13 @@ class CallArgs(rpchelp.Struct):  # call_args
     prog: int = rpchelp.rpc_field(rpchelp.r_uint)
     vers: int = rpchelp.rpc_field(rpchelp.r_uint)
     proc: int = rpchelp.rpc_field(rpchelp.r_uint)
-    args: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, None))
+    args: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
 
 
 @dataclass
 class CallResult(rpchelp.Struct):  # call_result
     port: int = rpchelp.rpc_field(rpchelp.r_uint)
-    res: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, None))
+    res: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
 
 
 from pynefs import client

@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
-# This file should be available from
+# Copyright (c) 2020, Jordan Milne
+
+# This file substantially based on Pinefs, available from
 # http://www.pobox.com/~asl2/software/Pinefs
 # and is licensed under the X Consortium license:
 # Copyright(c) 2003, Aaron S. Lav, asl2@pobox.com
@@ -31,72 +33,6 @@
 # or other dealings in this Software without prior written authorization
 # of the copyright holder.
 
-"""Parser for ONC RPC IDL.  The grammar is taken from RFC1832, sections
-5, and RFC1831, section 11.2.
-
-The output Python code(which requires rpchelp and rpc from the Pinefs
-distribution) contains a separate class(with rpchelp.Server as a base
-class) for every version defined in every program statement.  To
-implement a service, for each version of each program, derive a class
-from the class named <prog>_<version>, with method names corresponding
-to the procedure names in the IDL you want to implement. (At
-instantiation, any procedure names defined in the IDL but neither
-implemented nor listed in the deliberately_unimplemented member will
-cause a warning to be printed.)  Also, define a member function
-check_host_ok, which is passed(host name, credentials, verifier) on each
-call, and should return a true value if the call should be accepted,
-and false otherwise.
-
-To use instances of the server class, create a transport server(with
-the create_transport_server(port) function), and then, for every server
-instance you want associated with that port, call its
-register(transport_server) function, which will register with the
-local portmapper. (This architecture allows multiple versions of
-multiple programs all to listen on the same port, or for a single version
-to listen on, e.g, both a TCP and UDP port.)
-
-Member functions will be passed Python values, and should return
-a Python value.  The correspondence between IDL datatypes and
-Python datatypes is:
-- base types uint, int, float, double are the same
-- void is None
-- an array(either fixed or var-length) is a Python sequence
-- an opaque or a string is a Python string
-- a structure is a Python instance, with IDL member names corresponding
-  to Python attribute names
-- a union is a two-attribute instance, with one attribute named the
-  name of the discriminant declaration, and the other named '_data'
- (with a value appropriate to the value of the discriminant).
-- an optional value(*) is either None, or the value
-- a linked list is special-cased, and turned into a Python list
-  of structures without the link member.
-- const and enum declarations are top-level constant variables.
-
-IDL identifiers which are Python reserved words(or Python reserved
-words with 1 or more underscores suffixed) are escaped by appending
-an underscore.
-
-Top-level struct and union declarations generate Python declarations
-of the corresponding name, and calling the object bound to the name
-will generate an instance suitable for populating. (The class defines
-__slots__ to be the member names, and has, as attributes, any nested
-struct or union definitions.  The packing/unpacking function don't
-require the use of this class, and, for the unnamed struct/union
-declarations created by declaring struct or union types as either
-return values or argument types in a procedure definition, you'll need
-to create your own classes, either by using
-rpchelp.struct_union_class_factory, or some other way.)
-
-Enum declarations nested inside struct or union declarations, or
-procedure definitions, generate top-level definitions. (I think this
-treatment of nested enum definitions is wrong, according to RFC1832
-section 5.4, but I'm not sure.)
-
-Rpcgen doesn't support:
-- case fall-through in unions
-Neither seems to be defined in the grammar, but I should support them,
-and look around for an updated IDL specification.
-"""
 import abc
 import os
 import re
@@ -416,7 +352,12 @@ class ArrType(Node):
             typ = self.typ.val
 
         if is_string:
-            return 'rpchelp.%s(%s, %s)' % (typ, var_fixed, self.maxind)
+            # Encoding is unspecified so strings are byte strings too
+            str_class_map = {
+                'opaque': 'Opaque',
+                'string': 'Opaque',
+            }
+            return 'rpchelp.%s(%s, %s)' % (str_class_map[typ], var_fixed, self.maxind)
         return 'rpchelp.Array(%s, %s, %s)' % (
             typ.to_str(ctx), var_fixed, self.maxind)
 
@@ -600,15 +541,15 @@ class VersionList(NodeList):
 
 class ProcedureList(NodeListComma):
     @staticmethod
-    def _common_prefix(strings):
-        if not strings:
+    def _common_prefix(vals):
+        if not vals:
             return ""
-        prefix = strings[-1]
-        for string in strings:
-            shortest = min(len(prefix), len(string))
+        prefix = vals[-1]
+        for val in vals:
+            shortest = min(len(prefix), len(val))
             prefix = prefix[:shortest]
             last_match = 0
-            for x, y in zip(prefix, string[:shortest]):
+            for x, y in zip(prefix, val[:shortest]):
                 if x != y:
                     break
                 last_match += 1
@@ -664,13 +605,14 @@ class TypeDefCompound(Node):
         self.body = body
 
     def to_str(self, ctx):
-        params = (ctx.get_name(self.ident), self.body.to_str(ctx))
+        new_ident = ctx.get_name(self.ident)
+        body_str = self.body.to_str(ctx)
         if self.typ == "enum":
-            val = "\n\n\nclass %s(rpchelp.Enum):  # %s\n%s\n\n\n" % (params[0], self.ident, params[1])
+            val = "\n\n\nclass %s(rpchelp.Enum):  # %s\n%s\n\n\n" % (new_ident, self.ident, body_str)
         elif self.typ in ("struct", "union"):
-            val = params[1]
+            val = body_str
         else:
-            val = '%s = %s' % params
+            raise ValueError(f"Unknown compound typedef {self.typ}")
         ctx.exec(val)
         return val
 
@@ -795,7 +737,7 @@ def p_decl_4(t):
 
 def p_decl_5(t):
     """declaration : OPAQUE IDENT LBRACK value RBRACK"""  # fixed opaque
-    t[0] = ArrType('opaque', t[2], rpchelp.LengthType.FIXED, t[4])
+    t[0] = ArrType('Opaque', t[2], rpchelp.LengthType.FIXED, t[4])
 
 
 def p_decl_6(t):
@@ -1022,33 +964,6 @@ def p_error(t):
 parser = yacc.yacc()
 
 
-def testlex(s):
-    lexer.input(s)
-    while 1:
-        token = lexer.token()
-        if not token:
-            break
-        print(token)
-
-
-def print_ast(ast, level=0):
-    print(" " * 4 * level)
-    if isinstance(ast, Node):
-        print(ast.__class__.__name__)
-        if ast.val is not None:
-            print_ast(ast.val)
-        if ast.children is not None:
-            for c in ast.children:
-                print_ast(c, level + 1)
-    else:
-        print(ast)
-
-
-def testyacc(s):
-    ast = parser.parse(s)
-    print_ast(ast)
-
-
 class NodeVisitor(abc.ABC):
     def __init__(self, ctx: Ctx):
         self.ctx = ctx
@@ -1087,6 +1002,33 @@ class StructHoistingVisitor(NodeVisitor):
 
         # Insert the struct just before the union
         root.children.insert(root.children.index(base_typedef), new_typ_spec)
+
+
+def testlex(s):
+    lexer.input(s)
+    while 1:
+        token = lexer.token()
+        if not token:
+            break
+        print(token)
+
+
+def print_ast(ast, level=0):
+    print(" " * 4 * level)
+    if isinstance(ast, Node):
+        print(ast.__class__.__name__)
+        if ast.val is not None:
+            print_ast(ast.val)
+        if ast.children is not None:
+            for c in ast.children:
+                print_ast(c, level + 1)
+    else:
+        print(ast)
+
+
+def testyacc(s):
+    ast = parser.parse(s)
+    print_ast(ast)
 
 
 def test(s):

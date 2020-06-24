@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
-# This file should be available from
+# Copyright (c) 2020, Jordan Milne
+
+# This file substantially based on Pinefs, available from
 # http://www.pobox.com/~asl2/software/Pinefs
 # and is licensed under the X Consortium license:
 # Copyright (c) 2003, Aaron S. Lav, asl2@pobox.com
@@ -136,11 +138,6 @@ class Opaque(Packable):
             return up.unpack_opaque()
 
 
-# so happens that the underlying encodings are the same for opaque and string
-opaque = Opaque
-string = Opaque
-
-
 PACKABLE_OR_PACKABLE_CLASS = typing.Union["packable", typing.Type["packable"]]
 
 
@@ -265,16 +262,6 @@ class Union(StructUnionBase, abc.ABC):
 
 
 class OptData(Packable):
-    """Pack and unpack an optional value, as either None or the value
-    itself.  This choice means that we can't encode declarations which
-    resolve to void * in both ways (both void absent, and void
-    present).  It looks like the rfc1832 grammar disallows such
-    declarations, and they aren't all that useful anyway (since they
-    could be replaced w/ a bool with no change in wire format or
-    semantic content), so disallowing them seems worth the simplicity
-    gain for users of opt_data.  (OTOH, if we had the ML-style
-    "option" type ...)"""
-
     def __init__(self, typ):
         self.typ: Packable = typ
 
@@ -325,7 +312,7 @@ class BaseType(Packable):
         return self.up_proc(up)
 
     def type_hint(self) -> str:
-        if not self.python_type:
+        if self.python_type is None:
             return "None"
         return self.python_type.__name__
 

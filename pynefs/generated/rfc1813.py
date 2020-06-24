@@ -71,13 +71,13 @@ Uint64 = rpchelp.r_uhyper
 Int64 = rpchelp.r_hyper
 Uint32 = rpchelp.r_uint
 Int32 = rpchelp.r_int
-Filename3 = rpchelp.string(rpchelp.LengthType.VAR, None)
-NFSPath3 = rpchelp.string(rpchelp.LengthType.VAR, None)
+Filename3 = rpchelp.Opaque(rpchelp.LengthType.VAR, None)
+NFSPath3 = rpchelp.Opaque(rpchelp.LengthType.VAR, None)
 Fileid3 = Uint64
 Cookie3 = Uint64
-Cookieverf3 = rpchelp.opaque(rpchelp.LengthType.FIXED, NFS3_COOKIEVERFSIZE)
-Createverf3 = rpchelp.opaque(rpchelp.LengthType.FIXED, NFS3_CREATEVERFSIZE)
-Writeverf3 = rpchelp.opaque(rpchelp.LengthType.FIXED, NFS3_WRITEVERFSIZE)
+Cookieverf3 = rpchelp.Opaque(rpchelp.LengthType.FIXED, NFS3_COOKIEVERFSIZE)
+Createverf3 = rpchelp.Opaque(rpchelp.LengthType.FIXED, NFS3_CREATEVERFSIZE)
+Writeverf3 = rpchelp.Opaque(rpchelp.LengthType.FIXED, NFS3_WRITEVERFSIZE)
 Uid3 = Uint32
 Gid3 = Uint32
 Size3 = Uint64
@@ -134,7 +134,7 @@ class SpecData3(rpchelp.Struct):  # specdata3
     specdata2: int = rpchelp.rpc_field(Uint32)
 
 
-NFSFh3 = rpchelp.opaque(rpchelp.LengthType.VAR, NFS3_FHSIZE)
+NFSFh3 = rpchelp.Opaque(rpchelp.LengthType.VAR, NFS3_FHSIZE)
 
 
 @dataclass
@@ -325,8 +325,8 @@ class ACCESS3ResFail(rpchelp.Struct):  # ACCESS3resfail
 class ACCESS3Res(rpchelp.Union):  # ACCESS3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resok: typing.Optional[ACCESS3ResOK] = rpchelp.rpc_field(ACCESS3ResOK, default=None)
     resfail: typing.Optional[ACCESS3ResFail] = rpchelp.rpc_field(ACCESS3ResFail, default=None)
+    resok: typing.Optional[ACCESS3ResOK] = rpchelp.rpc_field(ACCESS3ResOK, default=None)
 
 
 @dataclass
@@ -365,7 +365,7 @@ class READ3ResOK(rpchelp.Struct):  # READ3resok
     file_attributes: typing.Optional[FAttr3] = rpchelp.rpc_field(PostOpAttr)
     count: int = rpchelp.rpc_field(Count3)
     eof: bool = rpchelp.rpc_field(rpchelp.r_bool)
-    data: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, None))
+    data: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
 
 
 @dataclass
@@ -393,7 +393,7 @@ class WRITE3Args(rpchelp.Struct):  # WRITE3args
     offset: int = rpchelp.rpc_field(Offset3)
     count: int = rpchelp.rpc_field(Count3)
     stable: typing.Union[StableHow, int] = rpchelp.rpc_field(StableHow)
-    data: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, None))
+    data: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
 
 
 @dataclass
@@ -413,8 +413,8 @@ class WRITE3ResFail(rpchelp.Struct):  # WRITE3resfail
 class WRITE3Res(rpchelp.Union):  # WRITE3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resok: typing.Optional[WRITE3ResOK] = rpchelp.rpc_field(WRITE3ResOK, default=None)
     resfail: typing.Optional[WRITE3ResFail] = rpchelp.rpc_field(WRITE3ResFail, default=None)
+    resok: typing.Optional[WRITE3ResOK] = rpchelp.rpc_field(WRITE3ResOK, default=None)
 
 
 class Createmode3(rpchelp.Enum):  # createmode3
@@ -453,8 +453,8 @@ class CREATE3ResFail(rpchelp.Struct):  # CREATE3resfail
 class CREATE3Res(rpchelp.Union):  # CREATE3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resfail: typing.Optional[CREATE3ResFail] = rpchelp.rpc_field(CREATE3ResFail, default=None)
     resok: typing.Optional[CREATE3ResOK] = rpchelp.rpc_field(CREATE3ResOK, default=None)
+    resfail: typing.Optional[CREATE3ResFail] = rpchelp.rpc_field(CREATE3ResFail, default=None)
 
 
 @dataclass
@@ -479,8 +479,8 @@ class MKDIR3ResFail(rpchelp.Struct):  # MKDIR3resfail
 class MKDIR3Res(rpchelp.Union):  # MKDIR3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resok: typing.Optional[MKDIR3ResOK] = rpchelp.rpc_field(MKDIR3ResOK, default=None)
     resfail: typing.Optional[MKDIR3ResFail] = rpchelp.rpc_field(MKDIR3ResFail, default=None)
+    resok: typing.Optional[MKDIR3ResOK] = rpchelp.rpc_field(MKDIR3ResOK, default=None)
 
 
 @dataclass
@@ -511,8 +511,8 @@ class SYMLINK3ResFail(rpchelp.Struct):  # SYMLINK3resfail
 class SYMLINK3Res(rpchelp.Union):  # SYMLINK3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resok: typing.Optional[SYMLINK3ResOK] = rpchelp.rpc_field(SYMLINK3ResOK, default=None)
     resfail: typing.Optional[SYMLINK3ResFail] = rpchelp.rpc_field(SYMLINK3ResFail, default=None)
+    resok: typing.Optional[SYMLINK3ResOK] = rpchelp.rpc_field(SYMLINK3ResOK, default=None)
 
 
 @dataclass
@@ -525,10 +525,10 @@ class DeviceData3(rpchelp.Struct):  # devicedata3
 class MknodData3(rpchelp.Union):  # mknoddata3
     SWITCH_OPTIONS = {NF3CHR: 'chr_device', NF3BLK: 'blk_device', NF3SOCK: 'sock_pipe_attributes', NF3FIFO: 'fifo_pipe_attributes', None: None}
     type: typing.Union[Ftype3, int] = rpchelp.rpc_field(Ftype3)
-    fifo_pipe_attributes: typing.Optional[SAttr3] = rpchelp.rpc_field(SAttr3, default=None)
-    chr_device: typing.Optional[DeviceData3] = rpchelp.rpc_field(DeviceData3, default=None)
-    blk_device: typing.Optional[DeviceData3] = rpchelp.rpc_field(DeviceData3, default=None)
     sock_pipe_attributes: typing.Optional[SAttr3] = rpchelp.rpc_field(SAttr3, default=None)
+    fifo_pipe_attributes: typing.Optional[SAttr3] = rpchelp.rpc_field(SAttr3, default=None)
+    blk_device: typing.Optional[DeviceData3] = rpchelp.rpc_field(DeviceData3, default=None)
+    chr_device: typing.Optional[DeviceData3] = rpchelp.rpc_field(DeviceData3, default=None)
 
 
 @dataclass
@@ -553,8 +553,8 @@ class MKNOD3ResFail(rpchelp.Struct):  # MKNOD3resfail
 class MKNOD3Res(rpchelp.Union):  # MKNOD3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resok: typing.Optional[MKNOD3ResOK] = rpchelp.rpc_field(MKNOD3ResOK, default=None)
     resfail: typing.Optional[MKNOD3ResFail] = rpchelp.rpc_field(MKNOD3ResFail, default=None)
+    resok: typing.Optional[MKNOD3ResOK] = rpchelp.rpc_field(MKNOD3ResOK, default=None)
 
 
 @dataclass
@@ -576,8 +576,8 @@ class REMOVE3ResFail(rpchelp.Struct):  # REMOVE3resfail
 class REMOVE3Res(rpchelp.Union):  # REMOVE3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resok: typing.Optional[REMOVE3ResOK] = rpchelp.rpc_field(REMOVE3ResOK, default=None)
     resfail: typing.Optional[REMOVE3ResFail] = rpchelp.rpc_field(REMOVE3ResFail, default=None)
+    resok: typing.Optional[REMOVE3ResOK] = rpchelp.rpc_field(REMOVE3ResOK, default=None)
 
 
 @dataclass
@@ -625,8 +625,8 @@ class RENAME3ResFail(rpchelp.Struct):  # RENAME3resfail
 class RENAME3Res(rpchelp.Union):  # RENAME3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resok: typing.Optional[RENAME3ResOK] = rpchelp.rpc_field(RENAME3ResOK, default=None)
     resfail: typing.Optional[RENAME3ResFail] = rpchelp.rpc_field(RENAME3ResFail, default=None)
+    resok: typing.Optional[RENAME3ResOK] = rpchelp.rpc_field(RENAME3ResOK, default=None)
 
 
 @dataclass
@@ -651,8 +651,8 @@ class LINK3ResFail(rpchelp.Struct):  # LINK3resfail
 class LINK3Res(rpchelp.Union):  # LINK3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resfail: typing.Optional[LINK3ResFail] = rpchelp.rpc_field(LINK3ResFail, default=None)
     resok: typing.Optional[LINK3ResOK] = rpchelp.rpc_field(LINK3ResOK, default=None)
+    resfail: typing.Optional[LINK3ResFail] = rpchelp.rpc_field(LINK3ResFail, default=None)
 
 
 @dataclass
@@ -692,8 +692,8 @@ class READDIR3ResFail(rpchelp.Struct):  # READDIR3resfail
 class READDIR3Res(rpchelp.Union):  # READDIR3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resok: typing.Optional[READDIR3ResOK] = rpchelp.rpc_field(READDIR3ResOK, default=None)
     resfail: typing.Optional[READDIR3ResFail] = rpchelp.rpc_field(READDIR3ResFail, default=None)
+    resok: typing.Optional[READDIR3ResOK] = rpchelp.rpc_field(READDIR3ResOK, default=None)
 
 
 @dataclass
@@ -766,8 +766,8 @@ class FSSTAT3ResFail(rpchelp.Struct):  # FSSTAT3resfail
 class FSSTAT3Res(rpchelp.Union):  # FSSTAT3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resfail: typing.Optional[FSSTAT3ResFail] = rpchelp.rpc_field(FSSTAT3ResFail, default=None)
     resok: typing.Optional[FSSTAT3ResOK] = rpchelp.rpc_field(FSSTAT3ResOK, default=None)
+    resfail: typing.Optional[FSSTAT3ResFail] = rpchelp.rpc_field(FSSTAT3ResFail, default=None)
 
 
 FSF3_LINK = 0x0001
@@ -860,16 +860,16 @@ class COMMIT3ResFail(rpchelp.Struct):  # COMMIT3resfail
 class COMMIT3Res(rpchelp.Union):  # COMMIT3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resfail: typing.Optional[COMMIT3ResFail] = rpchelp.rpc_field(COMMIT3ResFail, default=None)
     resok: typing.Optional[COMMIT3ResOK] = rpchelp.rpc_field(COMMIT3ResOK, default=None)
+    resfail: typing.Optional[COMMIT3ResFail] = rpchelp.rpc_field(COMMIT3ResFail, default=None)
 
 
 MNTPATHLEN = 1024
 MNTNAMLEN = 255
 FHSIZE3 = 64
-FHandle3 = rpchelp.opaque(rpchelp.LengthType.VAR, FHSIZE3)
-DirPath = rpchelp.string(rpchelp.LengthType.VAR, MNTPATHLEN)
-Name = rpchelp.string(rpchelp.LengthType.VAR, MNTNAMLEN)
+FHandle3 = rpchelp.Opaque(rpchelp.LengthType.VAR, FHSIZE3)
+DirPath = rpchelp.Opaque(rpchelp.LengthType.VAR, MNTPATHLEN)
+Name = rpchelp.Opaque(rpchelp.LengthType.VAR, MNTNAMLEN)
 
 
 class MountStat3(rpchelp.Enum):  # mountstat3

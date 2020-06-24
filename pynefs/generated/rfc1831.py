@@ -42,13 +42,13 @@ class AuthFlavor(rpchelp.Enum):  # auth_flavor
 @dataclass
 class OpaqueAuth(rpchelp.Struct):  # opaque_auth
     flavor: typing.Union[AuthFlavor, int] = rpchelp.rpc_field(AuthFlavor)
-    body: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, 400))
+    body: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, 400))
 
 
 @dataclass
 class AuthsysParms(rpchelp.Struct):  # authsys_parms
     stamp: int = rpchelp.rpc_field(rpchelp.r_uint)
-    machinename: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, 255))
+    machinename: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, 255))
     uid: int = rpchelp.rpc_field(rpchelp.r_uint)
     gid: int = rpchelp.rpc_field(rpchelp.r_uint)
     gids: typing.List[int] = rpchelp.rpc_field(rpchelp.Array(rpchelp.r_uint, rpchelp.LengthType.VAR, 16))
@@ -128,8 +128,8 @@ class MismatchInfo(rpchelp.Struct):  # mismatch_info
 class RejectedReply(rpchelp.Union):  # rejected_reply
     SWITCH_OPTIONS = {RPC_MISMATCH: 'mismatch_info', AUTH_ERROR: 'auth_error'}
     r_stat: typing.Union[RejectStat, int] = rpchelp.rpc_field(RejectStat)
-    mismatch_info: typing.Optional[MismatchInfo] = rpchelp.rpc_field(MismatchInfo, default=None)
     auth_error: typing.Optional[typing.Union[AuthStat, int]] = rpchelp.rpc_field(AuthStat, default=None)
+    mismatch_info: typing.Optional[MismatchInfo] = rpchelp.rpc_field(MismatchInfo, default=None)
 
 
 @dataclass

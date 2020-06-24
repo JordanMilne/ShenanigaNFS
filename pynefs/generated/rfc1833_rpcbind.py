@@ -16,9 +16,9 @@ RPCB_PORT = 111
 class RPCB(rpchelp.Struct):  # rpcb
     r_prog: int = rpchelp.rpc_field(rpchelp.r_uint)
     r_vers: int = rpchelp.rpc_field(rpchelp.r_uint)
-    r_netid: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
-    r_addr: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
-    r_owner: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
+    r_netid: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
+    r_addr: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
+    r_owner: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
 
 
 @dataclass
@@ -34,22 +34,22 @@ class RPCBRmtcallArgs(rpchelp.Struct):  # rpcb_rmtcallargs
     prog: int = rpchelp.rpc_field(rpchelp.r_uint)
     vers: int = rpchelp.rpc_field(rpchelp.r_uint)
     proc: int = rpchelp.rpc_field(rpchelp.r_uint)
-    args: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, None))
+    args: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
 
 
 @dataclass
 class RPCBRmtcallRes(rpchelp.Struct):  # rpcb_rmtcallres
-    addr: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
-    results: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, None))
+    addr: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
+    results: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
 
 
 @dataclass
 class RPCBEntry(rpchelp.Struct):  # rpcb_entry
-    r_maddr: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
-    r_nc_netid: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
+    r_maddr: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
+    r_nc_netid: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
     r_nc_semantics: int = rpchelp.rpc_field(rpchelp.r_uint)
-    r_nc_protofmly: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
-    r_nc_proto: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
+    r_nc_protofmly: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
+    r_nc_proto: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
 
 
 @dataclass
@@ -73,7 +73,7 @@ class RPCBsAddrList(rpchelp.LinkedList):  # rpcbs_addrlist
     vers: int = rpchelp.rpc_field(rpchelp.r_uint)
     success: int = rpchelp.rpc_field(rpchelp.r_int)
     failure: int = rpchelp.rpc_field(rpchelp.r_int)
-    netid: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
+    netid: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
 
 
 @dataclass
@@ -84,7 +84,7 @@ class RPCBsRmtcallList(rpchelp.LinkedList):  # rpcbs_rmtcalllist
     success: int = rpchelp.rpc_field(rpchelp.r_int)
     failure: int = rpchelp.rpc_field(rpchelp.r_int)
     indirect: int = rpchelp.rpc_field(rpchelp.r_int)
-    netid: bytes = rpchelp.rpc_field(rpchelp.string(rpchelp.LengthType.VAR, None))
+    netid: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
 
 
 RPCBsProc = rpchelp.Array(rpchelp.r_int, rpchelp.LengthType.FIXED, RPCBSTAT_HIGHPROC)
@@ -105,7 +105,7 @@ RPCBStatByvers = rpchelp.Array(RPCBStat, rpchelp.LengthType.FIXED, RPCBVERS_STAT
 @dataclass
 class Netbuf(rpchelp.Struct):  # netbuf
     maxlen: int = rpchelp.rpc_field(rpchelp.r_uint)
-    buf: bytes = rpchelp.rpc_field(rpchelp.opaque(rpchelp.LengthType.VAR, None))
+    buf: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
 
 
 from pynefs import client

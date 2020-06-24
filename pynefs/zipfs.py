@@ -5,10 +5,10 @@ import weakref
 import zipfile
 from zlib import crc32
 
-from pynefs.fs import BaseFS, Directory, SimpleDirectory, SimpleFile
+from pynefs.fs import DictTrackingFS, Directory, SimpleDirectory, SimpleFile
 
 
-class ZipFS(BaseFS):
+class ZipFS(DictTrackingFS):
     def __init__(self, root_path, zip_path):
         super().__init__()
         self.num_blocks = 1
@@ -16,23 +16,16 @@ class ZipFS(BaseFS):
         self.avail_blocks = 0
         self.root_path = root_path
 
-        root_dir = SimpleDirectory(
+        self.track_entry(SimpleDirectory(
             fs=weakref.ref(self),
             mode=0o0555,
-            fileid=secrets.randbits(32),
             name=b"",
-            child_ids=[],
             root_dir=True,
-            parent_id=None,
-        )
-
-        self.entries = [
-            root_dir,
-        ]
+        ))
 
         with zipfile.ZipFile(zip_path) as f:
             for path in zipfile.Path(f).iterdir():
-                self._add_path(f, parent=root_dir, path=path)
+                self._add_path(f, parent=self.root_dir, path=path)
         self.sanity_check()
 
     def _add_path(self, zip_file: zipfile.ZipFile, parent: Directory, path: zipfile.Path):
@@ -40,10 +33,6 @@ class ZipFS(BaseFS):
 
         common_kwargs = dict(
             fs=parent.fs,
-            # Will get filled in when added
-            parent_id=None,
-            # numeric ID based on the full path
-            fileid=crc32(info.filename.encode("utf8")),
             # specifically the file portion
             name=path.name.encode("utf8"),
             # Not writeable!
@@ -56,16 +45,11 @@ class ZipFS(BaseFS):
 
         if info.is_dir():
             entry = SimpleDirectory(
-                child_ids=[],
-                root_dir=False,
-                # we always have the `.` hard link, so at least 2
-                nlink=2,
                 **common_kwargs,
             )
         else:
             entry = SimpleFile(
                 contents=path.read_bytes(),
-                nlink=1,
                 **common_kwargs
             )
 

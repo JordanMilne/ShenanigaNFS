@@ -62,7 +62,7 @@ def fsid_to_nfs2(fsid: int) -> int:
 class BaseFSEntry(abc.ABC):
     fs: weakref.ReferenceType
     parent_id: Optional[int]
-    fileid: int
+    fileid: Optional[int]
     name: bytes
     type: FileType
     mode: int
@@ -131,15 +131,15 @@ class Directory(BaseFSEntry, abc.ABC):
     root_dir: bool = False
 
     def add_child(self, child: FSENTRY):
-        if child.fileid in self.child_ids:
+        assert (child.fs == self.fs)
+        fs: BaseFS = self.fs()
+        if child.fileid is None:
+            fs.track_entry(child)
+        elif child.fileid in self.child_ids:
             return
-        assert(child.fs == self.fs)
+
         child.parent_id = self.fileid
         self.child_ids.append(child.fileid)
-
-        fs: BaseFS = self.fs()
-        if child not in fs.entries:
-            fs.entries.append(child)
 
     def get_child_by_name(self, name: bytes) -> Optional[FSENTRY]:
         for entry in self.children:
@@ -165,9 +165,10 @@ class Directory(BaseFSEntry, abc.ABC):
         # name seems to be used in the dir listing.
         return FSEntryProxy(
             base=self,
-            # Not a real file so should be fine?
             replacements={
-                "fileid": (~self.fileid) & 0xFFffFFff,
+                # `1` will never be used by legitimate files and
+                # is not actually tracked
+                "fileid": 1,
                 "name": b"..",
                 "child_ids": [self.fileid],
                 "root_dir": False,
@@ -189,10 +190,10 @@ class Directory(BaseFSEntry, abc.ABC):
 @dataclasses.dataclass
 class SimpleFSEntry(BaseFSEntry):
     fs: weakref.ReferenceType
-    fileid: int
     name: bytes
     mode: int
     size: int = dataclasses.field(init=False, default=0)
+    fileid: Optional[int] = dataclasses.field(default=None)
     type: FileType = dataclasses.field(init=False)
     parent_id: Optional[int] = dataclasses.field(default=None)
     nlink: int = dataclasses.field(default=1)
@@ -239,43 +240,79 @@ class BaseFS(abc.ABC):
     free_blocks: int
     avail_blocks: int
     root_path: bytes
-    entries: List[FSENTRY]
+    root_dir: Optional[Directory]
 
     def __init__(self):
         self.fsid = secrets.randbits(64)
         self.block_size = 4096
 
+    @abc.abstractmethod
     def get_entry_by_id(self, fileid: int) -> Optional[FSENTRY]:
-        for entry in self.entries:
-            if entry.fileid == fileid:
-                return entry
-        return None
+        raise NotImplementedError()
 
-    def get_descendants(self, entry: FSENTRY) -> Generator[FSENTRY, None, None]:
+    @abc.abstractmethod
+    def track_entry(self, entry: FSENTRY):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def remove_entry(self, entry: FSENTRY):
+        """Completely remove an entry and its subtree from the FS"""
+        raise NotImplementedError()
+
+    def iter_descendants(self, entry: FSENTRY) -> Generator[FSENTRY, None, None]:
         if not isinstance(entry, Directory):
             return
         for fileid in entry.child_ids:
             child = self.get_entry_by_id(fileid)
+            yield from self.iter_descendants(child)
             yield child
-            yield from self.get_descendants(child)
+
+
+class DictTrackingFS(BaseFS, abc.ABC):
+    def __init__(self):
+        super().__init__()
+        self.entries: Dict[int, FSENTRY] = {}
+        self._fileid_base = 0
+        self.root_dir = None
+
+    def _gen_fileid(self):
+        # keep generating until we find one that doesn't collide
+        while True:
+            # fileid 0 is invalid and 1 has a special meaning for us (fake dir above root)
+            self._fileid_base = min(self._fileid_base + 1, 2) & ((2 ** 64) - 1)
+            if self._fileid_base not in self.entries:
+                return self._fileid_base
+
+    def get_entry_by_id(self, fileid: int) -> Optional[FSENTRY]:
+        return self.entries.get(fileid)
+
+    def track_entry(self, entry: FSENTRY):
+        assert entry.fileid is None
+        entry.fileid = self._gen_fileid()
+        self.entries[entry.fileid] = entry
+
+        if isinstance(entry, Directory):
+            if entry.root_dir:
+                assert not self.root_dir
+                self.root_dir = entry
 
     def remove_entry(self, entry: FSENTRY):
-        """Completely remove an entry and its subtree from the FS"""
         if entry.parent_id is not None:
             parent: Directory = self.get_entry_by_id(entry.parent_id)
             parent.child_ids.remove(entry.fileid)
-        for descendant in self.get_descendants(entry):
-            self.entries.remove(descendant)
-        self.entries.remove(entry)
+        for descendant in self.iter_descendants(entry):
+            del self.entries[descendant.fileid]
+        del self.entries[entry.fileid]
 
     def sanity_check(self):
         # Not multi-rooted
-        assert sum(getattr(entry, 'root_dir', False) for entry in self.entries) == 1
+        entries = list(self.entries.values())
+        assert sum(getattr(entry, 'root_dir', False) for entry in entries) == 1
         # Everything correctly rooted
-        assert all(getattr(entry, 'root_dir', False) or entry.parent_id is not None for entry in self.entries)
+        assert all(getattr(entry, 'root_dir', False) or entry.parent_id is not None for entry in entries)
         # Unique fileids
-        assert len(set(e.fileid for e in self.entries)) == len(self.entries)
-        for entry in self.entries:
+        assert len(set(e.fileid for e in entries)) == len(entries)
+        for entry in entries:
             if entry.parent_id is not None:
                 parent = self.get_entry_by_id(entry.parent_id)
                 assert parent

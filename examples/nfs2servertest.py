@@ -6,7 +6,6 @@ from pynefs.generated.rfc1094 import *
 from pynefs.server import TCPTransportServer
 from pynefs.fs import FileSystemManager, FileType, VerifyingFileHandleEncoder
 from pynefs.nullfs import NullFS
-from pynefs.zipfs import ZipFS
 
 
 class MountV1Service(MOUNTPROG_1_SERVER):
@@ -22,7 +21,7 @@ class MountV1Service(MOUNTPROG_1_SERVER):
 
         if fs is None:
             return FHStatus(errno=errno.ENOENT)
-        return FHStatus(errno=0, directory=fs_mgr.entry_to_fh(fs.entries[0], nfs_v2=True))
+        return FHStatus(errno=0, directory=fs_mgr.entry_to_fh(fs.root_dir, nfs_v2=True))
 
     def DUMP(self) -> typing.List[MountList]:
         # State maintenance is only for informational purposes?

@@ -18,7 +18,7 @@ class NullFS(DictTrackingFS):
             root_dir=True,
         ))
 
-        self.root_dir.add_child(SimpleFile(
+        self.root_dir.link_child(SimpleFile(
             fs=weakref.ref(self),
             name=b"testfile.txt",
             mode=0o444,

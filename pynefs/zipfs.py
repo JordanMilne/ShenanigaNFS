@@ -53,7 +53,7 @@ class ZipFS(DictTrackingFS):
                 **common_kwargs
             )
 
-        parent.add_child(entry)
+        parent.link_child(entry)
 
         if info.is_dir():
             for child_path in path.iterdir():

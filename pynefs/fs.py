@@ -130,7 +130,7 @@ class Directory(BaseFSEntry, abc.ABC):
     type: Literal[FileType.DIR]
     root_dir: bool = False
 
-    def add_child(self, child: FSENTRY):
+    def link_child(self, child: FSENTRY):
         assert (child.fs == self.fs)
         fs: BaseFS = self.fs()
         if child.fileid is None:
@@ -140,6 +140,11 @@ class Directory(BaseFSEntry, abc.ABC):
 
         child.parent_id = self.fileid
         self.child_ids.append(child.fileid)
+
+    def unlink_child(self, child: FSENTRY):
+        assert child.fileid in self.child_ids
+        self.child_ids.remove(child.fileid)
+        child.parent_id = None
 
     def get_child_by_name(self, name: bytes) -> Optional[FSENTRY]:
         for entry in self.children:
@@ -154,7 +159,6 @@ class Directory(BaseFSEntry, abc.ABC):
                 base=parent,
                 replacements={
                     "name": b"..",
-                    "child_ids": [self.fileid],
                 },
             )
 
@@ -299,7 +303,7 @@ class DictTrackingFS(BaseFS, abc.ABC):
     def remove_entry(self, entry: FSENTRY):
         if entry.parent_id is not None:
             parent: Directory = self.get_entry_by_id(entry.parent_id)
-            parent.child_ids.remove(entry.fileid)
+            parent.unlink_child(entry)
         for descendant in self.iter_descendants(entry):
             del self.entries[descendant.fileid]
         del self.entries[entry.fileid]
@@ -335,6 +339,7 @@ class FileHandleEncoder(abc.ABC):
 
 
 class VerifyingFileHandleEncoder(FileHandleEncoder):
+    """64bit FSID and FileID preceded by 128 or 256bit HMAC"""
     def __init__(self, hmac_secret):
         self.hmac_secret = hmac_secret
 

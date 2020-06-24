@@ -5,13 +5,19 @@ from typing import *
 from pynefs import rpchelp
 from pynefs.client import TCPClient
 from pynefs.generated.rfc1831 import *
-import pynefs.generated.rfc1833_portmapper as pmap
+import pynefs.generated.rfc1833_rpcbind as rpcbind
 from pynefs.transport import SPLIT_MSG, BaseTransport, TCPTransport
 
 
 class ConnCtx:
     def __init__(self):
         self.state = {}
+
+
+def _addr_to_rpcbind(host: str, port: int):
+    # I have literally never seen this address representation
+    # outside of RPCBind and I don't like it.
+    return f"{host}.{port >> 8}.{port & 0xFF}".encode("utf8")
 
 
 class TransportServer:
@@ -21,13 +27,13 @@ class TransportServer:
     def register_prog(self, prog: rpchelp.Prog):
         self.progs.add(prog)
 
-    async def notify_portmapper(self, host="127.0.0.1", port=111):
+    async def notify_rpcbind(self, host="127.0.0.1", port=111):
         for prog in self.progs:
-            async with SimplePortmapperClient(host, port) as pmap_client:
-                await pmap_client.SET(self.get_prog_port_mapping(prog))
+            async with SimpleRPCBindClient(host, port) as rpcb_client:
+                await rpcb_client.SET(self.get_prog_port_mapping(prog))
 
     @abc.abstractmethod
-    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> pmap.Mapping:
+    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> rpcbind.RPCB:
         pass
 
     async def handle_message(self, transport: BaseTransport, msg: SPLIT_MSG):
@@ -117,14 +123,16 @@ class TCPTransportServer(TransportServer):
             await self.handle_message(transport, read_ret)
         transport.close()
 
-    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> pmap.Mapping:
-        return pmap.Mapping(
-            prog=prog.prog,
-            vers=prog.vers,
-            prot=pmap.IPPROTO_TCP,
-            port=self.bind_port,
+    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> rpcbind.RPCB:
+        return rpcbind.RPCB(
+            r_prog=prog.prog,
+            r_vers=prog.vers,
+            r_netid=b"tcp",
+            # Same host as rpcbind
+            r_addr=_addr_to_rpcbind("0.0.0.0", self.bind_port),
+            r_owner=b"",
         )
 
 
-class SimplePortmapperClient(TCPClient, pmap.PMAP_PROG_2_CLIENT):
+class SimpleRPCBindClient(TCPClient, rpcbind.RPCBPROG_4_CLIENT):
     pass

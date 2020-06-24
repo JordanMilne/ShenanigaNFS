@@ -178,7 +178,7 @@ async def main():
     transport_server = TCPTransportServer("127.0.0.1", 2222)
     transport_server.register_prog(MountV1Service(fs_manager))
     transport_server.register_prog(NFSV2Service(fs_manager))
-    await transport_server.notify_portmapper()
+    await transport_server.notify_rpcbind()
 
     server = await transport_server.start()
 

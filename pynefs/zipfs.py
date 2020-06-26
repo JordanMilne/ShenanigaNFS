@@ -6,6 +6,11 @@ import zipfile
 from pynefs.fs import SimpleFS, Directory, SimpleDirectory, SimpleFile
 
 
+def propagate_owner_perms(mode):
+    owner_perms = (mode & 0o700)
+    return mode | (owner_perms >> 3) | (owner_perms >> 6)
+
+
 class ZipFS(SimpleFS):
     def __init__(self, root_path, zip_path, read_only=True):
         super().__init__()
@@ -35,7 +40,7 @@ class ZipFS(SimpleFS):
             # specifically the file portion
             name=path.name.encode("utf8"),
             # Not writeable!
-            mode=(info.external_attr >> 16) & ~0o222,
+            mode=propagate_owner_perms((info.external_attr >> 16) & (~0o222 if self.read_only else ~0)),
             # size=info.file_size,
             blocks=math.ceil(info.file_size / self.block_size),
             mtime=dt.datetime(*info.date_time),

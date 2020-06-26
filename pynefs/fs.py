@@ -277,6 +277,10 @@ class BaseFS(abc.ABC):
         if entry.fs() != self:
             raise FSError(nfs2.NFSERR_STALE, "Not owned by this FS")
 
+    def _verify_writable(self):
+        if self.read_only:
+            raise FSError(nfs2.NFSERR_ROFS)
+
     @staticmethod
     def _is_valid_name(name: bytes):
         if any(x in name for x in (b"\x00", b"/")):
@@ -298,20 +302,27 @@ class BaseFS(abc.ABC):
         """Completely remove an entry and its subtree from the FS"""
         raise NotImplementedError()
 
-    def iter_descendants(self, entry: FSENTRY, inclusive=False) -> Generator[FSENTRY, None, None]:
+    def iter_descendants(self, entry: FSENTRY, inclusive=False, _depth=0) -> Generator[FSENTRY, None, None]:
+        if _depth > 100:
+            raise ValueError("Possible recursion in directory tree")
         if isinstance(entry, Directory):
             for fileid in entry.child_ids:
                 child = self.get_entry_by_id(fileid)
-                yield from self.iter_descendants(child)
+                yield from self.iter_descendants(child, inclusive=False, _depth=_depth + 1)
                 yield child
         if inclusive:
             yield entry
 
     def iter_ancestors(self, entry: FSENTRY, inclusive=False) -> Generator[FSENTRY, None, None]:
+        seen_ids = set()
         if inclusive:
             yield entry
+            seen_ids.add(entry.fileid)
         while entry.parent_id is not None:
+            if entry.fileid in seen_ids:
+                raise ValueError("Possible recursion in directory tree")
             entry = self.get_entry_by_id(entry.parent_id)
+            seen_ids.add(entry.fileid)
             yield entry
 
     @abc.abstractmethod
@@ -327,7 +338,7 @@ class BaseFS(abc.ABC):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def rmdir(self, entry: FSENTRY):
+    def rmdir(self, entry: Directory):
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -335,7 +346,15 @@ class BaseFS(abc.ABC):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def rename(self, source: FSENTRY, to_dir: FSENTRY, new_name: bytes):
+    def rename(self, source: FSENTRY, to_dir: Directory, new_name: bytes):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def mkdir(self, dest: Directory, name: bytes, attrs: Dict[str, Any]) -> Directory:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def create_file(self, dest: Directory, name: bytes, attrs: Dict[str, Any]) -> File:
         raise NotImplementedError()
 
 
@@ -403,12 +422,14 @@ class SimpleFS(DictTrackingFS):
 
     def write(self, entry: FSENTRY, offset: int, data: bytes):
         self._verify_owned(entry)
+        self._verify_writable()
         if entry.type != FileType.REG:
             raise FSError(nfs2.NFSERR_IO)
         entry.contents[offset:offset + len(data)] = data
 
     def setattrs(self, entry: FSENTRY, attrs: Dict[str, Any]):
         self._verify_owned(entry)
+        self._verify_writable()
         if "size" in attrs:
             if entry.type not in (FileType.REG, FileType.LNK):
                 raise FSError(nfs2.NFSERR_IO, "Must be a file to change size!")
@@ -422,12 +443,14 @@ class SimpleFS(DictTrackingFS):
 
     def rm(self, entry: FSENTRY):
         self._verify_owned(entry)
+        self._verify_writable()
         if entry.type == FileType.DIR:
             raise FSError(nfs2.NFSERR_ISDIR)
         self.remove_entry(entry)
 
-    def rmdir(self, entry: FSENTRY):
+    def rmdir(self, entry: Directory):
         self._verify_owned(entry)
+        self._verify_writable()
         if entry.type != FileType.DIR:
             raise FSError(nfs2.NFSERR_NOTDIR, "Not a directory")
         if entry.child_ids:
@@ -436,9 +459,10 @@ class SimpleFS(DictTrackingFS):
             raise FSError(nfs2.NFSERR_NOTEMPTY, "Trying to remove root dir")
         self.remove_entry(entry)
 
-    def rename(self, source: FSENTRY, to_dir: FSENTRY, new_name: bytes):
+    def rename(self, source: FSENTRY, to_dir: Directory, new_name: bytes):
         self._verify_owned(source)
         self._verify_owned(to_dir)
+        self._verify_writable()
         if source == self.root_dir:
             raise FSError(nfs2.NFSERR_PERM, "Trying to move root!")
         if not self._is_valid_name(new_name):
@@ -449,6 +473,28 @@ class SimpleFS(DictTrackingFS):
         source.parent.unlink_child(source)
         to_dir.link_child(source)
         source.name = new_name
+
+    def mkdir(self, dest: Directory, name: bytes, attrs: Dict[str, Any]) -> Directory:
+        self._verify_owned(dest)
+        self._verify_writable()
+        new_dir = SimpleDirectory(
+            fs=weakref.ref(self),
+            name=name,
+            **attrs
+        )
+        dest.link_child(new_dir)
+        return new_dir
+
+    def create_file(self, dest: Directory, name: bytes, attrs: Dict[str, Any]) -> File:
+        self._verify_owned(dest)
+        self._verify_writable()
+        new_file = SimpleFile(
+            fs=weakref.ref(self),
+            name=name,
+            **attrs
+        )
+        dest.link_child(new_file)
+        return new_file
 
 
 class DecodedFileHandle(NamedTuple):

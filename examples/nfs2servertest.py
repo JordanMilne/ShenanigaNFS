@@ -9,6 +9,7 @@ from pynefs.server import TCPTransportServer
 from pynefs.fs import FileSystemManager, FileType, VerifyingFileHandleEncoder, \
     BaseFS, nfs2_to_date, FSError, FSENTRY, get_nfs2_cookie
 from pynefs.nullfs import NullFS
+from pynefs.zipfs import ZipFS
 
 
 def fs_error_handler(resp_creator: typing.Callable):
@@ -56,6 +57,21 @@ class MountV1Service(MOUNTPROG_1_SERVER):
         ]
 
 
+def sattr_to_dict(attrs: SAttr):
+    attrs_dict = {}
+    for attr_name in ("mode", "uid", "gid", "size"):
+        val = getattr(attrs, attr_name)
+        if val != 0xFFffFFff:
+            if attr_name == "mode":
+                val = stat.S_IMODE(val)
+            attrs_dict[attr_name] = val
+    for attr_name in ("atime", "mtime"):
+        val: Timeval = getattr(attrs, attr_name)
+        if val.seconds != 0xFFffFFff:
+            attrs_dict[attr_name] = nfs2_to_date(val)
+    return attrs_dict
+
+
 class NFSV2Service(NFS_PROGRAM_2_SERVER):
     def __init__(self, fs_manager):
         super().__init__()
@@ -78,26 +94,13 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
             return AttrStat(Stat.NFSERR_STALE)
         return AttrStat(Stat.NFS_OK, fs_entry.to_nfs2_fattr())
 
+    @fs_error_handler(AttrStat)
     def SETATTR(self, arg_0: SattrArgs) -> AttrStat:
         entry = self.fs_manager.get_entry_by_fh(arg_0.file, nfs_v2=True)
         if not entry:
             return AttrStat(Stat.NFSERR_STALE)
         fs: BaseFS = entry.fs()
-        if fs.read_only:
-            return AttrStat(Stat.NFSERR_ROFS)
-
-        attrs_to_set = {}
-        for attr_name in ("mode", "uid", "gid", "size"):
-            val = getattr(arg_0.attributes, attr_name)
-            if val != 0xFFffFFff:
-                if attr_name == "mode":
-                    val = stat.S_IMODE(val)
-                attrs_to_set[attr_name] = val
-        for attr_name in ("atime", "mtime"):
-            val: Timeval = getattr(arg_0.attributes, attr_name)
-            if val.seconds != 0xFFffFFff:
-                attrs_to_set[attr_name] = nfs2_to_date(val)
-        fs.setattrs(entry, attrs_to_set)
+        fs.setattrs(entry, sattr_to_dict(arg_0.attributes))
         return AttrStat(Stat.NFS_OK, entry.to_nfs2_fattr())
 
     def ROOT(self) -> None:
@@ -131,7 +134,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         fs: BaseFS = fs_entry.fs()
         return ReadRes(Stat.NFS_OK, AttrDat(
             attributes=fs_entry.to_nfs2_fattr(),
-            data=fs.read(fs_entry, read_args.offset, read_args.count)
+            data=fs.read(fs_entry, read_args.offset, min(read_args.count, 4096))
         ))
 
     def WRITECACHE(self) -> None:
@@ -143,21 +146,27 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         if not entry or entry.type != FileType.REG:
             return AttrStat(Stat.NFSERR_IO)
         fs: BaseFS = entry.fs()
-        if fs.read_only:
-            return AttrStat(Stat.NFSERR_ROFS)
         fs.write(entry, write_args.offset, write_args.data)
         return AttrStat(Stat.NFS_OK, entry.to_nfs2_fattr())
 
+    def _create_common(self, arg_0: CreateArgs, create_func: typing.Callable) -> DiropRes:
+        target_dir, target = self._get_named_child(arg_0.where.dir, arg_0.where.name)
+        if target:
+            return DiropRes(Stat.NFSERR_EXIST)
+        fs: BaseFS = target_dir.fs()
+        new = create_func(fs)(target_dir, arg_0.where.name, sattr_to_dict(arg_0.attributes))
+        return DiropRes(Stat.NFS_OK, DiropOK(
+            file=self.fs_manager.entry_to_fh(new, nfs_v2=True),
+            attributes=new.to_nfs2_fattr(),
+        ))
+
     @fs_error_handler(DiropRes)
-    def CREATE(self, cre_args: CreateArgs) -> DiropRes:
-        dir_entry = self.fs_manager.get_entry_by_fh(cre_args.where.dir, nfs_v2=True)
-        if not dir_entry or dir_entry.type != FileType.DIR:
-            return DiropRes(Stat.NFSERR_NOTDIR)
-        fs: BaseFS = dir_entry.fs()
-        if fs.read_only:
-            return DiropRes(Stat.NFSERR_ROFS)
-        # fs.create_file()
-        return DiropRes(Stat.NFSERR_ROFS)
+    def CREATE(self, arg_0: CreateArgs) -> DiropRes:
+        return self._create_common(arg_0, lambda fs: fs.create_file)
+
+    @fs_error_handler(DiropRes)
+    def MKDIR(self, arg_0: CreateArgs) -> DiropRes:
+        return self._create_common(arg_0, lambda fs: fs.mkdir)
 
     @fs_error_handler(Stat)
     def REMOVE(self, arg_0: DiropArgs) -> Stat:
@@ -170,6 +179,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         fs.rm(to_delete)
         return Stat.NFS_OK
 
+    @fs_error_handler(Stat)
     def RENAME(self, arg_0: RenameArgs) -> Stat:
         source_dir, source = self._get_named_child(arg_0.from_.dir, arg_0.from_.name)
         if not source:
@@ -189,9 +199,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
     def SYMLINK(self, arg_0: SymlinkArgs) -> Stat:
         return Stat.NFSERR_PERM
 
-    def MKDIR(self, arg_0: CreateArgs) -> DiropRes:
-        return DiropRes(Stat.NFSERR_ROFS)
-
+    @fs_error_handler(Stat)
     def RMDIR(self, arg_0: DiropArgs) -> Stat:
         dir_entry, to_delete = self._get_named_child(arg_0.dir, arg_0.name)
         if not to_delete:

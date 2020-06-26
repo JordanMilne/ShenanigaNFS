@@ -5,12 +5,13 @@ import enum
 import hmac
 import math
 import secrets
+import stat
 import struct
 import weakref
 from typing import *
 
+from pynefs.bidict import BiDict
 from pynefs.generated import rfc1094 as nfs2
-
 
 FSENTRY = Union["File", "Directory", "SymLink", "BaseFSEntry", "FSEntryProxy"]
 
@@ -19,34 +20,40 @@ FSENTRY = Union["File", "Directory", "SymLink", "BaseFSEntry", "FSEntryProxy"]
 class FileType(enum.IntEnum):
     REG = 1
     DIR = 2
-    BLCK = 3
-    CHAR = 4
+    BLK = 3
+    CHR = 4
     # Specifically a symbolic link, no way to differentiate hardlinks?
-    LINK = 5
+    LNK = 5
     SOCK = 6
     FIFO = 7
-
-    # https://tools.ietf.org/html/rfc1094#section-2.3.5
-    # NFSv2 specific protocol weirdness
-    def _nfs2_mode_mask(self):
-        return {
-            self.CHAR: 0o0020000,
-            self.DIR: 0o0040000,
-            self.BLCK: 0o0060000,
-            self.REG: 0o0100000,
-            self.LINK: 0o0120000,
-            self.SOCK: 0o0140000,
-            # XXX: Not clear how FIFOs should be represented.
-            # Same as sockets I guess?
-            self.FIFO: 0o0140000,
-        }[self]
 
     def to_nfs2(self, mode) -> Tuple[int, nfs2.Ftype]:
         if self in (self.SOCK, self.FIFO):
             f_type = nfs2.Ftype.NFNON
         else:
             f_type = nfs2.Ftype(self)
-        return mode | self._nfs2_mode_mask(), f_type
+        return mode | NFS2_MODE_MAPPING[int(self)], f_type
+
+    @classmethod
+    def from_nfs2(cls, mode: int, ftype: nfs2.Ftype) -> Tuple[int, "FileType"]:
+        if ftype == nfs2.NFNON:
+            new_ftype = cls(NFS2_MODE_MAPPING.backward[stat.S_IFMT(mode)])
+        else:
+            new_ftype = cls(ftype)
+        return stat.S_IMODE(mode), new_ftype
+
+
+# https://tools.ietf.org/html/rfc1094#section-2.3.5
+# NFSv2 specific protocol weirdness
+NFS2_MODE_MAPPING = BiDict({
+    FileType.CHR: stat.S_IFCHR,
+    FileType.DIR: stat.S_IFDIR,
+    FileType.BLK: stat.S_IFBLK,
+    FileType.REG: stat.S_IFREG,
+    FileType.LNK: stat.S_IFLNK,
+    FileType.SOCK: stat.S_IFSOCK,
+    FileType.FIFO: stat.S_IFIFO,
+})
 
 
 def date_to_nfs2(date: dt.datetime) -> nfs2.Timeval:
@@ -55,8 +62,8 @@ def date_to_nfs2(date: dt.datetime) -> nfs2.Timeval:
     return nfs2.Timeval(math.floor(whole), math.floor(frac * 1_000_000))
 
 
-def fsid_to_nfs2(fsid: int) -> int:
-    return fsid & 0xFFffFFff
+def nfs2_to_date(date: nfs2.Timeval) -> dt.datetime:
+    return dt.datetime.utcfromtimestamp(date.seconds + (date.useconds / 1_000_000))
 
 
 class BaseFSEntry(abc.ABC):
@@ -70,7 +77,7 @@ class BaseFSEntry(abc.ABC):
     uid: int
     gid: int
     size: int
-    rdev: int
+    rdev: Tuple[int, int]
     blocks: int
     atime: dt.datetime
     mtime: dt.datetime
@@ -82,7 +89,7 @@ class BaseFSEntry(abc.ABC):
 
     @property
     def nfs2_cookie(self) -> bytes:
-        return struct.pack("!L", self.fileid & 0xFFffFFff)
+        return struct.pack("!L", self.fileid)
 
     def to_nfs2_fattr(self) -> nfs2.FAttr:
         mode, f_type = self.type.to_nfs2(self.mode)
@@ -94,9 +101,9 @@ class BaseFSEntry(abc.ABC):
             gid=self.gid,
             size=self.size,
             blocksize=self.fs().block_size,
-            rdev=self.rdev,
+            rdev=self.rdev[0],
             blocks=self.blocks,
-            fsid=fsid_to_nfs2(self.fs().fsid),
+            fsid=self.fs().fsid & 0xFFffFFff,
             fileid=self.fileid,
             atime=date_to_nfs2(self.atime),
             mtime=date_to_nfs2(self.mtime),
@@ -105,6 +112,7 @@ class BaseFSEntry(abc.ABC):
 
 
 class FSEntryProxy:
+    """Quick way to make fake hardlinks with different names like `.` and `..`"""
     def __init__(self, base: FSENTRY, replacements: Dict[str, Any]):
         self.base = base
         self.replacements = replacements
@@ -122,7 +130,7 @@ class File(BaseFSEntry, abc.ABC):
 
 class SymLink(BaseFSEntry, abc.ABC):
     contents: bytes
-    type: Literal[FileType.LINK]
+    type: Literal[FileType.LNK]
 
 
 class Directory(BaseFSEntry, abc.ABC):
@@ -203,7 +211,7 @@ class SimpleFSEntry(BaseFSEntry):
     nlink: int = dataclasses.field(default=1)
     uid: int = dataclasses.field(default=65534)
     gid: int = dataclasses.field(default=65534)
-    rdev: int = dataclasses.field(default=0)
+    rdev: Tuple[int, int] = dataclasses.field(default=(0, 0))
     blocks: int = dataclasses.field(default=1)
     atime: dt.datetime = dataclasses.field(default_factory=dt.datetime.utcnow)
     mtime: dt.datetime = dataclasses.field(default_factory=dt.datetime.utcnow)
@@ -219,11 +227,15 @@ class SimpleFile(File, SimpleFSEntry):
     def size(self) -> int:
         return len(self.contents)
 
+    def write(self, offset, data):
+        assert not self.fs().read_only
+        self.contents[offset:offset + len(data)] = data
+
 
 @dataclasses.dataclass
 class SimpleSymlink(SymLink, SimpleFSEntry):
     contents: bytearray = dataclasses.field(default_factory=bytearray)
-    type: FileType = dataclasses.field(default=FileType.LINK, init=False)
+    type: FileType = dataclasses.field(default=FileType.LNK, init=False)
 
     @property
     def size(self) -> int:
@@ -244,11 +256,16 @@ class BaseFS(abc.ABC):
     free_blocks: int
     avail_blocks: int
     root_path: bytes
+    read_only: bool
     root_dir: Optional[Directory]
 
     def __init__(self):
         self.fsid = secrets.randbits(64)
         self.block_size = 4096
+
+    def _verify_owned(self, entry: FSENTRY):
+        if entry.fs() != self:
+            raise ValueError(f"{entry!r} isn't owned by {self!r}!")
 
     @abc.abstractmethod
     def get_entry_by_id(self, fileid: int) -> Optional[FSENTRY]:
@@ -271,19 +288,34 @@ class BaseFS(abc.ABC):
             yield from self.iter_descendants(child)
             yield child
 
+    @abc.abstractmethod
+    def read(self, entry: FSENTRY, offset: int, count: int) -> bytes:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def write(self, entry: FSENTRY, offset: int, data: bytes):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def setattrs(self, entry: FSENTRY, attrs: Dict[str, Any]):
+        raise NotImplementedError()
+
 
 class DictTrackingFS(BaseFS, abc.ABC):
+    NFS_V2_COMPAT: bool = True
+
     def __init__(self):
         super().__init__()
         self.entries: Dict[int, FSENTRY] = {}
         self._fileid_base = 0
         self.root_dir = None
+        self._fileid_mask = (2 ** (32 if self.NFS_V2_COMPAT else 64)) - 1
 
     def _gen_fileid(self):
         # keep generating until we find one that doesn't collide
         while True:
             # fileid 0 is invalid and 1 has a special meaning for us (fake dir above root)
-            self._fileid_base = min(self._fileid_base + 1, 2) & ((2 ** 64) - 1)
+            self._fileid_base = min(self._fileid_base + 1, 2) & self._fileid_mask
             if self._fileid_base not in self.entries:
                 return self._fileid_base
 
@@ -291,6 +323,7 @@ class DictTrackingFS(BaseFS, abc.ABC):
         return self.entries.get(fileid)
 
     def track_entry(self, entry: FSENTRY):
+        self._verify_owned(entry)
         assert entry.fileid is None
         entry.fileid = self._gen_fileid()
         self.entries[entry.fileid] = entry
@@ -301,6 +334,7 @@ class DictTrackingFS(BaseFS, abc.ABC):
                 self.root_dir = entry
 
     def remove_entry(self, entry: FSENTRY):
+        self._verify_owned(entry)
         if entry.parent_id is not None:
             parent: Directory = self.get_entry_by_id(entry.parent_id)
             parent.unlink_child(entry)
@@ -321,6 +355,31 @@ class DictTrackingFS(BaseFS, abc.ABC):
                 parent = self.get_entry_by_id(entry.parent_id)
                 assert parent
                 assert entry.fileid in parent.child_ids
+
+
+class SimpleFS(DictTrackingFS):
+    def read(self, entry: FSENTRY, offset: int, count: int) -> bytes:
+        self._verify_owned(entry)
+        if entry.type == FileType.REG:
+            return entry.contents[offset:offset + count]
+
+    def write(self, entry: FSENTRY, offset: int, data: bytes):
+        self._verify_owned(entry)
+        if entry.type == FileType.REG:
+            entry.contents[offset:offset + len(data)] = data
+
+    def setattrs(self, entry: FSENTRY, attrs: Dict[str, Any]):
+        self._verify_owned(entry)
+        if "size" in attrs:
+            if entry.type not in (FileType.REG, FileType.LNK):
+                raise ValueError("Must be a file to change size!")
+            size_val = attrs.pop("size")
+            if size_val > len(entry.contents):
+                raise ValueError("Can't expand a file via setattrs()")
+            entry.contents = entry.contents[:size_val]
+        for attr_name, attr_val in attrs.items():
+            assert hasattr(entry, attr_name)
+            setattr(entry, attr_name, attr_val)
 
 
 class DecodedFileHandle(NamedTuple):
@@ -382,8 +441,12 @@ class FileSystemManager:
 
     def get_fs_by_fh(self, fh: bytes, nfs_v2=False) -> Optional[BaseFS]:
         decoded = self.handle_encoder.decode(fh, nfs_v2)
-        # TODO: check that fileid matches root dir?
-        return self.filesystems.get(decoded.fsid)
+        fs = self.filesystems.get(decoded.fsid)
+        if not fs:
+            return None
+        if decoded.fileid != fs.root_dir.fileid:
+            return None
+        return fs
 
     def get_entry_by_fh(self, fh: bytes, nfs_v2=False) -> Optional[FSENTRY]:
         decoded = self.handle_encoder.decode(fh, nfs_v2)

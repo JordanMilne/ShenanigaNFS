@@ -1,16 +1,15 @@
 import datetime as dt
 import math
-import secrets
 import weakref
 import zipfile
-from zlib import crc32
 
-from pynefs.fs import DictTrackingFS, Directory, SimpleDirectory, SimpleFile
+from pynefs.fs import SimpleFS, Directory, SimpleDirectory, SimpleFile
 
 
-class ZipFS(DictTrackingFS):
-    def __init__(self, root_path, zip_path):
+class ZipFS(SimpleFS):
+    def __init__(self, root_path, zip_path, read_only=True):
         super().__init__()
+        self.read_only = read_only
         self.num_blocks = 1
         self.free_blocks = 0
         self.avail_blocks = 0

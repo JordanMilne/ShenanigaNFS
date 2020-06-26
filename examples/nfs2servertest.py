@@ -1,10 +1,11 @@
 import asyncio
 import errno
+import stat
 import typing
 
 from pynefs.generated.rfc1094 import *
 from pynefs.server import TCPTransportServer
-from pynefs.fs import FileSystemManager, FileType, VerifyingFileHandleEncoder
+from pynefs.fs import FileSystemManager, FileType, VerifyingFileHandleEncoder, BaseFS, nfs2_to_date
 from pynefs.nullfs import NullFS
 
 
@@ -42,6 +43,8 @@ class MountV1Service(MOUNTPROG_1_SERVER):
 
 
 class NFSV2Service(NFS_PROGRAM_2_SERVER):
+    _UNSET = (2**32) - 1
+
     def __init__(self, fs_manager):
         super().__init__()
         self.fs_manager: FileSystemManager = fs_manager
@@ -56,7 +59,26 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         return AttrStat(Stat.NFS_OK, fs_entry.to_nfs2_fattr())
 
     def SETATTR(self, arg_0: SattrArgs) -> AttrStat:
-        return AttrStat(Stat.NFSERR_ROFS)
+        entry = self.fs_manager.get_entry_by_fh(arg_0.file, nfs_v2=True)
+        if not entry:
+            return AttrStat(Stat.NFSERR_STALE)
+        fs: BaseFS = entry.fs()
+        if fs.read_only:
+            return AttrStat(Stat.NFSERR_ROFS)
+
+        attrs_to_set = {}
+        for attr_name in ("mode", "uid", "gid", "size"):
+            val = getattr(arg_0.attributes, attr_name)
+            if val != self._UNSET:
+                if attr_name == "mode":
+                    val = stat.S_IMODE(val)
+                attrs_to_set[attr_name] = val
+        for attr_name in ("atime", "mtime"):
+            val: Timeval = getattr(arg_0.attributes, attr_name)
+            if val.seconds != self._UNSET:
+                attrs_to_set[attr_name] = nfs2_to_date(val)
+        fs.setattrs(entry, attrs_to_set)
+        return AttrStat(Stat.NFS_OK, entry.to_nfs2_fattr())
 
     def ROOT(self) -> None:
         pass
@@ -78,7 +100,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         fs_entry = self.fs_manager.get_entry_by_fh(fh, nfs_v2=True)
         if not fs_entry:
             return ReadlinkRes(Stat.NFSERR_STALE)
-        if fs_entry.type != FileType.LINK:
+        if fs_entry.type != FileType.LNK:
             # TODO: Better error for this?
             return ReadlinkRes(Stat.NFSERR_NOENT)
         return ReadlinkRes(Stat.NFS_OK, fs_entry.contents)
@@ -88,20 +110,35 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         if not fs_entry:
             return ReadRes(Stat.NFSERR_STALE)
         # No special devices for now!
-        if fs_entry.type not in (FileType.LINK, FileType.REG):
+        if fs_entry.type not in (FileType.LNK, FileType.REG):
             return ReadRes(Stat.NFSERR_IO)
+        fs: BaseFS = fs_entry.fs()
         return ReadRes(Stat.NFS_OK, AttrDat(
             attributes=fs_entry.to_nfs2_fattr(),
-            data=fs_entry.contents[read_args.offset:read_args.offset + read_args.count]
+            data=fs.read(fs_entry, read_args.offset, read_args.count)
         ))
 
     def WRITECACHE(self) -> None:
         pass
 
-    def WRITE(self, arg_0: CreateArgs) -> AttrStat:
-        return AttrStat(Stat.NFSERR_ROFS)
+    def WRITE(self, write_args: WriteArgs) -> AttrStat:
+        entry = self.fs_manager.get_entry_by_fh(write_args.file, nfs_v2=True)
+        if not entry or entry.type != FileType.REG:
+            return AttrStat(Stat.NFSERR_IO)
+        fs: BaseFS = entry.fs()
+        if fs.read_only:
+            return AttrStat(Stat.NFSERR_ROFS)
+        fs.write(entry, write_args.offset, write_args.data)
+        return AttrStat(Stat.NFS_OK, entry.to_nfs2_fattr())
 
-    def CREATE(self, arg_0: CreateArgs) -> DiropRes:
+    def CREATE(self, cre_args: CreateArgs) -> DiropRes:
+        dir_entry = self.fs_manager.get_entry_by_fh(cre_args.where.dir, nfs_v2=True)
+        if not dir_entry or dir_entry.type != FileType.DIR:
+            return DiropRes(Stat.NFSERR_NOTDIR)
+        fs: BaseFS = dir_entry.fs()
+        if fs.read_only:
+            return DiropRes(Stat.NFSERR_ROFS)
+        # fs.create_file()
         return DiropRes(Stat.NFSERR_ROFS)
 
     def REMOVE(self, arg_0: DiropArgs) -> Stat:
@@ -111,10 +148,10 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         return Stat.NFSERR_ROFS
 
     def LINK(self, arg_0: LinkArgs) -> Stat:
-        return Stat.NFSERR_ROFS
+        return Stat.NFSERR_PERM
 
-    def SYMLINK(self, arg_0: LinkArgs) -> Stat:
-        return Stat.NFSERR_ROFS
+    def SYMLINK(self, arg_0: SymlinkArgs) -> Stat:
+        return Stat.NFSERR_PERM
 
     def MKDIR(self, arg_0: CreateArgs) -> DiropRes:
         return DiropRes(Stat.NFSERR_ROFS)
@@ -170,7 +207,7 @@ async def main():
     fs_manager = FileSystemManager(
         VerifyingFileHandleEncoder(b"foobar"),
         filesystems=[
-            NullFS(b"/tmp/nfs2"),
+            NullFS(b"/tmp/nfs2", read_only=False),
         ]
     )
 

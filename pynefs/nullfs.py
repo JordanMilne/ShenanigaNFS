@@ -1,11 +1,12 @@
 import weakref
 
-from pynefs.fs import DictTrackingFS, SimpleDirectory, SimpleFile
+from pynefs.fs import SimpleFS, SimpleDirectory, SimpleFile
 
 
-class NullFS(DictTrackingFS):
-    def __init__(self, root_path):
+class NullFS(SimpleFS):
+    def __init__(self, root_path, read_only=True):
         super().__init__()
+        self.read_only = read_only
         self.num_blocks = 1
         self.free_blocks = 0
         self.avail_blocks = 0
@@ -21,6 +22,6 @@ class NullFS(DictTrackingFS):
         self.root_dir.link_child(SimpleFile(
             fs=weakref.ref(self),
             name=b"testfile.txt",
-            mode=0o444,
+            mode=0o444 if read_only else 0o777,
             contents=bytearray(b"test\n"),
         ))

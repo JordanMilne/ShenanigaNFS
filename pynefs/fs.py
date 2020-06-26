@@ -16,6 +16,12 @@ from pynefs.generated import rfc1094 as nfs2
 FSENTRY = Union["File", "Directory", "SymLink", "BaseFSEntry", "FSEntryProxy"]
 
 
+class FSError(Exception):
+    def __init__(self, nfs_error_code: int, message: str = ""):
+        self.error_code = nfs_error_code
+        super().__init__(message)
+
+
 # Portable-ish between NFS2/3/4
 class FileType(enum.IntEnum):
     REG = 1
@@ -66,6 +72,10 @@ def nfs2_to_date(date: nfs2.Timeval) -> dt.datetime:
     return dt.datetime.utcfromtimestamp(date.seconds + (date.useconds / 1_000_000))
 
 
+def get_nfs2_cookie(entry: FSENTRY):
+    return struct.pack("!L", entry.fileid)
+
+
 class BaseFSEntry(abc.ABC):
     fs: weakref.ReferenceType
     parent_id: Optional[int]
@@ -88,8 +98,8 @@ class BaseFSEntry(abc.ABC):
         return self.fs().fsid
 
     @property
-    def nfs2_cookie(self) -> bytes:
-        return struct.pack("!L", self.fileid)
+    def parent(self) -> Optional["Directory"]:
+        return self.fs().get_entry_by_id(self.parent_id)
 
     def to_nfs2_fattr(self) -> nfs2.FAttr:
         mode, f_type = self.type.to_nfs2(self.mode)
@@ -265,7 +275,15 @@ class BaseFS(abc.ABC):
 
     def _verify_owned(self, entry: FSENTRY):
         if entry.fs() != self:
-            raise ValueError(f"{entry!r} isn't owned by {self!r}!")
+            raise FSError(nfs2.NFSERR_STALE, "Not owned by this FS")
+
+    @staticmethod
+    def _is_valid_name(name: bytes):
+        if any(x in name for x in (b"\x00", b"/")):
+            return False
+        if name in (b".", b".."):
+            return False
+        return True
 
     @abc.abstractmethod
     def get_entry_by_id(self, fileid: int) -> Optional[FSENTRY]:
@@ -280,13 +298,21 @@ class BaseFS(abc.ABC):
         """Completely remove an entry and its subtree from the FS"""
         raise NotImplementedError()
 
-    def iter_descendants(self, entry: FSENTRY) -> Generator[FSENTRY, None, None]:
-        if not isinstance(entry, Directory):
-            return
-        for fileid in entry.child_ids:
-            child = self.get_entry_by_id(fileid)
-            yield from self.iter_descendants(child)
-            yield child
+    def iter_descendants(self, entry: FSENTRY, inclusive=False) -> Generator[FSENTRY, None, None]:
+        if isinstance(entry, Directory):
+            for fileid in entry.child_ids:
+                child = self.get_entry_by_id(fileid)
+                yield from self.iter_descendants(child)
+                yield child
+        if inclusive:
+            yield entry
+
+    def iter_ancestors(self, entry: FSENTRY, inclusive=False) -> Generator[FSENTRY, None, None]:
+        if inclusive:
+            yield entry
+        while entry.parent_id is not None:
+            entry = self.get_entry_by_id(entry.parent_id)
+            yield entry
 
     @abc.abstractmethod
     def read(self, entry: FSENTRY, offset: int, count: int) -> bytes:
@@ -298,6 +324,18 @@ class BaseFS(abc.ABC):
 
     @abc.abstractmethod
     def setattrs(self, entry: FSENTRY, attrs: Dict[str, Any]):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def rmdir(self, entry: FSENTRY):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def rm(self, entry: FSENTRY):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def rename(self, source: FSENTRY, to_dir: FSENTRY, new_name: bytes):
         raise NotImplementedError()
 
 
@@ -315,7 +353,7 @@ class DictTrackingFS(BaseFS, abc.ABC):
         # keep generating until we find one that doesn't collide
         while True:
             # fileid 0 is invalid and 1 has a special meaning for us (fake dir above root)
-            self._fileid_base = min(self._fileid_base + 1, 2) & self._fileid_mask
+            self._fileid_base = max(self._fileid_base + 1, 2) & self._fileid_mask
             if self._fileid_base not in self.entries:
                 return self._fileid_base
 
@@ -338,9 +376,8 @@ class DictTrackingFS(BaseFS, abc.ABC):
         if entry.parent_id is not None:
             parent: Directory = self.get_entry_by_id(entry.parent_id)
             parent.unlink_child(entry)
-        for descendant in self.iter_descendants(entry):
+        for descendant in self.iter_descendants(entry, inclusive=True):
             del self.entries[descendant.fileid]
-        del self.entries[entry.fileid]
 
     def sanity_check(self):
         # Not multi-rooted
@@ -360,26 +397,58 @@ class DictTrackingFS(BaseFS, abc.ABC):
 class SimpleFS(DictTrackingFS):
     def read(self, entry: FSENTRY, offset: int, count: int) -> bytes:
         self._verify_owned(entry)
-        if entry.type == FileType.REG:
-            return entry.contents[offset:offset + count]
+        if entry.type != FileType.REG:
+            raise FSError(nfs2.NFSERR_IO)
+        return entry.contents[offset:offset + count]
 
     def write(self, entry: FSENTRY, offset: int, data: bytes):
         self._verify_owned(entry)
-        if entry.type == FileType.REG:
-            entry.contents[offset:offset + len(data)] = data
+        if entry.type != FileType.REG:
+            raise FSError(nfs2.NFSERR_IO)
+        entry.contents[offset:offset + len(data)] = data
 
     def setattrs(self, entry: FSENTRY, attrs: Dict[str, Any]):
         self._verify_owned(entry)
         if "size" in attrs:
             if entry.type not in (FileType.REG, FileType.LNK):
-                raise ValueError("Must be a file to change size!")
+                raise FSError(nfs2.NFSERR_IO, "Must be a file to change size!")
             size_val = attrs.pop("size")
             if size_val > len(entry.contents):
-                raise ValueError("Can't expand a file via setattrs()")
+                raise FSError(nfs2.NFSERR_NXIO, "Can't expand a file via setattrs()")
             entry.contents = entry.contents[:size_val]
         for attr_name, attr_val in attrs.items():
             assert hasattr(entry, attr_name)
             setattr(entry, attr_name, attr_val)
+
+    def rm(self, entry: FSENTRY):
+        self._verify_owned(entry)
+        if entry.type == FileType.DIR:
+            raise FSError(nfs2.NFSERR_ISDIR)
+        self.remove_entry(entry)
+
+    def rmdir(self, entry: FSENTRY):
+        self._verify_owned(entry)
+        if entry.type != FileType.DIR:
+            raise FSError(nfs2.NFSERR_NOTDIR, "Not a directory")
+        if entry.child_ids:
+            raise FSError(nfs2.NFSERR_NOTEMPTY, "Not empty")
+        if entry == self.root_dir:
+            raise FSError(nfs2.NFSERR_NOTEMPTY, "Trying to remove root dir")
+        self.remove_entry(entry)
+
+    def rename(self, source: FSENTRY, to_dir: FSENTRY, new_name: bytes):
+        self._verify_owned(source)
+        self._verify_owned(to_dir)
+        if source == self.root_dir:
+            raise FSError(nfs2.NFSERR_PERM, "Trying to move root!")
+        if not self._is_valid_name(new_name):
+            raise FSError(nfs2.NFSERR_PERM)
+        # trying to move a directory inside itself????
+        if source in self.iter_ancestors(to_dir):
+            raise FSError(nfs2.NFSERR_NOTEMPTY, "Recursive parenting attempt")
+        source.parent.unlink_child(source)
+        to_dir.link_child(source)
+        source.name = new_name
 
 
 class DecodedFileHandle(NamedTuple):
@@ -421,10 +490,10 @@ class VerifyingFileHandleEncoder(FileHandleEncoder):
         mac_len = self._mac_len(nfs_v2)
         expected_len = 16 + mac_len
         if len(fh) != expected_len:
-            raise ValueError(f"FH {fh!r} is not {expected_len} bytes")
+            raise FSError(nfs2.NFSERR_IO, f"FH {fh!r} is not {expected_len} bytes")
         mac, payload = fh[:mac_len], fh[mac_len:]
         if not secrets.compare_digest(mac, self._calc_mac(payload, nfs_v2)):
-            raise ValueError(f"FH {fh!r} failed sig check")
+            raise FSError(nfs2.NFSERR_IO, f"FH {fh!r} failed sig check")
         return DecodedFileHandle(*struct.unpack("!QQ", payload))
 
 

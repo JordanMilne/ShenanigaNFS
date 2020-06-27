@@ -193,17 +193,10 @@ SetSize3 = rpchelp.OptData(Size3)
 
 
 @dataclass
-class SetATime(rpchelp.Union):  # set_atime
-    SWITCH_OPTIONS = {SET_TO_CLIENT_TIME: 'atime', None: None}
+class SetTime(rpchelp.Union):  # set_time
+    SWITCH_OPTIONS = {SET_TO_CLIENT_TIME: 'time_val', None: None}
     set_it: typing.Union[TimeHow, int] = rpchelp.rpc_field(TimeHow)
-    atime: typing.Optional[NFSTime3] = rpchelp.rpc_field(NFSTime3, default=None)
-
-
-@dataclass
-class SetMTime(rpchelp.Union):  # set_mtime
-    SWITCH_OPTIONS = {SET_TO_CLIENT_TIME: 'mtime', None: None}
-    set_it: typing.Union[TimeHow, int] = rpchelp.rpc_field(TimeHow)
-    mtime: typing.Optional[NFSTime3] = rpchelp.rpc_field(NFSTime3, default=None)
+    time_val: typing.Optional[NFSTime3] = rpchelp.rpc_field(NFSTime3, default=None)
 
 
 @dataclass
@@ -212,8 +205,8 @@ class SAttr3(rpchelp.Struct):  # sattr3
     uid: typing.Optional[int] = rpchelp.rpc_field(SetUid3)
     gid: typing.Optional[int] = rpchelp.rpc_field(SetGid3)
     size: typing.Optional[int] = rpchelp.rpc_field(SetSize3)
-    atime: SetATime = rpchelp.rpc_field(SetATime)
-    mtime: SetMTime = rpchelp.rpc_field(SetMTime)
+    atime: SetTime = rpchelp.rpc_field(SetTime)
+    mtime: SetTime = rpchelp.rpc_field(SetTime)
 
 
 @dataclass
@@ -325,8 +318,8 @@ class ACCESS3ResFail(rpchelp.Struct):  # ACCESS3resfail
 class ACCESS3Res(rpchelp.Union):  # ACCESS3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resfail: typing.Optional[ACCESS3ResFail] = rpchelp.rpc_field(ACCESS3ResFail, default=None)
     resok: typing.Optional[ACCESS3ResOK] = rpchelp.rpc_field(ACCESS3ResOK, default=None)
+    resfail: typing.Optional[ACCESS3ResFail] = rpchelp.rpc_field(ACCESS3ResFail, default=None)
 
 
 @dataclass
@@ -349,8 +342,8 @@ class READLINK3ResFail(rpchelp.Struct):  # READLINK3resfail
 class READLINK3Res(rpchelp.Union):  # READLINK3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resok: typing.Optional[READLINK3ResOK] = rpchelp.rpc_field(READLINK3ResOK, default=None)
     resfail: typing.Optional[READLINK3ResFail] = rpchelp.rpc_field(READLINK3ResFail, default=None)
+    resok: typing.Optional[READLINK3ResOK] = rpchelp.rpc_field(READLINK3ResOK, default=None)
 
 
 @dataclass
@@ -377,8 +370,8 @@ class READ3ResFail(rpchelp.Struct):  # READ3resfail
 class READ3Res(rpchelp.Union):  # READ3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resfail: typing.Optional[READ3ResFail] = rpchelp.rpc_field(READ3ResFail, default=None)
     resok: typing.Optional[READ3ResOK] = rpchelp.rpc_field(READ3ResOK, default=None)
+    resfail: typing.Optional[READ3ResFail] = rpchelp.rpc_field(READ3ResFail, default=None)
 
 
 class StableHow(rpchelp.Enum):  # stable_how
@@ -453,8 +446,8 @@ class CREATE3ResFail(rpchelp.Struct):  # CREATE3resfail
 class CREATE3Res(rpchelp.Union):  # CREATE3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resok: typing.Optional[CREATE3ResOK] = rpchelp.rpc_field(CREATE3ResOK, default=None)
     resfail: typing.Optional[CREATE3ResFail] = rpchelp.rpc_field(CREATE3ResFail, default=None)
+    resok: typing.Optional[CREATE3ResOK] = rpchelp.rpc_field(CREATE3ResOK, default=None)
 
 
 @dataclass
@@ -576,8 +569,8 @@ class REMOVE3ResFail(rpchelp.Struct):  # REMOVE3resfail
 class REMOVE3Res(rpchelp.Union):  # REMOVE3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resfail: typing.Optional[REMOVE3ResFail] = rpchelp.rpc_field(REMOVE3ResFail, default=None)
     resok: typing.Optional[REMOVE3ResOK] = rpchelp.rpc_field(REMOVE3ResOK, default=None)
+    resfail: typing.Optional[REMOVE3ResFail] = rpchelp.rpc_field(REMOVE3ResFail, default=None)
 
 
 @dataclass
@@ -599,8 +592,8 @@ class RMDIR3ResFail(rpchelp.Struct):  # RMDIR3resfail
 class RMDIR3Res(rpchelp.Union):  # RMDIR3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resok: typing.Optional[RMDIR3ResOK] = rpchelp.rpc_field(RMDIR3ResOK, default=None)
     resfail: typing.Optional[RMDIR3ResFail] = rpchelp.rpc_field(RMDIR3ResFail, default=None)
+    resok: typing.Optional[RMDIR3ResOK] = rpchelp.rpc_field(RMDIR3ResOK, default=None)
 
 
 @dataclass
@@ -625,8 +618,8 @@ class RENAME3ResFail(rpchelp.Struct):  # RENAME3resfail
 class RENAME3Res(rpchelp.Union):  # RENAME3res
     SWITCH_OPTIONS = {NFS3_OK: 'resok', None: 'resfail'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resfail: typing.Optional[RENAME3ResFail] = rpchelp.rpc_field(RENAME3ResFail, default=None)
     resok: typing.Optional[RENAME3ResOK] = rpchelp.rpc_field(RENAME3ResOK, default=None)
+    resfail: typing.Optional[RENAME3ResFail] = rpchelp.rpc_field(RENAME3ResFail, default=None)
 
 
 @dataclass
@@ -1198,4 +1191,4 @@ class MOUNT_PROGRAM_3_CLIENT(client.BaseClient):
         return await self.send_call(5, )
 
 
-__all__ = ['NFS_PROGRAM_3_SERVER', 'NFS_PROGRAM_3_CLIENT', 'MOUNT_PROGRAM_3_SERVER', 'MOUNT_PROGRAM_3_CLIENT', 'TRUE', 'FALSE', 'NFS3_FHSIZE', 'NFS3_COOKIEVERFSIZE', 'NFS3_CREATEVERFSIZE', 'NFS3_WRITEVERFSIZE', 'NFS3_OK', 'NFS3ERR_PERM', 'NFS3ERR_NOENT', 'NFS3ERR_IO', 'NFS3ERR_NXIO', 'NFS3ERR_ACCES', 'NFS3ERR_EXIST', 'NFS3ERR_XDEV', 'NFS3ERR_NODEV', 'NFS3ERR_NOTDIR', 'NFS3ERR_ISDIR', 'NFS3ERR_INVAL', 'NFS3ERR_FBIG', 'NFS3ERR_NOSPC', 'NFS3ERR_ROFS', 'NFS3ERR_MLINK', 'NFS3ERR_NAMETOOLONG', 'NFS3ERR_NOTEMPTY', 'NFS3ERR_DQUOT', 'NFS3ERR_STALE', 'NFS3ERR_REMOTE', 'NFS3ERR_BADHANDLE', 'NFS3ERR_NOT_SYNC', 'NFS3ERR_BAD_COOKIE', 'NFS3ERR_NOTSUPP', 'NFS3ERR_TOOSMALL', 'NFS3ERR_SERVERFAULT', 'NFS3ERR_BADTYPE', 'NFS3ERR_JUKEBOX', 'NF3REG', 'NF3DIR', 'NF3BLK', 'NF3CHR', 'NF3LNK', 'NF3SOCK', 'NF3FIFO', 'DONT_CHANGE', 'SET_TO_SERVER_TIME', 'SET_TO_CLIENT_TIME', 'ACCESS3_READ', 'ACCESS3_LOOKUP', 'ACCESS3_MODIFY', 'ACCESS3_EXTEND', 'ACCESS3_DELETE', 'ACCESS3_EXECUTE', 'UNSTABLE', 'DATA_SYNC', 'FILE_SYNC', 'UNCHECKED', 'GUARDED', 'EXCLUSIVE', 'FSF3_LINK', 'FSF3_SYMLINK', 'FSF3_HOMOGENEOUS', 'FSF3_CANSETTIME', 'MNTPATHLEN', 'MNTNAMLEN', 'FHSIZE3', 'MNT3_OK', 'MNT3ERR_PERM', 'MNT3ERR_NOENT', 'MNT3ERR_IO', 'MNT3ERR_ACCES', 'MNT3ERR_NOTDIR', 'MNT3ERR_INVAL', 'MNT3ERR_NAMETOOLONG', 'MNT3ERR_NOTSUPP', 'MNT3ERR_SERVERFAULT', 'Uint64', 'Int64', 'Uint32', 'Int32', 'Filename3', 'NFSPath3', 'Fileid3', 'Cookie3', 'Cookieverf3', 'Createverf3', 'Writeverf3', 'Uid3', 'Gid3', 'Size3', 'Offset3', 'Mode3', 'Count3', 'NFSStat3', 'Ftype3', 'SpecData3', 'NFSFh3', 'NFSTime3', 'FAttr3', 'WccAttr', 'PostOpAttr', 'PreOpAttr', 'WccData', 'PostOpFh3', 'TimeHow', 'SetMode3', 'SetUid3', 'SetGid3', 'SetSize3', 'SetATime', 'SetMTime', 'SAttr3', 'DiropArgs3', 'GETATTR3Args', 'GETATTR3ResOK', 'GETATTR3Res', 'Sattrguard3', 'SETATTR3Args', 'SETATTR3ResOK', 'SETATTR3ResFail', 'SETATTR3Res', 'LOOKUP3Args', 'LOOKUP3ResOK', 'LOOKUP3ResFail', 'LOOKUP3Res', 'ACCESS3Args', 'ACCESS3ResOK', 'ACCESS3ResFail', 'ACCESS3Res', 'READLINK3Args', 'READLINK3ResOK', 'READLINK3ResFail', 'READLINK3Res', 'READ3Args', 'READ3ResOK', 'READ3ResFail', 'READ3Res', 'StableHow', 'WRITE3Args', 'WRITE3ResOK', 'WRITE3ResFail', 'WRITE3Res', 'Createmode3', 'Createhow3', 'CREATE3Args', 'CREATE3ResOK', 'CREATE3ResFail', 'CREATE3Res', 'MKDIR3Args', 'MKDIR3ResOK', 'MKDIR3ResFail', 'MKDIR3Res', 'SymlinkData3', 'SYMLINK3Args', 'SYMLINK3ResOK', 'SYMLINK3ResFail', 'SYMLINK3Res', 'DeviceData3', 'MknodData3', 'MKNOD3Args', 'MKNOD3ResOK', 'MKNOD3ResFail', 'MKNOD3Res', 'REMOVE3Args', 'REMOVE3ResOK', 'REMOVE3ResFail', 'REMOVE3Res', 'RMDIR3Args', 'RMDIR3ResOK', 'RMDIR3ResFail', 'RMDIR3Res', 'RENAME3Args', 'RENAME3ResOK', 'RENAME3ResFail', 'RENAME3Res', 'LINK3Args', 'LINK3ResOK', 'LINK3ResFail', 'LINK3Res', 'READDIR3Args', 'Entry3', 'DirList3', 'READDIR3ResOK', 'READDIR3ResFail', 'READDIR3Res', 'READDIRPLUS3Args', 'Entryplus3', 'Dirlistplus3', 'READDIRPLUS3ResOK', 'READDIRPLUS3ResFail', 'READDIRPLUS3Res', 'FSSTAT3Args', 'FSSTAT3ResOK', 'FSSTAT3ResFail', 'FSSTAT3Res', 'FSINFO3Args', 'FSINFO3ResOK', 'FSINFO3ResFail', 'FSINFO3Res', 'PATHCONF3Args', 'PATHCONF3ResOK', 'PATHCONF3ResFail', 'PATHCONF3Res', 'COMMIT3Args', 'COMMIT3ResOK', 'COMMIT3ResFail', 'COMMIT3Res', 'FHandle3', 'DirPath', 'Name', 'MountStat3', 'Mountres3OK', 'MountRes3', 'MountList', 'GroupList', 'ExportList']
+__all__ = ['NFS_PROGRAM_3_SERVER', 'NFS_PROGRAM_3_CLIENT', 'MOUNT_PROGRAM_3_SERVER', 'MOUNT_PROGRAM_3_CLIENT', 'TRUE', 'FALSE', 'NFS3_FHSIZE', 'NFS3_COOKIEVERFSIZE', 'NFS3_CREATEVERFSIZE', 'NFS3_WRITEVERFSIZE', 'NFS3_OK', 'NFS3ERR_PERM', 'NFS3ERR_NOENT', 'NFS3ERR_IO', 'NFS3ERR_NXIO', 'NFS3ERR_ACCES', 'NFS3ERR_EXIST', 'NFS3ERR_XDEV', 'NFS3ERR_NODEV', 'NFS3ERR_NOTDIR', 'NFS3ERR_ISDIR', 'NFS3ERR_INVAL', 'NFS3ERR_FBIG', 'NFS3ERR_NOSPC', 'NFS3ERR_ROFS', 'NFS3ERR_MLINK', 'NFS3ERR_NAMETOOLONG', 'NFS3ERR_NOTEMPTY', 'NFS3ERR_DQUOT', 'NFS3ERR_STALE', 'NFS3ERR_REMOTE', 'NFS3ERR_BADHANDLE', 'NFS3ERR_NOT_SYNC', 'NFS3ERR_BAD_COOKIE', 'NFS3ERR_NOTSUPP', 'NFS3ERR_TOOSMALL', 'NFS3ERR_SERVERFAULT', 'NFS3ERR_BADTYPE', 'NFS3ERR_JUKEBOX', 'NF3REG', 'NF3DIR', 'NF3BLK', 'NF3CHR', 'NF3LNK', 'NF3SOCK', 'NF3FIFO', 'DONT_CHANGE', 'SET_TO_SERVER_TIME', 'SET_TO_CLIENT_TIME', 'ACCESS3_READ', 'ACCESS3_LOOKUP', 'ACCESS3_MODIFY', 'ACCESS3_EXTEND', 'ACCESS3_DELETE', 'ACCESS3_EXECUTE', 'UNSTABLE', 'DATA_SYNC', 'FILE_SYNC', 'UNCHECKED', 'GUARDED', 'EXCLUSIVE', 'FSF3_LINK', 'FSF3_SYMLINK', 'FSF3_HOMOGENEOUS', 'FSF3_CANSETTIME', 'MNTPATHLEN', 'MNTNAMLEN', 'FHSIZE3', 'MNT3_OK', 'MNT3ERR_PERM', 'MNT3ERR_NOENT', 'MNT3ERR_IO', 'MNT3ERR_ACCES', 'MNT3ERR_NOTDIR', 'MNT3ERR_INVAL', 'MNT3ERR_NAMETOOLONG', 'MNT3ERR_NOTSUPP', 'MNT3ERR_SERVERFAULT', 'Uint64', 'Int64', 'Uint32', 'Int32', 'Filename3', 'NFSPath3', 'Fileid3', 'Cookie3', 'Cookieverf3', 'Createverf3', 'Writeverf3', 'Uid3', 'Gid3', 'Size3', 'Offset3', 'Mode3', 'Count3', 'NFSStat3', 'Ftype3', 'SpecData3', 'NFSFh3', 'NFSTime3', 'FAttr3', 'WccAttr', 'PostOpAttr', 'PreOpAttr', 'WccData', 'PostOpFh3', 'TimeHow', 'SetMode3', 'SetUid3', 'SetGid3', 'SetSize3', 'SetTime', 'SAttr3', 'DiropArgs3', 'GETATTR3Args', 'GETATTR3ResOK', 'GETATTR3Res', 'Sattrguard3', 'SETATTR3Args', 'SETATTR3ResOK', 'SETATTR3ResFail', 'SETATTR3Res', 'LOOKUP3Args', 'LOOKUP3ResOK', 'LOOKUP3ResFail', 'LOOKUP3Res', 'ACCESS3Args', 'ACCESS3ResOK', 'ACCESS3ResFail', 'ACCESS3Res', 'READLINK3Args', 'READLINK3ResOK', 'READLINK3ResFail', 'READLINK3Res', 'READ3Args', 'READ3ResOK', 'READ3ResFail', 'READ3Res', 'StableHow', 'WRITE3Args', 'WRITE3ResOK', 'WRITE3ResFail', 'WRITE3Res', 'Createmode3', 'Createhow3', 'CREATE3Args', 'CREATE3ResOK', 'CREATE3ResFail', 'CREATE3Res', 'MKDIR3Args', 'MKDIR3ResOK', 'MKDIR3ResFail', 'MKDIR3Res', 'SymlinkData3', 'SYMLINK3Args', 'SYMLINK3ResOK', 'SYMLINK3ResFail', 'SYMLINK3Res', 'DeviceData3', 'MknodData3', 'MKNOD3Args', 'MKNOD3ResOK', 'MKNOD3ResFail', 'MKNOD3Res', 'REMOVE3Args', 'REMOVE3ResOK', 'REMOVE3ResFail', 'REMOVE3Res', 'RMDIR3Args', 'RMDIR3ResOK', 'RMDIR3ResFail', 'RMDIR3Res', 'RENAME3Args', 'RENAME3ResOK', 'RENAME3ResFail', 'RENAME3Res', 'LINK3Args', 'LINK3ResOK', 'LINK3ResFail', 'LINK3Res', 'READDIR3Args', 'Entry3', 'DirList3', 'READDIR3ResOK', 'READDIR3ResFail', 'READDIR3Res', 'READDIRPLUS3Args', 'Entryplus3', 'Dirlistplus3', 'READDIRPLUS3ResOK', 'READDIRPLUS3ResFail', 'READDIRPLUS3Res', 'FSSTAT3Args', 'FSSTAT3ResOK', 'FSSTAT3ResFail', 'FSSTAT3Res', 'FSINFO3Args', 'FSINFO3ResOK', 'FSINFO3ResFail', 'FSINFO3Res', 'PATHCONF3Args', 'PATHCONF3ResOK', 'PATHCONF3ResFail', 'PATHCONF3Res', 'COMMIT3Args', 'COMMIT3ResOK', 'COMMIT3ResFail', 'COMMIT3Res', 'FHandle3', 'DirPath', 'Name', 'MountStat3', 'Mountres3OK', 'MountRes3', 'MountList', 'GroupList', 'ExportList']

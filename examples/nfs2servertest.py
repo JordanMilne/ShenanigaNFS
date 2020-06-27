@@ -67,8 +67,7 @@ def sattr_to_dict(attrs: SAttr):
             attrs_dict[attr_name] = val
     for attr_name in ("atime", "mtime"):
         val: Timeval = getattr(attrs, attr_name)
-        if val.seconds != 0xFFffFFff:
-            attrs_dict[attr_name] = nfs2_to_date(val)
+        attrs_dict[attr_name] = nfs2_to_date(val) if val.seconds != 0xFFffFFff else None
     return attrs_dict
 
 

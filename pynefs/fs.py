@@ -12,6 +12,7 @@ from typing import *
 
 from pynefs.bidict import BiDict
 from pynefs.generated import rfc1094 as nfs2
+from pynefs.generated import rfc1813 as nfs3
 
 FSENTRY = Union["File", "Directory", "SymLink", "BaseFSEntry", "FSEntryProxy"]
 
@@ -65,11 +66,22 @@ NFS2_MODE_MAPPING = BiDict({
 def date_to_nfs2(date: dt.datetime) -> nfs2.Timeval:
     ts = date.timestamp()
     frac, whole = math.modf(ts)
-    return nfs2.Timeval(math.floor(whole), math.floor(frac * 1_000_000))
+    # TODO: These seem wrong in `ls`. Not sure if it's TZ or what.
+    return nfs2.Timeval(math.floor(whole), math.floor(frac * 1e6))
 
 
 def nfs2_to_date(date: nfs2.Timeval) -> dt.datetime:
-    return dt.datetime.utcfromtimestamp(date.seconds + (date.useconds / 1_000_000))
+    return dt.datetime.utcfromtimestamp(date.seconds + (date.useconds / 1e6))
+
+
+def date_to_nfs3(date: dt.datetime) -> nfs3.NFSTime3:
+    ts = date.timestamp()
+    frac, whole = math.modf(ts)
+    return nfs3.NFSTime3(math.floor(whole), math.floor(frac * 1e9))
+
+
+def nfs3_to_date(date: nfs3.NFSTime3) -> dt.datetime:
+    return dt.datetime.utcfromtimestamp(date.seconds + (date.nseconds / 1e9))
 
 
 def get_nfs2_cookie(entry: FSENTRY):
@@ -118,6 +130,30 @@ class BaseFSEntry(abc.ABC):
             atime=date_to_nfs2(self.atime),
             mtime=date_to_nfs2(self.mtime),
             ctime=date_to_nfs2(self.ctime),
+        )
+
+    def to_nfs3_fattr(self) -> nfs3.FAttr3:
+        return nfs3.FAttr3(
+            type=self.type,
+            mode=self.mode,
+            nlink=self.nlink,
+            uid=self.uid,
+            gid=self.gid,
+            size=self.size,
+            used=self.blocks,
+            rdev=nfs3.SpecData3(*self.rdev),
+            fsid=self.fs().fsid,
+            fileid=self.fileid,
+            atime=date_to_nfs3(self.atime),
+            mtime=date_to_nfs3(self.mtime),
+            ctime=date_to_nfs3(self.ctime),
+        )
+
+    def to_nfs3_wccattr(self) -> nfs3.WccAttr:
+        return nfs3.WccAttr(
+            size=self.size,
+            mtime=date_to_nfs3(self.mtime),
+            ctime=date_to_nfs3(self.ctime),
         )
 
 
@@ -287,6 +323,8 @@ class BaseFS(abc.ABC):
             return False
         if name in (b".", b".."):
             return False
+        if name > 250:
+            return False
         return True
 
     @abc.abstractmethod
@@ -439,6 +477,9 @@ class SimpleFS(DictTrackingFS):
             entry.contents = entry.contents[:size_val]
         for attr_name, attr_val in attrs.items():
             assert hasattr(entry, attr_name)
+            # This is a hint that the client wants to automatically fill in the server time
+            if "time" in attr_name and attr_val is None:
+                attr_val = dt.datetime.utcnow()
             setattr(entry, attr_name, attr_val)
 
     def rm(self, entry: FSENTRY):
@@ -469,32 +510,31 @@ class SimpleFS(DictTrackingFS):
             raise FSError(nfs2.NFSERR_PERM)
         # trying to move a directory inside itself????
         if source in self.iter_ancestors(to_dir):
-            raise FSError(nfs2.NFSERR_NOTEMPTY, "Recursive parenting attempt")
+            raise FSError(nfs2.NFSERR_ACCES, "Recursive parenting attempt")
+        if to_dir.get_child_by_name(new_name):
+            raise FSError(nfs2.NFSERR_EXIST)
         source.parent.unlink_child(source)
         to_dir.link_child(source)
         source.name = new_name
 
-    def mkdir(self, dest: Directory, name: bytes, attrs: Dict[str, Any]) -> Directory:
+    def _base_create(self, dest: Directory, name: bytes, attrs: Dict[str, Any], typ: Type) -> FSENTRY:
         self._verify_owned(dest)
         self._verify_writable()
-        new_dir = SimpleDirectory(
+        if dest.get_child_by_name(name):
+            raise FSError(nfs2.NFSERR_EXIST)
+        new_entry = typ(
             fs=weakref.ref(self),
             name=name,
             **attrs
         )
-        dest.link_child(new_dir)
-        return new_dir
+        dest.link_child(new_entry)
+        return new_entry
+
+    def mkdir(self, dest: Directory, name: bytes, attrs: Dict[str, Any]) -> Directory:
+        return self._base_create(dest, name, attrs, SimpleDirectory)
 
     def create_file(self, dest: Directory, name: bytes, attrs: Dict[str, Any]) -> File:
-        self._verify_owned(dest)
-        self._verify_writable()
-        new_file = SimpleFile(
-            fs=weakref.ref(self),
-            name=name,
-            **attrs
-        )
-        dest.link_child(new_file)
-        return new_file
+        return self._base_create(dest, name, attrs, SimpleFile)
 
 
 class DecodedFileHandle(NamedTuple):

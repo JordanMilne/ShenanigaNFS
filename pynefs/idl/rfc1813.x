@@ -125,16 +125,9 @@ typedef gid3 *set_gid3;
 typedef size3 *set_size3;
 
 
-union set_atime switch (time_how set_it) {
+union set_time switch (time_how set_it) {
 case SET_TO_CLIENT_TIME:
-   nfstime3  atime;
-default:
-   void;
-};
-
-union set_mtime switch (time_how set_it) {
-case SET_TO_CLIENT_TIME:
-   nfstime3  mtime;
+   nfstime3  time_val;
 default:
    void;
 };
@@ -144,8 +137,8 @@ struct sattr3 {
    set_uid3    uid;
    set_gid3    gid;
    set_size3   size;
-   set_atime   atime;
-   set_mtime   mtime;
+   set_time   atime;
+   set_time   mtime;
 };
 
 struct diropargs3 {

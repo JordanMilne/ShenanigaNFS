@@ -22,7 +22,7 @@ class ZipFS(SimpleFS):
 
         self.track_entry(SimpleDirectory(
             fs=weakref.ref(self),
-            mode=0o0555,
+            mode=0o0555 if self.read_only else 0o0777,
             name=b"",
             root_dir=True,
         ))

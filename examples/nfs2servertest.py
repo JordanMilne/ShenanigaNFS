@@ -18,7 +18,6 @@ def fs_error_handler(resp_creator: typing.Callable):
             try:
                 return f(*args, **kwargs)
             except FSError as e:
-                print(e)
                 return resp_creator(e.error_code)
         return _inner
     return _wrap
@@ -81,7 +80,8 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
             raise FSError(Stat.NFSERR_STALE)
         if dir_entry.type != FileType.DIR:
             raise FSError(Stat.NFSERR_NOTDIR)
-        return dir_entry, dir_entry.get_child_by_name(name)
+        fs: BaseFS = dir_entry.fs()
+        return dir_entry, fs.lookup(dir_entry, name)
 
     def NULL(self) -> None:
         pass
@@ -215,14 +215,16 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
 
         cookie_idx = 0
         null_cookie = not sum(arg_0.cookie)
+        fs: BaseFS = directory.fs()
+        children = fs.readdir(directory)
         if not null_cookie:
-            cookie_idx = [get_nfs2_cookie(e) for e in directory.children].index(arg_0.cookie)
+            cookie_idx = [get_nfs2_cookie(e) for e in children].index(arg_0.cookie)
             if cookie_idx == -1:
                 return ReaddirRes(Stat.NFSERR_NOENT)
             cookie_idx += 1
 
-        children = directory.children[cookie_idx:cookie_idx + count]
-        eof = len(children) != count
+        children_slice = children[cookie_idx:cookie_idx + count]
+        eof = len(children_slice) != count
         return ReaddirRes(
             Stat.NFS_OK,
             ReaddirOK(
@@ -230,7 +232,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
                     fileid=file.fileid,
                     name=file.name,
                     cookie=get_nfs2_cookie(file),
-                ) for file in children],
+                ) for file in children_slice],
                 eof=eof,
             )
         )

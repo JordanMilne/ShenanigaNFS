@@ -1,6 +1,8 @@
 import asyncio
 import functools
+import hashlib
 import stat
+import struct
 import typing
 
 from pynefs.generated.rfc1813 import *
@@ -40,7 +42,6 @@ def fs_error_handler(resp_creator: typing.Callable, num_wccs: int = 1):
             try:
                 return f(*args, *wccs)
             except FSError as e:
-                print(e)
                 return resp_creator(e.error_code, *wccs)
         return _inner
     return _wrap
@@ -54,14 +55,13 @@ class MountV3Service(MOUNT_PROGRAM_3_SERVER):
         pass
 
     def MNT(self, mount_path: bytes) -> MountRes3:
-        fs_mgr = self.fs_manager
-        fs = fs_mgr.get_fs_by_root(mount_path)
+        fs = self.fs_manager.get_fs_by_root(mount_path)
         if fs is None:
             return MountRes3(MountStat3.MNT3ERR_NOENT)
         return MountRes3(
             MountStat3.MNT3_OK,
             Mountres3OK(
-                fs_mgr.entry_to_fh(fs.root_dir),
+                self.fs_manager.entry_to_fh(fs.root_dir),
                 auth_flavors=[rpc.AuthFlavor.AUTH_NONE, rpc.AuthFlavor.AUTH_SYS],
             ),
         )
@@ -115,7 +115,8 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
             dir_wcc.set_entry(dir_entry)
         if dir_entry.type != FileType.DIR:
             raise FSError(NFSStat3.NFS3ERR_NOTDIR)
-        return dir_entry, dir_entry.get_child_by_name(name)
+        fs: BaseFS = dir_entry.fs()
+        return dir_entry, fs.lookup(dir_entry, name)
 
     def NULL(self) -> None:
         pass
@@ -135,9 +136,8 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         if not entry:
             raise FSError(NFSStat3.NFS3ERR_STALE)
         obj_wcc.set_entry(entry)
-        guard = arg_0.guard
-        if guard.check:
-            if entry.ctime != nfs3_to_date(guard.obj_ctime):
+        if arg_0.guard.check:
+            if entry.ctime != nfs3_to_date(arg_0.guard.obj_ctime):
                 raise FSError(NFSStat3.NFS3ERR_NOT_SYNC, "guard ctime mismatch")
         fs: BaseFS = entry.fs()
         fs.setattrs(entry, sattr_to_dict(arg_0.new_attributes))
@@ -152,11 +152,10 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         if not child:
             raise FSError(NFSStat3.NFS3ERR_NOENT)
 
-        fs_mgr = self.fs_manager
         return LOOKUP3Res(
             NFSStat3.NFS3_OK,
             resok=LOOKUP3ResOK(
-                obj_handle=fs_mgr.entry_to_fh(child),
+                obj_handle=self.fs_manager.entry_to_fh(child),
                 obj_attributes=child.to_nfs3_fattr(),
                 dir_attributes=directory.to_nfs3_fattr(),
             )
@@ -341,7 +340,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         return LINK3Res(NFSStat3.NFS3ERR_NOTSUPP, resfail=LINK3ResFail(None, WccData()))
 
     def _readdir_common(self, dir_handle: bytes, cookie: int, cookie_verf: bytes,
-                        dir_wcc: WccWrapper) -> typing.Tuple[bool, typing.List[FSENTRY]]:
+                        dir_wcc: WccWrapper) -> typing.Tuple[bool, typing.Sequence[FSENTRY], bytes]:
         directory = self.fs_manager.get_entry_by_fh(dir_handle)
         dir_wcc.set_entry(directory)
         # We ignore the limits specified in the request for now since
@@ -351,26 +350,35 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         if not directory:
             raise FSError(NFSStat3.NFS3ERR_STALE)
 
-        child_ids = [e.fileid for e in directory.children]
+        fs: BaseFS = directory.fs()
+        children = fs.readdir(directory)
+
+        child_digest = hashlib.sha256(b"".join(
+            struct.pack("!QQ", x.fileid, int(x.mtime.timestamp())) for x in children))
+        expected_verf = child_digest.digest()[:NFS3_COOKIEVERFSIZE]
+        if expected_verf != cookie_verf and cookie:
+            raise FSError(NFSStat3.NFS3ERR_BAD_COOKIE)
+
+        child_ids = [e.fileid for e in children]
         cookie_idx = 0
         if cookie:
             cookie_idx = child_ids.index(cookie)
             if cookie_idx == -1:
-                raise FSError(NFSStat3.NFS3ERR_NOENT)
+                raise FSError(NFSStat3.NFS3ERR_BAD_COOKIE)
             cookie_idx += 1
 
-        children = directory.children[cookie_idx:cookie_idx + count]
-        eof = len(children) != count or (children and children[-1].fileid == child_ids[-1])
-        return eof, children
+        children_slice = children[cookie_idx:cookie_idx + count]
+        eof = len(children_slice) != count or (children_slice and children_slice[-1].fileid == child_ids[-1])
+        return eof, children_slice, expected_verf
 
     @fs_error_handler(lambda code, dir_wcc: READDIR3Res(code, resfail=READDIR3ResFail(dir_wcc.after)))
     def READDIR(self, arg_0: READDIR3Args, dir_wcc: WccWrapper) -> READDIR3Res:
-        eof, children = self._readdir_common(arg_0.dir_handle, arg_0.cookie, arg_0.cookieverf, dir_wcc)
+        eof, children, verf = self._readdir_common(arg_0.dir_handle, arg_0.cookie, arg_0.cookieverf, dir_wcc)
         return READDIR3Res(
             NFSStat3.NFS3_OK,
             resok=READDIR3ResOK(
                 dir_attributes=dir_wcc.after,
-                cookieverf=b"\x00" * NFS3_COOKIEVERFSIZE,
+                cookieverf=verf,
                 reply=DirList3(
                     entries=[Entry3(
                         fileid=child.fileid,
@@ -384,20 +392,19 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
 
     @fs_error_handler(lambda code, dir_wcc: READDIRPLUS3Res(code, resfail=READDIRPLUS3ResFail(dir_wcc.after)))
     def READDIRPLUS(self, arg_0: READDIRPLUS3Args, dir_wcc: WccWrapper) -> READDIRPLUS3Res:
-        eof, children = self._readdir_common(arg_0.dir_handle, arg_0.cookie, arg_0.cookieverf, dir_wcc)
-        fs_mgr = self.fs_manager
+        eof, children, verf = self._readdir_common(arg_0.dir_handle, arg_0.cookie, arg_0.cookieverf, dir_wcc)
         return READDIRPLUS3Res(
             NFSStat3.NFS3_OK,
             resok=READDIRPLUS3ResOK(
                 dir_attributes=dir_wcc.after,
-                cookieverf=b"\x00" * NFS3_COOKIEVERFSIZE,
+                cookieverf=verf,
                 reply=Dirlistplus3(
                     entries=[Entryplus3(
                         fileid=child.fileid,
                         name=child.name,
                         cookie=child.fileid,
                         name_attributes=child.to_nfs3_fattr(),
-                        name_handle=fs_mgr.entry_to_fh(child)
+                        name_handle=self.fs_manager.entry_to_fh(child)
                     ) for child in children],
                     eof=eof,
                 )

@@ -200,50 +200,6 @@ class Directory(BaseFSEntry, abc.ABC):
         self.child_ids.remove(child.fileid)
         child.parent_id = None
 
-    def get_child_by_name(self, name: bytes) -> Optional[FSENTRY]:
-        for entry in self.children:
-            if entry.name == name:
-                return entry
-        return None
-
-    def _make_upper_dir_link(self):
-        if self.parent_id is not None:
-            parent: Directory = self.fs().get_entry_by_id(self.parent_id)
-            return FSEntryProxy(
-                base=parent,
-                replacements={
-                    "name": b"..",
-                },
-            )
-
-        assert self.root_dir
-
-        # Need to make a fake entry for `..` since it's actually above
-        # the root directory. Ironically none of the info other than the
-        # name seems to be used in the dir listing.
-        return FSEntryProxy(
-            base=self,
-            replacements={
-                # `1` will never be used by legitimate files and
-                # is not actually tracked
-                "fileid": 1,
-                "name": b"..",
-                "child_ids": [self.fileid],
-                "root_dir": False,
-            }
-        )
-
-    @property
-    def children(self) -> List[FSENTRY]:
-        fs: BaseFS = self.fs()
-        files = [
-            FSEntryProxy(self, {"name": b"."}),
-            self._make_upper_dir_link(),
-            *[fs.get_entry_by_id(fileid) for fileid in self.child_ids]
-        ]
-        assert(all(files))
-        return files
-
 
 @dataclasses.dataclass
 class SimpleFSEntry(BaseFSEntry):
@@ -364,6 +320,14 @@ class BaseFS(abc.ABC):
             yield entry
 
     @abc.abstractmethod
+    def lookup(self, directory: FSENTRY, name: bytes) -> Optional[FSENTRY]:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def readdir(self, directory: FSENTRY) -> Sequence[FSENTRY]:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     def read(self, entry: FSENTRY, offset: int, count: int) -> bytes:
         raise NotImplementedError()
 
@@ -460,6 +424,54 @@ class DictTrackingFS(BaseFS, abc.ABC):
 
 
 class SimpleFS(DictTrackingFS):
+    def _make_upper_dir_link(self, entry: FSENTRY) -> FSEntryProxy:
+        if entry.parent_id is not None:
+            parent: Directory = self.get_entry_by_id(entry.parent_id)
+            return FSEntryProxy(
+                base=parent,
+                replacements={
+                    "name": b"..",
+                },
+            )
+
+        assert entry.root_dir
+
+        # Need to make a fake entry for `..` since it's actually above
+        # the root directory. Ironically none of the info other than the
+        # name seems to be used in the dir listing.
+        return FSEntryProxy(
+            base=entry,
+            replacements={
+                # `1` will never be used by legitimate files and
+                # is not actually tracked
+                "fileid": 1,
+                "name": b"..",
+                "child_ids": [entry.fileid],
+                "root_dir": False,
+            }
+        )
+
+    def readdir(self, directory: FSENTRY) -> Sequence[FSENTRY]:
+        self._verify_owned(directory)
+        if directory.type != FileType.DIR:
+            raise FSError(nfs2.NFSERR_NOTDIR)
+        files = [
+            FSEntryProxy(directory, {"name": b"."}),
+            self._make_upper_dir_link(directory),
+            *[self.get_entry_by_id(fileid) for fileid in directory.child_ids]
+        ]
+        assert (all(files))
+        return files
+
+    def lookup(self, directory: FSENTRY, name: bytes) -> Optional[FSENTRY]:
+        self._verify_owned(directory)
+        if directory.type != FileType.DIR:
+            raise FSError(nfs2.NFSERR_NOTDIR)
+        for child in self.readdir(directory):
+            if child.name == name:
+                return child
+        return None
+
     def read(self, entry: FSENTRY, offset: int, count: int) -> bytes:
         self._verify_owned(entry)
         if entry.type != FileType.REG:
@@ -527,7 +539,7 @@ class SimpleFS(DictTrackingFS):
         # trying to move a directory inside itself????
         if source in self.iter_ancestors(to_dir):
             raise FSError(nfs2.NFSERR_ACCES, "Recursive parenting attempt")
-        if to_dir.get_child_by_name(new_name):
+        if self.lookup(to_dir, new_name):
             raise FSError(nfs2.NFSERR_EXIST)
         source.parent.unlink_child(source)
         to_dir.link_child(source)
@@ -536,7 +548,7 @@ class SimpleFS(DictTrackingFS):
     def _base_create(self, dest: Directory, name: bytes, attrs: Dict[str, Any], typ: Type) -> FSENTRY:
         self._verify_owned(dest)
         self._verify_writable()
-        if dest.get_child_by_name(name):
+        if self.lookup(dest, name):
             raise FSError(nfs2.NFSERR_EXIST)
         new_entry = typ(
             fs=weakref.ref(self),

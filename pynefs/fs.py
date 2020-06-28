@@ -174,7 +174,7 @@ class File(BaseFSEntry, abc.ABC):
     type: Literal[FileType.REG]
 
 
-class SymLink(BaseFSEntry, abc.ABC):
+class Symlink(BaseFSEntry, abc.ABC):
     contents: bytes
     type: Literal[FileType.LNK]
 
@@ -279,7 +279,7 @@ class SimpleFile(File, SimpleFSEntry):
 
 
 @dataclasses.dataclass
-class SimpleSymlink(SymLink, SimpleFSEntry):
+class SimpleSymlink(Symlink, SimpleFSEntry):
     contents: bytearray = dataclasses.field(default_factory=bytearray)
     type: FileType = dataclasses.field(default=FileType.LNK, init=False)
 
@@ -396,6 +396,10 @@ class BaseFS(abc.ABC):
         raise NotImplementedError()
 
     @abc.abstractmethod
+    def symlink(self, dest: Directory, name: bytes, attrs: Dict[str, Any], val: bytes) -> Symlink:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     def create_file(self, dest: Directory, name: bytes, attrs: Dict[str, Any]) -> File:
         raise NotImplementedError()
 
@@ -479,6 +483,7 @@ class SimpleFS(DictTrackingFS):
     def setattrs(self, entry: FSENTRY, attrs: Dict[str, Any]):
         self._verify_owned(entry)
         self._verify_writable()
+        # TODO: add this validation to initial file creation as well
         if "size" in attrs:
             if entry.type not in (FileType.REG, FileType.LNK):
                 raise FSError(nfs2.NFSERR_IO, "Must be a file to change size!")
@@ -543,6 +548,11 @@ class SimpleFS(DictTrackingFS):
 
     def mkdir(self, dest: Directory, name: bytes, attrs: Dict[str, Any]) -> Directory:
         return self._base_create(dest, name, attrs, SimpleDirectory)
+
+    def symlink(self, dest: Directory, name: bytes, attrs: Dict[str, Any], val: bytes) -> Symlink:
+        entry: SimpleSymlink = self._base_create(dest, name, attrs, SimpleSymlink)
+        entry.contents = val
+        return entry
 
     def create_file(self, dest: Directory, name: bytes, attrs: Dict[str, Any]) -> File:
         return self._base_create(dest, name, attrs, SimpleFile)

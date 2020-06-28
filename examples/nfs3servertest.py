@@ -260,11 +260,9 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
     @fs_error_handler(lambda code, dir_wcc: MKDIR3Res(code, resfail=MKDIR3ResFail(dir_wcc)))
     def MKDIR(self, arg_0: MKDIR3Args, dir_wcc: WccWrapper) -> MKDIR3Res:
         target_dir, target = self._get_named_child(arg_0.where.dir_handle, arg_0.where.name, dir_wcc)
-        # We have no intention of supporting exclusive mode for the moment
-        # due to the additional bookkeeping required
-        fs: BaseFS = target_dir.fs()
         if target:
             raise FSError(NFSStat3.NFS3ERR_EXIST)
+        fs: BaseFS = target_dir.fs()
         entry = fs.mkdir(target_dir, arg_0.where.name, sattr_to_dict(arg_0.attributes))
         return MKDIR3Res(
             NFSStat3.NFS3_OK,
@@ -275,23 +273,72 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
             )
         )
 
-    def SYMLINK(self, arg_0: SYMLINK3Args) -> SYMLINK3Res:
-        pass
+    @fs_error_handler(lambda code, dir_wcc: SYMLINK3Res(code, resfail=CREATE3ResFail(dir_wcc)))
+    def SYMLINK(self, arg_0: SYMLINK3Args, dir_wcc: WccWrapper) -> SYMLINK3Res:
+        target_dir, target = self._get_named_child(arg_0.where.dir_handle, arg_0.where.name, dir_wcc)
+        if target:
+            raise FSError(NFSStat3.NFS3ERR_EXIST)
+        fs: BaseFS = target_dir.fs()
+        attrs = arg_0.symlink.symlink_attributes
+        data = arg_0.symlink.symlink_data
+        entry = fs.symlink(target_dir, arg_0.where.name, sattr_to_dict(attrs), data)
+        return SYMLINK3Res(
+            NFSStat3.NFS3_OK,
+            resok=SYMLINK3ResOK(
+                obj_handle=self.fs_manager.entry_to_fh(entry),
+                obj_attributes=entry.to_nfs3_fattr(),
+                dir_wcc=dir_wcc,
+            )
+        )
 
     def MKNOD(self, arg_0: MKNOD3Args) -> MKNOD3Res:
-        pass
+        return MKNOD3Res(NFSStat3.NFS3ERR_NOTSUPP, resfail=MKNOD3ResFail(WccData()))
 
-    def REMOVE(self, arg_0: REMOVE3Args) -> REMOVE3Res:
-        pass
+    @fs_error_handler(lambda code, dir_wcc: REMOVE3Res(code, resfail=REMOVE3ResFail(dir_wcc)))
+    def REMOVE(self, arg_0: REMOVE3Args, dir_wcc: WccWrapper) -> REMOVE3Res:
+        dir_entry, to_delete = self._get_named_child(arg_0.object.dir_handle, arg_0.object.name, dir_wcc)
+        if not to_delete:
+            raise FSError(NFSStat3.NFS3ERR_NOENT)
+        if to_delete.type == FileType.DIR:
+            raise FSError(NFSStat3.NFS3ERR_ISDIR)
+        fs: BaseFS = to_delete.fs()
+        fs.rm(to_delete)
+        return REMOVE3Res(
+            NFSStat3.NFS3_OK,
+            resok=REMOVE3ResOK(dir_wcc)
+        )
 
-    def RMDIR(self, arg_0: RMDIR3Args) -> RMDIR3Res:
-        pass
+    @fs_error_handler(lambda code, dir_wcc: RMDIR3Res(code, resfail=RMDIR3ResFail(dir_wcc)))
+    def RMDIR(self, arg_0: RMDIR3Args, dir_wcc: WccWrapper) -> RMDIR3Res:
+        dir_entry, to_delete = self._get_named_child(arg_0.object.dir_handle, arg_0.object.name, dir_wcc)
+        if not to_delete:
+            raise FSError(NFSStat3.NFS3ERR_NOENT)
+        if to_delete.type != FileType.DIR:
+            raise FSError(NFSStat3.NFS3ERR_NOTDIR)
+        fs: BaseFS = to_delete.fs()
+        fs.rmdir(to_delete)
+        return RMDIR3Res(
+            NFSStat3.NFS3_OK,
+            resok=RMDIR3ResOK(dir_wcc)
+        )
 
-    def RENAME(self, arg_0: RENAME3Args) -> RENAME3Res:
-        pass
+    @fs_error_handler(lambda code, from_wcc, to_wcc: RENAME3Res(code, resfail=RENAME3ResFail(from_wcc, to_wcc)), 2)
+    def RENAME(self, arg_0: RENAME3Args, from_wcc: WccWrapper, to_wcc: WccWrapper) -> RENAME3Res:
+        source_dir, source = self._get_named_child(arg_0.from_.dir_handle, arg_0.from_.name, from_wcc)
+        if not source:
+            raise FSError(NFSStat3.NFS3ERR_NOENT)
+        dest_dir, dest_entry = self._get_named_child(arg_0.to.dir_handle, arg_0.to.name, to_wcc)
+        if dest_entry:
+            raise FSError(NFSStat3.NFS3ERR_EXIST)
+        fs: BaseFS = dest_dir.fs()
+        fs.rename(source, dest_dir, arg_0.to.name)
+        return RENAME3Res(
+            NFSStat3.NFS3_OK,
+            resok=RENAME3ResOK(from_wcc, to_wcc),
+        )
 
     def LINK(self, arg_0: LINK3Args) -> LINK3Res:
-        pass
+        return LINK3Res(NFSStat3.NFS3ERR_NOTSUPP, resfail=LINK3ResFail(None, WccData()))
 
     def _readdir_common(self, dir_handle: bytes, cookie: int, cookie_verf: bytes,
                         dir_wcc: WccWrapper) -> typing.Tuple[bool, typing.List[FSENTRY]]:

@@ -183,8 +183,6 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         source_dir, source = self._get_named_child(arg_0.from_.dir, arg_0.from_.name)
         if not source:
             return Stat.NFSERR_NOENT
-        if source.type == FileType.DIR:
-            return Stat.NFSERR_ISDIR
         dest_dir, dest_entry = self._get_named_child(arg_0.to.dir, arg_0.to.name)
         if dest_entry:
             return Stat.NFSERR_EXIST

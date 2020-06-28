@@ -451,6 +451,27 @@ class SimpleFS(DictTrackingFS):
             }
         )
 
+    @staticmethod
+    def _hydrate_sattrs(attrs: Dict[str, Any], entry: Optional[FSENTRY] = None) -> Dict[str, Any]:
+        new_attrs = {}
+        for attr_name, attr_val in attrs.items():
+            if attr_name == "size":
+                if not entry:
+                    # A no-op, this is fine
+                    if attrs["size"] == 0:
+                        continue
+                    else:
+                        raise FSError(nfs2.NFSERR_NXIO, "Can't set a size on a new file!")
+                if entry.type not in (FileType.REG, FileType.LNK):
+                    raise FSError(nfs2.NFSERR_IO, "Must be a file to change size!")
+                if attr_val > len(entry.contents):
+                    raise FSError(nfs2.NFSERR_NXIO, "Can't expand a file via setattrs()")
+            # This is a hint that the client wants to automatically fill in the server time
+            elif "time" in attr_name and attr_val is None:
+                attr_val = dt.datetime.utcnow()
+            new_attrs[attr_name] = attr_val
+        return new_attrs
+
     def readdir(self, directory: FSENTRY) -> Sequence[FSENTRY]:
         self._verify_owned(directory)
         if directory.type != FileType.DIR:
@@ -489,25 +510,21 @@ class SimpleFS(DictTrackingFS):
         self._verify_writable()
         if entry.type != FileType.REG:
             raise FSError(nfs2.NFSERR_IO)
+        if offset > entry.size:
+            raise FSError(nfs2.NFSERR_IO, "Tried to write past end of file!")
         entry.contents[offset:offset + len(data)] = data
         return len(data)
 
     def setattrs(self, entry: FSENTRY, attrs: Dict[str, Any]):
         self._verify_owned(entry)
         self._verify_writable()
-        # TODO: add this validation to initial file creation as well
-        if "size" in attrs:
-            if entry.type not in (FileType.REG, FileType.LNK):
-                raise FSError(nfs2.NFSERR_IO, "Must be a file to change size!")
-            size_val = attrs.pop("size")
-            if size_val > len(entry.contents):
-                raise FSError(nfs2.NFSERR_NXIO, "Can't expand a file via setattrs()")
-            entry.contents = entry.contents[:size_val]
-        for attr_name, attr_val in attrs.items():
+        new_attrs = self._hydrate_sattrs(attrs, entry)
+        new_size = new_attrs.pop("size", None)
+        if new_size is not None:
+            entry.contents = entry.contents[:new_size]
+
+        for attr_name, attr_val in new_attrs.items():
             assert hasattr(entry, attr_name)
-            # This is a hint that the client wants to automatically fill in the server time
-            if "time" in attr_name and attr_val is None:
-                attr_val = dt.datetime.utcnow()
             setattr(entry, attr_name, attr_val)
 
     def rm(self, entry: FSENTRY):
@@ -550,10 +567,11 @@ class SimpleFS(DictTrackingFS):
         self._verify_writable()
         if self.lookup(dest, name):
             raise FSError(nfs2.NFSERR_EXIST)
+        new_attrs = self._hydrate_sattrs(attrs, entry=None)
         new_entry = typ(
             fs=weakref.ref(self),
             name=name,
-            **attrs
+            **new_attrs,
         )
         dest.link_child(new_entry)
         return new_entry

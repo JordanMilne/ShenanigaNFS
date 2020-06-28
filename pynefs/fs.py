@@ -109,10 +109,6 @@ class BaseFSEntry(abc.ABC):
     def fsid(self):
         return self.fs().fsid
 
-    @property
-    def parent(self) -> Optional["Directory"]:
-        return self.fs().get_entry_by_id(self.parent_id)
-
     def to_nfs2_fattr(self) -> nfs2.FAttr:
         mode, f_type = self.type.to_nfs2(self.mode)
         return nfs2.FAttr(
@@ -184,6 +180,8 @@ class Directory(BaseFSEntry, abc.ABC):
     type: Literal[FileType.DIR]
     root_dir: bool = False
 
+
+class DictableDirectory(Directory, abc.ABC):
     def link_child(self, child: FSENTRY):
         assert (child.fs == self.fs)
         fs: BaseFS = self.fs()
@@ -229,10 +227,6 @@ class SimpleFile(File, SimpleFSEntry):
     def size(self) -> int:
         return len(self.contents)
 
-    def write(self, offset, data):
-        assert not self.fs().read_only
-        self.contents[offset:offset + len(data)] = data
-
 
 @dataclasses.dataclass
 class SimpleSymlink(Symlink, SimpleFSEntry):
@@ -245,7 +239,7 @@ class SimpleSymlink(Symlink, SimpleFSEntry):
 
 
 @dataclasses.dataclass
-class SimpleDirectory(Directory, SimpleFSEntry):
+class SimpleDirectory(DictableDirectory, SimpleFSEntry):
     type: FileType = dataclasses.field(default=FileType.DIR, init=False)
     child_ids: List[int] = dataclasses.field(default_factory=list)
     root_dir: bool = dataclasses.field(default=False)
@@ -403,7 +397,7 @@ class DictTrackingFS(BaseFS, abc.ABC):
     def remove_entry(self, entry: FSENTRY):
         self._verify_owned(entry)
         if entry.parent_id is not None:
-            parent: Directory = self.get_entry_by_id(entry.parent_id)
+            parent: DictableDirectory = self.get_entry_by_id(entry.parent_id)
             parent.unlink_child(entry)
         for descendant in self.iter_descendants(entry, inclusive=True):
             del self.entries[descendant.fileid]
@@ -545,7 +539,7 @@ class SimpleFS(DictTrackingFS):
             raise FSError(nfs2.NFSERR_NOTEMPTY, "Trying to remove root dir")
         self.remove_entry(entry)
 
-    def rename(self, source: FSENTRY, to_dir: Directory, new_name: bytes):
+    def rename(self, source: FSENTRY, to_dir: SimpleDirectory, new_name: bytes):
         self._verify_owned(source)
         self._verify_owned(to_dir)
         self._verify_writable()
@@ -558,11 +552,12 @@ class SimpleFS(DictTrackingFS):
             raise FSError(nfs2.NFSERR_ACCES, "Recursive parenting attempt")
         if self.lookup(to_dir, new_name):
             raise FSError(nfs2.NFSERR_EXIST)
-        source.parent.unlink_child(source)
-        to_dir.link_child(source)
+        if source.parent_id != to_dir.fileid:
+            self.get_entry_by_id(source.parent_id).unlink_child(source)
+            to_dir.link_child(source)
         source.name = new_name
 
-    def _base_create(self, dest: Directory, name: bytes, attrs: Dict[str, Any], typ: Type) -> FSENTRY:
+    def _base_create(self, dest: SimpleDirectory, name: bytes, attrs: Dict[str, Any], typ: Type) -> FSENTRY:
         self._verify_owned(dest)
         self._verify_writable()
         if self.lookup(dest, name):
@@ -576,15 +571,15 @@ class SimpleFS(DictTrackingFS):
         dest.link_child(new_entry)
         return new_entry
 
-    def mkdir(self, dest: Directory, name: bytes, attrs: Dict[str, Any]) -> Directory:
+    def mkdir(self, dest: SimpleDirectory, name: bytes, attrs: Dict[str, Any]) -> Directory:
         return self._base_create(dest, name, attrs, SimpleDirectory)
 
-    def symlink(self, dest: Directory, name: bytes, attrs: Dict[str, Any], val: bytes) -> Symlink:
+    def symlink(self, dest: SimpleDirectory, name: bytes, attrs: Dict[str, Any], val: bytes) -> Symlink:
         entry: SimpleSymlink = self._base_create(dest, name, attrs, SimpleSymlink)
         entry.contents = val
         return entry
 
-    def create_file(self, dest: Directory, name: bytes, attrs: Dict[str, Any]) -> File:
+    def create_file(self, dest: SimpleDirectory, name: bytes, attrs: Dict[str, Any]) -> File:
         return self._base_create(dest, name, attrs, SimpleFile)
 
 

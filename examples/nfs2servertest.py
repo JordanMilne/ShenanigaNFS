@@ -9,7 +9,6 @@ from pynefs.server import TCPTransportServer
 from pynefs.fs import FileSystemManager, FileType, VerifyingFileHandleEncoder, \
     BaseFS, nfs2_to_date, FSError, FSENTRY, get_nfs2_cookie
 from pynefs.nullfs import NullFS
-from pynefs.zipfs import ZipFS
 
 
 def fs_error_handler(resp_creator: typing.Callable):
@@ -123,7 +122,8 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         if fs_entry.type != FileType.LNK:
             # TODO: Better error for this?
             return ReadlinkRes(Stat.NFSERR_NOENT)
-        return ReadlinkRes(Stat.NFS_OK, fs_entry.contents)
+        fs: BaseFS = fs_entry.fs()
+        return ReadlinkRes(Stat.NFS_OK, fs.readlink(fs_entry))
 
     @fs_error_handler(ReadRes)
     def READ(self, read_args: ReadArgs) -> ReadRes:

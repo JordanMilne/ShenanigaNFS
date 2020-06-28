@@ -323,7 +323,7 @@ class BaseFS(abc.ABC):
             return False
         if name in (b".", b".."):
             return False
-        if name > 250:
+        if len(name) > 250:
             return False
         return True
 
@@ -368,7 +368,11 @@ class BaseFS(abc.ABC):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def write(self, entry: FSENTRY, offset: int, data: bytes):
+    def readlink(self, entry: FSENTRY) -> bytes:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def write(self, entry: FSENTRY, offset: int, data: bytes) -> int:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -458,12 +462,19 @@ class SimpleFS(DictTrackingFS):
             raise FSError(nfs2.NFSERR_IO)
         return entry.contents[offset:offset + count]
 
-    def write(self, entry: FSENTRY, offset: int, data: bytes):
+    def readlink(self, entry: FSENTRY) -> bytes:
+        self._verify_owned(entry)
+        if entry.type != FileType.LNK:
+            raise FSError(nfs2.NFSERR_IO)
+        return entry.contents
+
+    def write(self, entry: FSENTRY, offset: int, data: bytes) -> int:
         self._verify_owned(entry)
         self._verify_writable()
         if entry.type != FileType.REG:
             raise FSError(nfs2.NFSERR_IO)
         entry.contents[offset:offset + len(data)] = data
+        return len(data)
 
     def setattrs(self, entry: FSENTRY, attrs: Dict[str, Any]):
         self._verify_owned(entry)

@@ -3,7 +3,7 @@ import math
 import weakref
 import zipfile
 
-from pynefs.fs import SimpleFS, Directory, SimpleDirectory, SimpleFile
+from pynefs.fs import SimpleFS, SimpleDirectory, SimpleFile, NodeDirectory
 
 
 def propagate_owner_perms(mode):
@@ -13,12 +13,11 @@ def propagate_owner_perms(mode):
 
 class ZipFS(SimpleFS):
     def __init__(self, root_path, zip_path, read_only=True):
-        super().__init__()
+        super().__init__(root_path)
         self.read_only = read_only
         self.num_blocks = 1
         self.free_blocks = 0
         self.avail_blocks = 0
-        self.root_path = root_path
 
         self.track_entry(SimpleDirectory(
             fs=weakref.ref(self),
@@ -32,7 +31,7 @@ class ZipFS(SimpleFS):
                 self._add_path(f, parent=self.root_dir, path=path)
         self.sanity_check()
 
-    def _add_path(self, zip_file: zipfile.ZipFile, parent: Directory, path: zipfile.Path):
+    def _add_path(self, zip_file: zipfile.ZipFile, parent: NodeDirectory, path: zipfile.Path):
         info: zipfile.ZipInfo = zip_file.getinfo(path.at)
 
         common_kwargs = dict(

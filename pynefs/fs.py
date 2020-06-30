@@ -87,17 +87,17 @@ class FSEntryProxy:
 
 class File(BaseFSEntry, abc.ABC):
     contents: bytes
-    type: Literal[FileType.REG]
+    type: Literal[FileType.REG] = FileType.REG
 
 
 class Symlink(BaseFSEntry, abc.ABC):
     contents: bytes
-    type: Literal[FileType.LNK]
+    type: Literal[FileType.LNK] = FileType.LNK
 
 
 class Directory(BaseFSEntry, abc.ABC):
     child_ids: List[int]
-    type: Literal[FileType.DIR]
+    type: Literal[FileType.DIR] = FileType.DIR
     root_dir: bool = False
 
 
@@ -190,9 +190,10 @@ class BaseFS(abc.ABC):
     read_only: bool
     root_dir: Optional[Directory]
 
-    def __init__(self):
+    def __init__(self, root_path: str):
         self.fsid = secrets.randbits(64)
         self.block_size = 4096
+        self.root_path = root_path.encode("utf8")
 
     def _verify_owned(self, entry: FSENTRY):
         if entry.fs() != self:
@@ -201,6 +202,33 @@ class BaseFS(abc.ABC):
     def _verify_writable(self):
         if self.read_only:
             raise FSException(NFSError.ERR_ROFS)
+
+    def _make_upper_dir_link(self, entry: FSENTRY) -> FSEntryProxy:
+        if entry.parent_id is not None:
+            parent: Directory = self.get_entry_by_id(entry.parent_id)
+            return FSEntryProxy(
+                base=parent,
+                replacements={
+                    "name": b"..",
+                },
+            )
+
+        assert entry.root_dir
+
+        # Need to make a fake entry for `..` since it's actually above
+        # the root directory. Ironically none of the info other than the
+        # name seems to be used in the dir listing.
+        return FSEntryProxy(
+            base=entry,
+            replacements={
+                # `1` will never be used by legitimate files and
+                # is not actually tracked
+                "fileid": 1,
+                "name": b"..",
+                "child_ids": [entry.fileid],
+                "root_dir": False,
+            }
+        )
 
     @staticmethod
     def _is_valid_name(name: bytes):
@@ -299,9 +327,10 @@ class BaseFS(abc.ABC):
 
 class NodeTrackingFS(BaseFS, abc.ABC):
     NFS_V2_COMPAT: bool = True
+    root_dir: Optional[NodeDirectory]
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, root_path: str):
+        super().__init__(root_path)
         self.entries: Dict[int, FSENTRY] = {}
         self._fileid_base = 0
         self.root_dir = None
@@ -324,7 +353,7 @@ class NodeTrackingFS(BaseFS, abc.ABC):
         entry.fileid = self._gen_fileid()
         self.entries[entry.fileid] = entry
 
-        if isinstance(entry, Directory):
+        if isinstance(entry, NodeDirectory):
             if entry.root_dir:
                 assert not self.root_dir
                 self.root_dir = entry
@@ -353,33 +382,6 @@ class NodeTrackingFS(BaseFS, abc.ABC):
 
 
 class SimpleFS(NodeTrackingFS):
-    def _make_upper_dir_link(self, entry: FSENTRY) -> FSEntryProxy:
-        if entry.parent_id is not None:
-            parent: Directory = self.get_entry_by_id(entry.parent_id)
-            return FSEntryProxy(
-                base=parent,
-                replacements={
-                    "name": b"..",
-                },
-            )
-
-        assert entry.root_dir
-
-        # Need to make a fake entry for `..` since it's actually above
-        # the root directory. Ironically none of the info other than the
-        # name seems to be used in the dir listing.
-        return FSEntryProxy(
-            base=entry,
-            replacements={
-                # `1` will never be used by legitimate files and
-                # is not actually tracked
-                "fileid": 1,
-                "name": b"..",
-                "child_ids": [entry.fileid],
-                "root_dir": False,
-            }
-        )
-
     @staticmethod
     def _hydrate_sattrs(attrs: Dict[str, Any], entry: Optional[FSENTRY] = None) -> Dict[str, Any]:
         new_attrs = {}

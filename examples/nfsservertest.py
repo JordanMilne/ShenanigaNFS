@@ -11,7 +11,7 @@ async def main():
     fs_manager = FileSystemManager(
         VerifyingFileHandleEncoder(b"foobar"),
         filesystems=[
-            NullFS(b"/tmp/nfs2", read_only=False),
+            NullFS("/tmp/nfs2", read_only=False),
         ]
     )
 

@@ -5,12 +5,11 @@ from pynefs.fs import SimpleFS, SimpleDirectory, SimpleFile
 
 class NullFS(SimpleFS):
     def __init__(self, root_path, read_only=True):
-        super().__init__()
+        super().__init__(root_path)
         self.read_only = read_only
         self.num_blocks = 1
         self.free_blocks = 0
         self.avail_blocks = 0
-        self.root_path = root_path
 
         self.track_entry(SimpleDirectory(
             fs=weakref.ref(self),

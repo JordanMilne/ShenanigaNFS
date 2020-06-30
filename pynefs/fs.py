@@ -52,7 +52,7 @@ class FileType(enum.IntEnum):
 
 
 class BaseFSEntry(abc.ABC):
-    fs: weakref.ReferenceType
+    fs: Optional[weakref.ReferenceType]
     parent_id: Optional[int]
     fileid: Optional[int]
     name: bytes
@@ -103,7 +103,7 @@ class Directory(BaseFSEntry, abc.ABC):
 
 class NodeDirectory(Directory, abc.ABC):
     def link_child(self, child: FSENTRY):
-        assert (child.fs == self.fs)
+        assert (not child.fs or child.fs == self.fs)
         fs: BaseFS = self.fs()
         if child.fileid is None:
             fs.track_entry(child)
@@ -126,9 +126,9 @@ def _utcnow():
 
 @dataclasses.dataclass
 class SimpleFSEntry(BaseFSEntry):
-    fs: weakref.ReferenceType
     name: bytes
     mode: int
+    fs: Optional[weakref.ReferenceType] = dataclasses.field(default=None)
     size: int = dataclasses.field(init=False, default=0)
     fileid: Optional[int] = dataclasses.field(default=None)
     type: FileType = dataclasses.field(init=False)
@@ -348,8 +348,11 @@ class NodeTrackingFS(BaseFS, abc.ABC):
         return self.entries.get(fileid)
 
     def track_entry(self, entry: FSENTRY):
-        self._verify_owned(entry)
+        if entry.fs:
+            self._verify_owned(entry)
         assert entry.fileid is None
+        if not entry.fs:
+            entry.fs = weakref.ref(self)
         entry.fileid = self._gen_fileid()
         self.entries[entry.fileid] = entry
 

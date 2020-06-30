@@ -1,4 +1,3 @@
-import asyncio
 import datetime as dt
 import functools
 import hashlib
@@ -9,10 +8,7 @@ import typing
 
 from pynefs.generated.rfc1813 import *
 import pynefs.generated.rfc1831 as rpc
-from pynefs.server import TCPTransportServer
-from pynefs.fs import FileSystemManager, FileType, VerifyingFileHandleEncoder, \
-    BaseFS, FSException, FSENTRY
-from pynefs.nullfs import NullFS
+from pynefs.fs import FileSystemManager, FileType, BaseFS, FSException, FSENTRY
 
 
 class WccWrapper(WccData):
@@ -494,8 +490,8 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
                 wtpref=1024,
                 wtmult=8,
                 dtpref=2000,
-                maxfilesize=2**32,
-                time_delta=NFSTime3(1, 0),
+                maxfilesize=0xFFffFFff,
+                time_delta=NFSTime3(0, 1),
                 properties=FSF3_CANSETTIME | FSF3_LINK | FSF3_SYMLINK | FSF3_HOMOGENEOUS
             )
         )
@@ -532,27 +528,3 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
                 verf=b"\x00" * NFS3_WRITEVERFSIZE,
             )
         )
-
-
-async def main():
-    fs_manager = FileSystemManager(
-        VerifyingFileHandleEncoder(b"foobar"),
-        filesystems=[
-            NullFS(b"/tmp/nfs2", read_only=False),
-        ]
-    )
-
-    transport_server = TCPTransportServer("127.0.0.1", 2222)
-    transport_server.register_prog(MountV3Service(fs_manager))
-    transport_server.register_prog(NFSV3Service(fs_manager))
-    await transport_server.notify_rpcbind()
-
-    server = await transport_server.start()
-
-    async with server:
-        await server.serve_forever()
-
-try:
-    asyncio.run(main())
-except KeyboardInterrupt:
-    pass

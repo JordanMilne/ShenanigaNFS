@@ -1,4 +1,3 @@
-import asyncio
 import datetime as dt
 import errno
 import functools
@@ -10,10 +9,7 @@ import typing
 from pynefs.generated.rfc1094 import *
 
 from pynefs.bidict import BiDict
-from pynefs.server import TCPTransportServer
-from pynefs.fs import FileSystemManager, FileType, VerifyingFileHandleEncoder, \
-    BaseFS, FSException, FSENTRY
-from pynefs.nullfs import NullFS
+from pynefs.fs import FileSystemManager, FileType, BaseFS, FSException, FSENTRY
 
 
 def sattr_to_dict(attrs: SAttr):
@@ -22,7 +18,9 @@ def sattr_to_dict(attrs: SAttr):
         val = getattr(attrs, attr_name)
         if val != 0xFFffFFff:
             if attr_name == "mode":
-                # Technically throws away the type
+                # Technically throws away the type which is problematic
+                # if you want to support NFS2's overloaded mknod semantics
+                # for CREATE().
                 val = stat.S_IMODE(val)
             attrs_dict[attr_name] = val
     for attr_name in ("atime", "mtime"):
@@ -59,7 +57,7 @@ _NFS2_MODE_MAPPING = BiDict({
 
 
 def entry_to_fattr(entry: FSENTRY) -> FAttr:
-    if entry.type in (Ftype.SOCK, Ftype.FIFO):
+    if entry.type in (FileType.SOCK, FileType.FIFO):
         f_type = Ftype.NFNON
     else:
         f_type = Ftype(entry.type)
@@ -309,27 +307,3 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
                 bavail=fs.avail_blocks,
             )
         )
-
-
-async def main():
-    fs_manager = FileSystemManager(
-        VerifyingFileHandleEncoder(b"foobar"),
-        filesystems=[
-            NullFS(b"/tmp/nfs2", read_only=False),
-        ]
-    )
-
-    transport_server = TCPTransportServer("127.0.0.1", 2222)
-    transport_server.register_prog(MountV1Service(fs_manager))
-    transport_server.register_prog(NFSV2Service(fs_manager))
-    await transport_server.notify_rpcbind()
-
-    server = await transport_server.start()
-
-    async with server:
-        await server.serve_forever()
-
-try:
-    asyncio.run(main())
-except KeyboardInterrupt:
-    pass

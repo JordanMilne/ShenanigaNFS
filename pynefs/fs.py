@@ -169,6 +169,16 @@ class SimpleDirectory(NodeDirectory, SimpleFSEntry):
     child_ids: List[int] = dataclasses.field(default_factory=list)
     root_dir: bool = dataclasses.field(default=False)
 
+    def unlink_child(self, child: FSENTRY):
+        super().unlink_child(child)
+        self.ctime = _utcnow()
+        self.mtime = _utcnow()
+
+    def link_child(self, child: FSENTRY):
+        super().link_child(child)
+        self.ctime = _utcnow()
+        self.mtime = _utcnow()
+
 
 class BaseFS(abc.ABC):
     fsid: int
@@ -440,8 +450,10 @@ class SimpleFS(NodeTrackingFS):
             # Filling gaps with NUL seems to align with POSIX fseek() semantics.
             # https://pubs.opengroup.org/onlinepubs/009695399/functions/fseek.html#tag_03_191_03
             entry.contents[size:offset] = b"\x00" * (offset - size)
-        # TODO: update mtime
         entry.contents[offset:offset + len(data)] = data
+        # mtime changed so ctime must change as well
+        entry.mtime = _utcnow()
+        entry.ctime = _utcnow()
         return len(data)
 
     def setattrs(self, entry: FSENTRY, attrs: Dict[str, Any]):
@@ -450,8 +462,6 @@ class SimpleFS(NodeTrackingFS):
         new_attrs = self._hydrate_sattrs(attrs, entry)
         new_size = new_attrs.pop("size", None)
         if new_size is not None:
-            # TODO: changing file size must update mtime, how does that mesh with
-            # client-specified mtime?
             if entry.type != FileType.REG:
                 raise FSException(NFSError.Stat.ERR_PERM, "Can't set size on non-file")
             entry.contents = entry.contents[:new_size]
@@ -482,8 +492,6 @@ class SimpleFS(NodeTrackingFS):
         self._verify_owned(source)
         self._verify_owned(to_dir)
         self._verify_writable()
-        # TODO: needs to update ctime of file (due to hardlink changes) and
-        # mtime of both src and dst dirs (since they normally own file name)
         if source == self.root_dir:
             raise FSException(NFSError.ERR_PERM, "Trying to move root!")
         if not self._is_valid_name(new_name):
@@ -496,9 +504,16 @@ class SimpleFS(NodeTrackingFS):
         if source.parent_id != to_dir.fileid:
             self.get_entry_by_id(source.parent_id).unlink_child(source)
             to_dir.link_child(source)
+        # ctime and mtime of the dir change even when renameing within same dir
+        # because the dir owns the filenames in traditional *NIX filesystems
+        to_dir.mtime = _utcnow()
+        to_dir.ctime = _utcnow()
+        # The entry that was moved gets its ctime updated as well due to
+        # this normally being implemented as a hardlink add + remove (link num changes.)
+        source.ctime = _utcnow()
         source.name = new_name
 
-    def _base_create(self, dest: SimpleDirectory, name: bytes, attrs: Dict[str, Any], typ: Type) -> FSENTRY:
+    def _base_create(self, dest: NodeDirectory, name: bytes, attrs: Dict[str, Any], typ: Type) -> FSENTRY:
         self._verify_owned(dest)
         self._verify_writable()
         if self.lookup(dest, name):
@@ -512,15 +527,15 @@ class SimpleFS(NodeTrackingFS):
         dest.link_child(new_entry)
         return new_entry
 
-    def mkdir(self, dest: SimpleDirectory, name: bytes, attrs: Dict[str, Any]) -> Directory:
+    def mkdir(self, dest: NodeDirectory, name: bytes, attrs: Dict[str, Any]) -> Directory:
         return self._base_create(dest, name, attrs, SimpleDirectory)
 
-    def symlink(self, dest: SimpleDirectory, name: bytes, attrs: Dict[str, Any], val: bytes) -> Symlink:
+    def symlink(self, dest: NodeDirectory, name: bytes, attrs: Dict[str, Any], val: bytes) -> Symlink:
         entry: SimpleSymlink = self._base_create(dest, name, attrs, SimpleSymlink)
         entry.contents = val
         return entry
 
-    def create_file(self, dest: SimpleDirectory, name: bytes, attrs: Dict[str, Any]) -> File:
+    def create_file(self, dest: NodeDirectory, name: bytes, attrs: Dict[str, Any]) -> File:
         return self._base_create(dest, name, attrs, SimpleFile)
 
 

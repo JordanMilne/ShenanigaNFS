@@ -1,6 +1,8 @@
 import asyncio
+import datetime as dt
 import functools
 import hashlib
+import math
 import stat
 import struct
 import typing
@@ -9,7 +11,7 @@ from pynefs.generated.rfc1813 import *
 import pynefs.generated.rfc1831 as rpc
 from pynefs.server import TCPTransportServer
 from pynefs.fs import FileSystemManager, FileType, VerifyingFileHandleEncoder, \
-    BaseFS, nfs3_to_date, FSError, FSENTRY
+    BaseFS, FSException, FSENTRY
 from pynefs.nullfs import NullFS
 
 
@@ -21,12 +23,12 @@ class WccWrapper(WccData):
 
     def set_entry(self, entry: FSENTRY):
         self._entry = entry
-        self.before = entry.to_nfs3_wccattr() if entry else None
+        self.before = entry_to_wccattr(entry) if entry else None
 
     @property
     def after(self) -> typing.Optional[FAttr3]:
         if self._entry:
-            return self._entry.to_nfs3_fattr()
+            return entry_to_fattr(self._entry)
         return None
 
     @after.setter
@@ -41,7 +43,8 @@ def fs_error_handler(resp_creator: typing.Callable, num_wccs: int = 1):
             wccs = [WccWrapper() for _ in range(num_wccs)]
             try:
                 return f(*args, *wccs)
-            except FSError as e:
+            except FSException as e:
+                print(e.error_code, e.message)
                 return resp_creator(e.error_code, *wccs)
         return _inner
     return _wrap
@@ -101,6 +104,42 @@ def sattr_to_dict(attrs: SAttr3):
     return attrs_dict
 
 
+def entry_to_fattr(entry: FSENTRY) -> FAttr3:
+    return FAttr3(
+        type=entry.type,
+        mode=entry.mode,
+        nlink=entry.nlink,
+        uid=entry.uid,
+        gid=entry.gid,
+        size=entry.size,
+        used=entry.blocks,
+        rdev=SpecData3(*entry.rdev),
+        fsid=entry.fs().fsid,
+        fileid=entry.fileid,
+        atime=date_to_nfs3(entry.atime),
+        mtime=date_to_nfs3(entry.mtime),
+        ctime=date_to_nfs3(entry.ctime),
+    )
+
+
+def entry_to_wccattr(entry: FSENTRY) -> WccAttr:
+    return WccAttr(
+        size=entry.size,
+        mtime=date_to_nfs3(entry.mtime),
+        ctime=date_to_nfs3(entry.ctime),
+    )
+
+
+def date_to_nfs3(date: dt.datetime) -> NFSTime3:
+    ts = date.timestamp()
+    frac, whole = math.modf(ts)
+    return NFSTime3(math.floor(whole), math.floor(frac * 1e9))
+
+
+def nfs3_to_date(date: NFSTime3) -> dt.datetime:
+    return dt.datetime.utcfromtimestamp(date.seconds + (date.nseconds / 1e9))
+
+
 class NFSV3Service(NFS_PROGRAM_3_SERVER):
     def __init__(self, fs_manager):
         super().__init__()
@@ -110,11 +149,11 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
             -> typing.Tuple[FSENTRY, typing.Optional[FSENTRY]]:
         dir_entry = self.fs_manager.get_entry_by_fh(dir_fh)
         if not dir_entry:
-            raise FSError(NFSStat3.NFS3ERR_STALE)
+            raise FSException(NFSStat3.NFS3ERR_STALE)
         if dir_wcc is not None:
             dir_wcc.set_entry(dir_entry)
         if dir_entry.type != FileType.DIR:
-            raise FSError(NFSStat3.NFS3ERR_NOTDIR)
+            raise FSException(NFSStat3.NFS3ERR_NOTDIR)
         fs: BaseFS = dir_entry.fs()
         return dir_entry, fs.lookup(dir_entry, name)
 
@@ -127,18 +166,18 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
             return GETATTR3Res(NFSStat3.NFS3ERR_STALE)
         return GETATTR3Res(
             NFSStat3.NFS3_OK,
-            resok=GETATTR3ResOK(fs_entry.to_nfs3_fattr()),
+            resok=GETATTR3ResOK(entry_to_fattr(fs_entry)),
         )
 
     @fs_error_handler(lambda code, obj_wcc: SETATTR3Res(code, resfail=SETATTR3ResFail(obj_wcc)))
     def SETATTR(self, arg_0: SETATTR3Args, obj_wcc: WccWrapper) -> SETATTR3Res:
         entry = self.fs_manager.get_entry_by_fh(arg_0.obj_handle)
         if not entry:
-            raise FSError(NFSStat3.NFS3ERR_STALE)
+            raise FSException(NFSStat3.NFS3ERR_STALE)
         obj_wcc.set_entry(entry)
         if arg_0.guard.check:
             if entry.ctime != nfs3_to_date(arg_0.guard.obj_ctime):
-                raise FSError(NFSStat3.NFS3ERR_NOT_SYNC, "guard ctime mismatch")
+                raise FSException(NFSStat3.NFS3ERR_NOT_SYNC, "guard ctime mismatch")
         fs: BaseFS = entry.fs()
         fs.setattrs(entry, sattr_to_dict(arg_0.new_attributes))
         return SETATTR3Res(
@@ -150,14 +189,14 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
     def LOOKUP(self, arg_0: LOOKUP3Args, dir_wcc: WccWrapper) -> LOOKUP3Res:
         directory, child = self._get_named_child(arg_0.what.dir_handle, arg_0.what.name, dir_wcc)
         if not child:
-            raise FSError(NFSStat3.NFS3ERR_NOENT)
+            raise FSException(NFSStat3.NFS3ERR_NOENT)
 
         return LOOKUP3Res(
             NFSStat3.NFS3_OK,
             resok=LOOKUP3ResOK(
                 obj_handle=self.fs_manager.entry_to_fh(child),
-                obj_attributes=child.to_nfs3_fattr(),
-                dir_attributes=directory.to_nfs3_fattr(),
+                obj_attributes=entry_to_fattr(child),
+                dir_attributes=entry_to_fattr(directory),
             )
         )
 
@@ -165,7 +204,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
     def ACCESS(self, arg_0: ACCESS3Args, obj_wcc: WccWrapper) -> ACCESS3Res:
         entry = self.fs_manager.get_entry_by_fh(arg_0.obj_handle)
         if not entry:
-            raise FSError(NFSStat3.NFS3ERR_STALE)
+            raise FSException(NFSStat3.NFS3ERR_STALE)
         obj_wcc.set_entry(entry)
         return ACCESS3Res(
             NFSStat3.NFS3_OK,
@@ -180,7 +219,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
     def READLINK(self, arg_0: READLINK3Args, obj_wcc: WccWrapper) -> READLINK3Res:
         fs_entry = self.fs_manager.get_entry_by_fh(arg_0.file_handle)
         if not fs_entry:
-            raise FSError(NFSStat3.NFS3ERR_STALE)
+            raise FSException(NFSStat3.NFS3ERR_STALE)
         obj_wcc.set_entry(fs_entry)
         fs: BaseFS = fs_entry.fs()
         data = fs.readlink(fs_entry)
@@ -196,7 +235,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
     def READ(self, arg_0: READ3Args, obj_wcc: WccWrapper) -> READ3Res:
         fs_entry = self.fs_manager.get_entry_by_fh(arg_0.file_handle)
         if not fs_entry:
-            raise FSError(NFSStat3.NFS3ERR_STALE)
+            raise FSException(NFSStat3.NFS3ERR_STALE)
         obj_wcc.set_entry(fs_entry)
         fs: BaseFS = fs_entry.fs()
         data = fs.read(fs_entry, arg_0.offset, min(arg_0.count, 4096))
@@ -214,17 +253,21 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
     def WRITE(self, arg_0: WRITE3Args, obj_wcc: WccWrapper) -> WRITE3Res:
         entry = self.fs_manager.get_entry_by_fh(arg_0.file_handle)
         if not entry:
-            raise FSError(NFSStat3.NFS3ERR_STALE)
+            raise FSException(NFSStat3.NFS3ERR_STALE)
         obj_wcc.set_entry(entry)
         if entry.type != FileType.REG:
-            raise FSError(NFSStat3.NFS3ERR_INVAL)
+            raise FSException(NFSStat3.NFS3ERR_INVAL)
+        if arg_0.count > len(arg_0.data):
+            # having the separate `count` var doesn't make much sense to me
+            # but I guess we have to respect it.
+            raise FSException(NFSStat3.NFS3ERR_IO, "Tried to write more data than provided!")
         fs: BaseFS = entry.fs()
-        fs.write(entry, arg_0.offset, arg_0.data)
+        written = fs.write(entry, arg_0.offset, arg_0.data[:arg_0.count])
         return WRITE3Res(
             NFSStat3.NFS3_OK,
             resok=WRITE3ResOK(
                 file_wcc=obj_wcc,
-                count=arg_0.count,
+                count=written,
                 committed=StableHow.FILE_SYNC,
                 verf=b"\x00" * NFS3_WRITEVERFSIZE,
             )
@@ -236,14 +279,14 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         # We have no intention of supporting exclusive mode for the moment
         # due to the additional bookkeeping required
         if arg_0.how.mode == Createmode3.EXCLUSIVE:
-            raise FSError(NFSStat3.NFS3ERR_NOTSUPP)
+            raise FSException(NFSStat3.NFS3ERR_NOTSUPP)
         fs: BaseFS = target_dir.fs()
         # Only allowed to clobber files / symlinks, and only in UNCHECKED mode
         if target:
             if arg_0.how.mode != Createmode3.UNCHECKED:
-                raise FSError(NFSStat3.NFS3ERR_EXIST)
+                raise FSException(NFSStat3.NFS3ERR_EXIST)
             if target.type not in (FileType.REG, FileType.LNK):
-                raise FSError(NFSStat3.NFS3ERR_INVAL)
+                raise FSException(NFSStat3.NFS3ERR_INVAL)
             fs.rm(target)
 
         entry = fs.create_file(target_dir, arg_0.where.name, sattr_to_dict(arg_0.how.obj_attributes))
@@ -251,7 +294,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
             NFSStat3.NFS3_OK,
             resok=CREATE3ResOK(
                 obj_handle=self.fs_manager.entry_to_fh(entry),
-                obj_attributes=entry.to_nfs3_fattr(),
+                obj_attributes=entry_to_fattr(entry),
                 dir_wcc=dir_wcc,
             )
         )
@@ -260,14 +303,14 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
     def MKDIR(self, arg_0: MKDIR3Args, dir_wcc: WccWrapper) -> MKDIR3Res:
         target_dir, target = self._get_named_child(arg_0.where.dir_handle, arg_0.where.name, dir_wcc)
         if target:
-            raise FSError(NFSStat3.NFS3ERR_EXIST)
+            raise FSException(NFSStat3.NFS3ERR_EXIST)
         fs: BaseFS = target_dir.fs()
         entry = fs.mkdir(target_dir, arg_0.where.name, sattr_to_dict(arg_0.attributes))
         return MKDIR3Res(
             NFSStat3.NFS3_OK,
             resok=MKDIR3ResOK(
                 obj_handle=self.fs_manager.entry_to_fh(entry),
-                obj_attributes=entry.to_nfs3_fattr(),
+                obj_attributes=entry_to_fattr(entry),
                 dir_wcc=dir_wcc,
             )
         )
@@ -276,7 +319,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
     def SYMLINK(self, arg_0: SYMLINK3Args, dir_wcc: WccWrapper) -> SYMLINK3Res:
         target_dir, target = self._get_named_child(arg_0.where.dir_handle, arg_0.where.name, dir_wcc)
         if target:
-            raise FSError(NFSStat3.NFS3ERR_EXIST)
+            raise FSException(NFSStat3.NFS3ERR_EXIST)
         fs: BaseFS = target_dir.fs()
         attrs = arg_0.symlink.symlink_attributes
         data = arg_0.symlink.symlink_data
@@ -285,7 +328,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
             NFSStat3.NFS3_OK,
             resok=SYMLINK3ResOK(
                 obj_handle=self.fs_manager.entry_to_fh(entry),
-                obj_attributes=entry.to_nfs3_fattr(),
+                obj_attributes=entry_to_fattr(entry),
                 dir_wcc=dir_wcc,
             )
         )
@@ -297,9 +340,9 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
     def REMOVE(self, arg_0: REMOVE3Args, dir_wcc: WccWrapper) -> REMOVE3Res:
         dir_entry, to_delete = self._get_named_child(arg_0.object.dir_handle, arg_0.object.name, dir_wcc)
         if not to_delete:
-            raise FSError(NFSStat3.NFS3ERR_NOENT)
+            raise FSException(NFSStat3.NFS3ERR_NOENT)
         if to_delete.type == FileType.DIR:
-            raise FSError(NFSStat3.NFS3ERR_ISDIR)
+            raise FSException(NFSStat3.NFS3ERR_ISDIR)
         fs: BaseFS = to_delete.fs()
         fs.rm(to_delete)
         return REMOVE3Res(
@@ -311,9 +354,9 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
     def RMDIR(self, arg_0: RMDIR3Args, dir_wcc: WccWrapper) -> RMDIR3Res:
         dir_entry, to_delete = self._get_named_child(arg_0.object.dir_handle, arg_0.object.name, dir_wcc)
         if not to_delete:
-            raise FSError(NFSStat3.NFS3ERR_NOENT)
+            raise FSException(NFSStat3.NFS3ERR_NOENT)
         if to_delete.type != FileType.DIR:
-            raise FSError(NFSStat3.NFS3ERR_NOTDIR)
+            raise FSException(NFSStat3.NFS3ERR_NOTDIR)
         fs: BaseFS = to_delete.fs()
         fs.rmdir(to_delete)
         return RMDIR3Res(
@@ -325,10 +368,10 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
     def RENAME(self, arg_0: RENAME3Args, from_wcc: WccWrapper, to_wcc: WccWrapper) -> RENAME3Res:
         source_dir, source = self._get_named_child(arg_0.from_.dir_handle, arg_0.from_.name, from_wcc)
         if not source:
-            raise FSError(NFSStat3.NFS3ERR_NOENT)
+            raise FSException(NFSStat3.NFS3ERR_NOENT)
         dest_dir, dest_entry = self._get_named_child(arg_0.to.dir_handle, arg_0.to.name, to_wcc)
         if dest_entry:
-            raise FSError(NFSStat3.NFS3ERR_EXIST)
+            raise FSException(NFSStat3.NFS3ERR_EXIST)
         fs: BaseFS = dest_dir.fs()
         fs.rename(source, dest_dir, arg_0.to.name)
         return RENAME3Res(
@@ -348,7 +391,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         # reasonable clients
         count = 50
         if not directory:
-            raise FSError(NFSStat3.NFS3ERR_STALE)
+            raise FSException(NFSStat3.NFS3ERR_STALE)
 
         fs: BaseFS = directory.fs()
         children = fs.readdir(directory)
@@ -357,14 +400,14 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
             struct.pack("!QQ", x.fileid, int(x.mtime.timestamp())) for x in children))
         expected_verf = child_digest.digest()[:NFS3_COOKIEVERFSIZE]
         if expected_verf != cookie_verf and cookie:
-            raise FSError(NFSStat3.NFS3ERR_BAD_COOKIE)
+            raise FSException(NFSStat3.NFS3ERR_BAD_COOKIE)
 
         child_ids = [e.fileid for e in children]
         cookie_idx = 0
         if cookie:
             cookie_idx = child_ids.index(cookie)
             if cookie_idx == -1:
-                raise FSError(NFSStat3.NFS3ERR_BAD_COOKIE)
+                raise FSException(NFSStat3.NFS3ERR_BAD_COOKIE)
             cookie_idx += 1
 
         children_slice = children[cookie_idx:cookie_idx + count]
@@ -403,7 +446,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
                         fileid=child.fileid,
                         name=child.name,
                         cookie=child.fileid,
-                        name_attributes=child.to_nfs3_fattr(),
+                        name_attributes=entry_to_fattr(child),
                         name_handle=self.fs_manager.entry_to_fh(child)
                     ) for child in children],
                     eof=eof,
@@ -415,10 +458,10 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
     def FSSTAT(self, arg_0: FSSTAT3Args, obj_wcc: WccWrapper) -> FSSTAT3Res:
         entry = self.fs_manager.get_entry_by_fh(arg_0.fsroot_handle)
         if not entry:
-            raise FSError(NFSStat3.NFS3ERR_STALE)
+            raise FSException(NFSStat3.NFS3ERR_STALE)
         obj_wcc.set_entry(entry)
         if entry.parent_id is not None:
-            raise FSError(NFSStat3.NFS3ERR_BADHANDLE)
+            raise FSException(NFSStat3.NFS3ERR_BADHANDLE)
         return FSSTAT3Res(
             NFSStat3.NFS3_OK,
             resok=FSSTAT3ResOK(
@@ -436,10 +479,10 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
     def FSINFO(self, arg_0: FSINFO3Args, obj_wcc: WccWrapper) -> FSINFO3Res:
         entry = self.fs_manager.get_entry_by_fh(arg_0.fsroot_handle)
         if not entry:
-            raise FSError(NFSStat3.NFS3ERR_STALE)
+            raise FSException(NFSStat3.NFS3ERR_STALE)
         obj_wcc.set_entry(entry)
         if entry.parent_id is not None:
-            raise FSError(NFSStat3.NFS3ERR_BADHANDLE)
+            raise FSException(NFSStat3.NFS3ERR_BADHANDLE)
         return FSINFO3Res(
             NFSStat3.NFS3_OK,
             resok=FSINFO3ResOK(
@@ -461,7 +504,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
     def PATHCONF(self, arg_0: PATHCONF3Args, obj_wcc: WccWrapper) -> PATHCONF3Res:
         entry = self.fs_manager.get_entry_by_fh(arg_0.obj_handle)
         if not entry:
-            raise FSError(NFSStat3.NFS3ERR_STALE)
+            raise FSException(NFSStat3.NFS3ERR_STALE)
 
         return PATHCONF3Res(
             NFSStat3.NFS3_OK,
@@ -480,7 +523,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
     def COMMIT(self, arg_0: COMMIT3Args, obj_wcc: WccWrapper) -> COMMIT3Res:
         entry = self.fs_manager.get_entry_by_fh(arg_0.file_handle)
         if not entry:
-            raise FSError(NFSStat3.NFS3ERR_STALE)
+            raise FSException(NFSStat3.NFS3ERR_STALE)
         obj_wcc.set_entry(entry)
         return COMMIT3Res(
             NFSStat3.NFS3_OK,

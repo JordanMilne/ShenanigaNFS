@@ -3,23 +3,40 @@ import dataclasses
 import datetime as dt
 import enum
 import hmac
-import math
 import secrets
-import stat
 import struct
 import weakref
 from typing import *
 
-from pynefs.bidict import BiDict
-from pynefs.generated import rfc1094 as nfs2
-from pynefs.generated import rfc1813 as nfs3
-
 FSENTRY = Union["File", "Directory", "SymLink", "BaseFSEntry", "FSEntryProxy"]
 
 
-class FSError(Exception):
+# Mostly a copy of NFS2's error codes that are supported in 3 as well.
+class NFSError(enum.IntEnum):
+    OK = 0
+    ERR_PERM = 1
+    ERR_NOENT = 2
+    ERR_IO = 5
+    ERR_NXIO = 6
+    ERR_ACCES = 13
+    ERR_EXIST = 17
+    ERR_NODEV = 19
+    ERR_NOTDIR = 20
+    ERR_ISDIR = 21
+    ERR_FBIG = 27
+    ERR_NOSPC = 28
+    ERR_ROFS = 30
+    ERR_NAMETOOLONG = 63
+    ERR_NOTEMPTY = 66
+    ERR_DQUOT = 69
+    ERR_STALE = 70
+    ERR_WFLUSH = 99
+
+
+class FSException(Exception):
     def __init__(self, nfs_error_code: int, message: str = ""):
         self.error_code = nfs_error_code
+        self.message = message
         super().__init__(message)
 
 
@@ -29,63 +46,9 @@ class FileType(enum.IntEnum):
     DIR = 2
     BLK = 3
     CHR = 4
-    # Specifically a symbolic link, no way to differentiate hardlinks?
     LNK = 5
     SOCK = 6
     FIFO = 7
-
-    def to_nfs2(self, mode) -> Tuple[int, nfs2.Ftype]:
-        if self in (self.SOCK, self.FIFO):
-            f_type = nfs2.Ftype.NFNON
-        else:
-            f_type = nfs2.Ftype(self)
-        return mode | NFS2_MODE_MAPPING[int(self)], f_type
-
-    @classmethod
-    def from_nfs2(cls, mode: int, ftype: nfs2.Ftype) -> Tuple[int, "FileType"]:
-        if ftype == nfs2.NFNON:
-            new_ftype = cls(NFS2_MODE_MAPPING.backward[stat.S_IFMT(mode)])
-        else:
-            new_ftype = cls(ftype)
-        return stat.S_IMODE(mode), new_ftype
-
-
-# https://tools.ietf.org/html/rfc1094#section-2.3.5
-# NFSv2 specific protocol weirdness
-NFS2_MODE_MAPPING = BiDict({
-    FileType.CHR: stat.S_IFCHR,
-    FileType.DIR: stat.S_IFDIR,
-    FileType.BLK: stat.S_IFBLK,
-    FileType.REG: stat.S_IFREG,
-    FileType.LNK: stat.S_IFLNK,
-    FileType.SOCK: stat.S_IFSOCK,
-    FileType.FIFO: stat.S_IFIFO,
-})
-
-
-def date_to_nfs2(date: dt.datetime) -> nfs2.Timeval:
-    ts = date.timestamp()
-    frac, whole = math.modf(ts)
-    # TODO: These seem wrong in `ls`. Not sure if it's TZ or what.
-    return nfs2.Timeval(math.floor(whole), math.floor(frac * 1e6))
-
-
-def nfs2_to_date(date: nfs2.Timeval) -> dt.datetime:
-    return dt.datetime.utcfromtimestamp(date.seconds + (date.useconds / 1e6))
-
-
-def date_to_nfs3(date: dt.datetime) -> nfs3.NFSTime3:
-    ts = date.timestamp()
-    frac, whole = math.modf(ts)
-    return nfs3.NFSTime3(math.floor(whole), math.floor(frac * 1e9))
-
-
-def nfs3_to_date(date: nfs3.NFSTime3) -> dt.datetime:
-    return dt.datetime.utcfromtimestamp(date.seconds + (date.nseconds / 1e9))
-
-
-def get_nfs2_cookie(entry: FSENTRY):
-    return struct.pack("!L", entry.fileid)
 
 
 class BaseFSEntry(abc.ABC):
@@ -106,51 +69,8 @@ class BaseFSEntry(abc.ABC):
     ctime: dt.datetime
 
     @property
-    def fsid(self):
+    def fsid(self) -> int:
         return self.fs().fsid
-
-    def to_nfs2_fattr(self) -> nfs2.FAttr:
-        mode, f_type = self.type.to_nfs2(self.mode)
-        return nfs2.FAttr(
-            type=f_type,
-            mode=mode,
-            nlink=self.nlink,
-            uid=self.uid,
-            gid=self.gid,
-            size=self.size,
-            blocksize=self.fs().block_size,
-            rdev=self.rdev[0],
-            blocks=self.blocks,
-            fsid=self.fs().fsid & 0xFFffFFff,
-            fileid=self.fileid,
-            atime=date_to_nfs2(self.atime),
-            mtime=date_to_nfs2(self.mtime),
-            ctime=date_to_nfs2(self.ctime),
-        )
-
-    def to_nfs3_fattr(self) -> nfs3.FAttr3:
-        return nfs3.FAttr3(
-            type=self.type,
-            mode=self.mode,
-            nlink=self.nlink,
-            uid=self.uid,
-            gid=self.gid,
-            size=self.size,
-            used=self.blocks,
-            rdev=nfs3.SpecData3(*self.rdev),
-            fsid=self.fs().fsid,
-            fileid=self.fileid,
-            atime=date_to_nfs3(self.atime),
-            mtime=date_to_nfs3(self.mtime),
-            ctime=date_to_nfs3(self.ctime),
-        )
-
-    def to_nfs3_wccattr(self) -> nfs3.WccAttr:
-        return nfs3.WccAttr(
-            size=self.size,
-            mtime=date_to_nfs3(self.mtime),
-            ctime=date_to_nfs3(self.ctime),
-        )
 
 
 class FSEntryProxy:
@@ -181,7 +101,7 @@ class Directory(BaseFSEntry, abc.ABC):
     root_dir: bool = False
 
 
-class DictableDirectory(Directory, abc.ABC):
+class NodeDirectory(Directory, abc.ABC):
     def link_child(self, child: FSENTRY):
         assert (child.fs == self.fs)
         fs: BaseFS = self.fs()
@@ -239,7 +159,7 @@ class SimpleSymlink(Symlink, SimpleFSEntry):
 
 
 @dataclasses.dataclass
-class SimpleDirectory(DictableDirectory, SimpleFSEntry):
+class SimpleDirectory(NodeDirectory, SimpleFSEntry):
     type: FileType = dataclasses.field(default=FileType.DIR, init=False)
     child_ids: List[int] = dataclasses.field(default_factory=list)
     root_dir: bool = dataclasses.field(default=False)
@@ -261,11 +181,11 @@ class BaseFS(abc.ABC):
 
     def _verify_owned(self, entry: FSENTRY):
         if entry.fs() != self:
-            raise FSError(nfs2.NFSERR_STALE, "Not owned by this FS")
+            raise FSException(NFSError.ERR_STALE, "Not owned by this FS")
 
     def _verify_writable(self):
         if self.read_only:
-            raise FSError(nfs2.NFSERR_ROFS)
+            raise FSException(NFSError.ERR_ROFS)
 
     @staticmethod
     def _is_valid_name(name: bytes):
@@ -362,7 +282,7 @@ class BaseFS(abc.ABC):
         raise NotImplementedError()
 
 
-class DictTrackingFS(BaseFS, abc.ABC):
+class NodeTrackingFS(BaseFS, abc.ABC):
     NFS_V2_COMPAT: bool = True
 
     def __init__(self):
@@ -397,7 +317,7 @@ class DictTrackingFS(BaseFS, abc.ABC):
     def remove_entry(self, entry: FSENTRY):
         self._verify_owned(entry)
         if entry.parent_id is not None:
-            parent: DictableDirectory = self.get_entry_by_id(entry.parent_id)
+            parent: NodeDirectory = self.get_entry_by_id(entry.parent_id)
             parent.unlink_child(entry)
         for descendant in self.iter_descendants(entry, inclusive=True):
             del self.entries[descendant.fileid]
@@ -417,7 +337,7 @@ class DictTrackingFS(BaseFS, abc.ABC):
                 assert entry.fileid in parent.child_ids
 
 
-class SimpleFS(DictTrackingFS):
+class SimpleFS(NodeTrackingFS):
     def _make_upper_dir_link(self, entry: FSENTRY) -> FSEntryProxy:
         if entry.parent_id is not None:
             parent: Directory = self.get_entry_by_id(entry.parent_id)
@@ -451,25 +371,29 @@ class SimpleFS(DictTrackingFS):
         for attr_name, attr_val in attrs.items():
             if attr_name == "size":
                 if not entry:
-                    # A no-op, this is fine
-                    if attrs["size"] == 0:
-                        continue
-                    else:
-                        raise FSError(nfs2.NFSERR_NXIO, "Can't set a size on a new file!")
+                    if attrs["size"] != 0:
+                        # TODO: is this actually the case?
+                        raise FSException(NFSError.ERR_NXIO, "Can't set a size on a new file!")
                 if entry.type not in (FileType.REG, FileType.LNK):
-                    raise FSError(nfs2.NFSERR_IO, "Must be a file to change size!")
-                if attr_val > len(entry.contents):
-                    raise FSError(nfs2.NFSERR_NXIO, "Can't expand a file via setattrs()")
+                    raise FSException(NFSError.ERR_IO, "Must be a file to change size!")
+                # TODO: check new size within quota
             # This is a hint that the client wants to automatically fill in the server time
             elif "time" in attr_name and attr_val is None:
                 attr_val = dt.datetime.utcnow()
             new_attrs[attr_name] = attr_val
+        # Presumably this case is to allow the FS to choose the time rather than the NFS server,
+        # but we're all mashed together.
+        if "ctime" not in new_attrs:
+            new_attrs["ctime"] = dt.datetime.utcnow()
+        # Changing filesize means we have to update mtime, even if one wasn't specified
+        if "size" in new_attrs and entry and entry.size != new_attrs["size"]:
+            new_attrs["mtime"] = dt.datetime.utcnow()
         return new_attrs
 
     def readdir(self, directory: FSENTRY) -> Sequence[FSENTRY]:
         self._verify_owned(directory)
         if directory.type != FileType.DIR:
-            raise FSError(nfs2.NFSERR_NOTDIR)
+            raise FSException(NFSError.ERR_NOTDIR)
         files = [
             FSEntryProxy(directory, {"name": b"."}),
             self._make_upper_dir_link(directory),
@@ -481,7 +405,7 @@ class SimpleFS(DictTrackingFS):
     def lookup(self, directory: FSENTRY, name: bytes) -> Optional[FSENTRY]:
         self._verify_owned(directory)
         if directory.type != FileType.DIR:
-            raise FSError(nfs2.NFSERR_NOTDIR)
+            raise FSException(NFSError.ERR_NOTDIR)
         for child in self.readdir(directory):
             if child.name == name:
                 return child
@@ -490,22 +414,28 @@ class SimpleFS(DictTrackingFS):
     def read(self, entry: FSENTRY, offset: int, count: int) -> bytes:
         self._verify_owned(entry)
         if entry.type != FileType.REG:
-            raise FSError(nfs2.NFSERR_IO)
+            raise FSException(NFSError.ERR_IO)
         return entry.contents[offset:offset + count]
 
     def readlink(self, entry: FSENTRY) -> bytes:
         self._verify_owned(entry)
         if entry.type != FileType.LNK:
-            raise FSError(nfs2.NFSERR_IO)
+            raise FSException(NFSError.ERR_IO)
         return entry.contents
 
     def write(self, entry: FSENTRY, offset: int, data: bytes) -> int:
         self._verify_owned(entry)
         self._verify_writable()
         if entry.type != FileType.REG:
-            raise FSError(nfs2.NFSERR_IO)
-        if offset > entry.size:
-            raise FSError(nfs2.NFSERR_IO, "Tried to write past end of file!")
+            raise FSException(NFSError.ERR_IO, "Not a regular file!")
+        # Write chunks can be out of order, even when using TCP!
+        # I've observed misordered writes in multi-fragment PSHs.
+        size = entry.size
+        if offset > size:
+            # Filling gaps with NUL seems to align with POSIX fseek() semantics.
+            # https://pubs.opengroup.org/onlinepubs/009695399/functions/fseek.html#tag_03_191_03
+            entry.contents[size:offset] = b"\x00" * (offset - size)
+        # TODO: update mtime
         entry.contents[offset:offset + len(data)] = data
         return len(data)
 
@@ -515,6 +445,10 @@ class SimpleFS(DictTrackingFS):
         new_attrs = self._hydrate_sattrs(attrs, entry)
         new_size = new_attrs.pop("size", None)
         if new_size is not None:
+            # TODO: changing file size must update mtime, how does that mesh with
+            # client-specified mtime?
+            if entry.type != FileType.REG:
+                raise FSException(NFSError.Stat.ERR_PERM, "Can't set size on non-file")
             entry.contents = entry.contents[:new_size]
 
         for attr_name, attr_val in new_attrs.items():
@@ -525,33 +459,35 @@ class SimpleFS(DictTrackingFS):
         self._verify_owned(entry)
         self._verify_writable()
         if entry.type == FileType.DIR:
-            raise FSError(nfs2.NFSERR_ISDIR)
+            raise FSException(NFSError.ERR_ISDIR)
         self.remove_entry(entry)
 
     def rmdir(self, entry: Directory):
         self._verify_owned(entry)
         self._verify_writable()
         if entry.type != FileType.DIR:
-            raise FSError(nfs2.NFSERR_NOTDIR, "Not a directory")
+            raise FSException(NFSError.ERR_NOTDIR, "Not a directory")
         if entry.child_ids:
-            raise FSError(nfs2.NFSERR_NOTEMPTY, "Not empty")
+            raise FSException(NFSError.ERR_NOTEMPTY, "Not empty")
         if entry == self.root_dir:
-            raise FSError(nfs2.NFSERR_NOTEMPTY, "Trying to remove root dir")
+            raise FSException(NFSError.ERR_NOTEMPTY, "Trying to remove root dir")
         self.remove_entry(entry)
 
     def rename(self, source: FSENTRY, to_dir: SimpleDirectory, new_name: bytes):
         self._verify_owned(source)
         self._verify_owned(to_dir)
         self._verify_writable()
+        # TODO: needs to update ctime of file (due to hardlink changes) and
+        # mtime of both src and dst dirs (since they normally own file name)
         if source == self.root_dir:
-            raise FSError(nfs2.NFSERR_PERM, "Trying to move root!")
+            raise FSException(NFSError.ERR_PERM, "Trying to move root!")
         if not self._is_valid_name(new_name):
-            raise FSError(nfs2.NFSERR_PERM)
+            raise FSException(NFSError.ERR_PERM)
         # trying to move a directory inside itself????
         if source in self.iter_ancestors(to_dir):
-            raise FSError(nfs2.NFSERR_ACCES, "Recursive parenting attempt")
+            raise FSException(NFSError.ERR_ACCES, "Recursive parenting attempt")
         if self.lookup(to_dir, new_name):
-            raise FSError(nfs2.NFSERR_EXIST)
+            raise FSException(NFSError.ERR_EXIST)
         if source.parent_id != to_dir.fileid:
             self.get_entry_by_id(source.parent_id).unlink_child(source)
             to_dir.link_child(source)
@@ -561,7 +497,7 @@ class SimpleFS(DictTrackingFS):
         self._verify_owned(dest)
         self._verify_writable()
         if self.lookup(dest, name):
-            raise FSError(nfs2.NFSERR_EXIST)
+            raise FSException(NFSError.ERR_EXIST)
         new_attrs = self._hydrate_sattrs(attrs, entry=None)
         new_entry = typ(
             fs=weakref.ref(self),
@@ -622,10 +558,10 @@ class VerifyingFileHandleEncoder(FileHandleEncoder):
         mac_len = self._mac_len(nfs_v2)
         expected_len = 16 + mac_len
         if len(fh) != expected_len:
-            raise FSError(nfs2.NFSERR_IO, f"FH {fh!r} is not {expected_len} bytes")
+            raise FSException(NFSError.ERR_IO, f"FH {fh!r} is not {expected_len} bytes")
         mac, payload = fh[:mac_len], fh[mac_len:]
         if not secrets.compare_digest(mac, self._calc_mac(payload, nfs_v2)):
-            raise FSError(nfs2.NFSERR_IO, f"FH {fh!r} failed sig check")
+            raise FSException(NFSError.ERR_IO, f"FH {fh!r} failed sig check")
         return DecodedFileHandle(*struct.unpack("!QQ", payload))
 
 

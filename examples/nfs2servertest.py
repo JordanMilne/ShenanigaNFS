@@ -1,26 +1,87 @@
 import asyncio
+import datetime as dt
 import errno
 import functools
+import math
 import stat
+import struct
 import typing
 
 from pynefs.generated.rfc1094 import *
+
+from pynefs.bidict import BiDict
 from pynefs.server import TCPTransportServer
 from pynefs.fs import FileSystemManager, FileType, VerifyingFileHandleEncoder, \
-    BaseFS, nfs2_to_date, FSError, FSENTRY, get_nfs2_cookie
+    BaseFS, FSException, FSENTRY
 from pynefs.nullfs import NullFS
 
 
-def fs_error_handler(resp_creator: typing.Callable):
-    def _wrap(f):
-        @functools.wraps(f)
-        def _inner(*args, **kwargs):
-            try:
-                return f(*args, **kwargs)
-            except FSError as e:
-                return resp_creator(e.error_code)
-        return _inner
-    return _wrap
+def sattr_to_dict(attrs: SAttr):
+    attrs_dict = {}
+    for attr_name in ("mode", "uid", "gid", "size"):
+        val = getattr(attrs, attr_name)
+        if val != 0xFFffFFff:
+            if attr_name == "mode":
+                # Technically throws away the type
+                val = stat.S_IMODE(val)
+            attrs_dict[attr_name] = val
+    for attr_name in ("atime", "mtime"):
+        val: Timeval = getattr(attrs, attr_name)
+        attrs_dict[attr_name] = nfs2_to_date(val) if val.seconds != 0xFFffFFff else None
+    return attrs_dict
+
+
+def date_to_nfs2(date: dt.datetime) -> Timeval:
+    ts = date.timestamp()
+    frac, whole = math.modf(ts)
+    # TODO: These seem wrong in `ls`. Not sure if it's TZ or what.
+    return Timeval(math.floor(whole), math.floor(frac * 1e6))
+
+
+def nfs2_to_date(date: Timeval) -> dt.datetime:
+    return dt.datetime.utcfromtimestamp(date.seconds + (date.useconds / 1e6))
+
+
+def get_nfs2_cookie(entry: FSENTRY):
+    return struct.pack("!L", entry.fileid)
+
+
+# https://tools.ietf.org/html/rfc1094#section-2.3.5
+# NFSv2 specific protocol weirdness
+_NFS2_MODE_MAPPING = BiDict({
+    FileType.CHR: stat.S_IFCHR,
+    FileType.DIR: stat.S_IFDIR,
+    FileType.BLK: stat.S_IFBLK,
+    FileType.REG: stat.S_IFREG,
+    FileType.LNK: stat.S_IFLNK,
+    FileType.SOCK: stat.S_IFSOCK,
+    FileType.FIFO: stat.S_IFIFO,
+})
+
+
+def entry_to_fattr(entry: FSENTRY) -> FAttr:
+    if entry.type in (Ftype.SOCK, Ftype.FIFO):
+        f_type = Ftype.NFNON
+    else:
+        f_type = Ftype(entry.type)
+    mode = entry.mode | _NFS2_MODE_MAPPING[int(entry.type)]
+
+    return FAttr(
+        type=f_type,
+        mode=mode,
+        nlink=entry.nlink,
+        uid=entry.uid,
+        gid=entry.gid,
+        size=entry.size,
+        blocksize=entry.fs().block_size,
+        rdev=entry.rdev[0],
+        blocks=entry.blocks,
+        fsid=entry.fs().fsid & 0xFFffFFff,
+        fileid=entry.fileid,
+        atime=date_to_nfs2(entry.atime),
+        mtime=date_to_nfs2(entry.mtime),
+        ctime=date_to_nfs2(entry.ctime),
+    )
 
 
 class MountV1Service(MOUNTPROG_1_SERVER):
@@ -55,18 +116,16 @@ class MountV1Service(MOUNTPROG_1_SERVER):
         ]
 
 
-def sattr_to_dict(attrs: SAttr):
-    attrs_dict = {}
-    for attr_name in ("mode", "uid", "gid", "size"):
-        val = getattr(attrs, attr_name)
-        if val != 0xFFffFFff:
-            if attr_name == "mode":
-                val = stat.S_IMODE(val)
-            attrs_dict[attr_name] = val
-    for attr_name in ("atime", "mtime"):
-        val: Timeval = getattr(attrs, attr_name)
-        attrs_dict[attr_name] = nfs2_to_date(val) if val.seconds != 0xFFffFFff else None
-    return attrs_dict
+def fs_error_handler(resp_creator: typing.Callable):
+    def _wrap(f):
+        @functools.wraps(f)
+        def _inner(*args, **kwargs):
+            try:
+                return f(*args, **kwargs)
+            except FSException as e:
+                return resp_creator(e.error_code)
+        return _inner
+    return _wrap
 
 
 class NFSV2Service(NFS_PROGRAM_2_SERVER):
@@ -77,9 +136,9 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
     def _get_named_child(self, dir_fh: bytes, name: bytes) -> typing.Tuple[FSENTRY, typing.Optional[FSENTRY]]:
         dir_entry = self.fs_manager.get_entry_by_fh(dir_fh, nfs_v2=True)
         if not dir_entry:
-            raise FSError(Stat.NFSERR_STALE)
+            raise FSException(Stat.NFSERR_STALE)
         if dir_entry.type != FileType.DIR:
-            raise FSError(Stat.NFSERR_NOTDIR)
+            raise FSException(Stat.NFSERR_NOTDIR)
         fs: BaseFS = dir_entry.fs()
         return dir_entry, fs.lookup(dir_entry, name)
 
@@ -90,7 +149,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         fs_entry = self.fs_manager.get_entry_by_fh(fh, nfs_v2=True)
         if not fs_entry:
             return AttrStat(Stat.NFSERR_STALE)
-        return AttrStat(Stat.NFS_OK, fs_entry.to_nfs2_fattr())
+        return AttrStat(Stat.NFS_OK, entry_to_fattr(fs_entry))
 
     @fs_error_handler(AttrStat)
     def SETATTR(self, arg_0: SattrArgs) -> AttrStat:
@@ -99,7 +158,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
             return AttrStat(Stat.NFSERR_STALE)
         fs: BaseFS = entry.fs()
         fs.setattrs(entry, sattr_to_dict(arg_0.attributes))
-        return AttrStat(Stat.NFS_OK, entry.to_nfs2_fattr())
+        return AttrStat(Stat.NFS_OK, entry_to_fattr(entry))
 
     def ROOT(self) -> None:
         pass
@@ -112,7 +171,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         fs_mgr = self.fs_manager
         return DiropRes(
             Stat.NFS_OK,
-            DiropOK(fs_mgr.entry_to_fh(child, nfs_v2=True), child.to_nfs2_fattr())
+            DiropOK(fs_mgr.entry_to_fh(child, nfs_v2=True), entry_to_fattr(child))
         )
 
     def READLINK(self, fh: bytes) -> ReadlinkRes:
@@ -132,7 +191,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
             return ReadRes(Stat.NFSERR_STALE)
         fs: BaseFS = fs_entry.fs()
         return ReadRes(Stat.NFS_OK, AttrDat(
-            attributes=fs_entry.to_nfs2_fattr(),
+            attributes=entry_to_fattr(fs_entry),
             data=fs.read(fs_entry, read_args.offset, min(read_args.count, 4096))
         ))
 
@@ -146,7 +205,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
             return AttrStat(Stat.NFSERR_IO)
         fs: BaseFS = entry.fs()
         fs.write(entry, write_args.offset, write_args.data)
-        return AttrStat(Stat.NFS_OK, entry.to_nfs2_fattr())
+        return AttrStat(Stat.NFS_OK, entry_to_fattr(entry))
 
     def _create_common(self, arg_0: CreateArgs, create_func: typing.Callable) -> DiropRes:
         target_dir, target = self._get_named_child(arg_0.where.dir, arg_0.where.name)
@@ -156,7 +215,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         new = create_func(fs)(target_dir, arg_0.where.name, sattr_to_dict(arg_0.attributes))
         return DiropRes(Stat.NFS_OK, DiropOK(
             file=self.fs_manager.entry_to_fh(new, nfs_v2=True),
-            attributes=new.to_nfs2_fattr(),
+            attributes=entry_to_fattr(new),
         ))
 
     @fs_error_handler(DiropRes)

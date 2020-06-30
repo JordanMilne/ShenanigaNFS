@@ -119,6 +119,11 @@ class NodeDirectory(Directory, abc.ABC):
         child.parent_id = None
 
 
+def _utcnow():
+    # Necessary because datetime.utcnow() is not TZ-aware :|
+    return dt.datetime.now(tz=dt.timezone.utc)
+
+
 @dataclasses.dataclass
 class SimpleFSEntry(BaseFSEntry):
     fs: weakref.ReferenceType
@@ -133,9 +138,9 @@ class SimpleFSEntry(BaseFSEntry):
     gid: int = dataclasses.field(default=65534)
     rdev: Tuple[int, int] = dataclasses.field(default=(0, 0))
     blocks: int = dataclasses.field(default=1)
-    atime: dt.datetime = dataclasses.field(default_factory=dt.datetime.utcnow)
-    mtime: dt.datetime = dataclasses.field(default_factory=dt.datetime.utcnow)
-    ctime: dt.datetime = dataclasses.field(default_factory=dt.datetime.utcnow)
+    atime: dt.datetime = dataclasses.field(default_factory=_utcnow)
+    mtime: dt.datetime = dataclasses.field(default_factory=_utcnow)
+    ctime: dt.datetime = dataclasses.field(default_factory=_utcnow)
 
 
 @dataclasses.dataclass
@@ -379,15 +384,15 @@ class SimpleFS(NodeTrackingFS):
                 # TODO: check new size within quota
             # This is a hint that the client wants to automatically fill in the server time
             elif "time" in attr_name and attr_val is None:
-                attr_val = dt.datetime.utcnow()
+                attr_val = _utcnow()
             new_attrs[attr_name] = attr_val
         # Presumably this case is to allow the FS to choose the time rather than the NFS server,
         # but we're all mashed together.
         if "ctime" not in new_attrs:
-            new_attrs["ctime"] = dt.datetime.utcnow()
+            new_attrs["ctime"] = _utcnow()
         # Changing filesize means we have to update mtime, even if one wasn't specified
         if "size" in new_attrs and entry and entry.size != new_attrs["size"]:
-            new_attrs["mtime"] = dt.datetime.utcnow()
+            new_attrs["mtime"] = _utcnow()
         return new_attrs
 
     def readdir(self, directory: FSENTRY) -> Sequence[FSENTRY]:

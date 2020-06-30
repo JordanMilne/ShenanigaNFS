@@ -34,12 +34,11 @@ def sattr_to_dict(attrs: SAttr):
 def date_to_nfs2(date: dt.datetime) -> Timeval:
     ts = date.timestamp()
     frac, whole = math.modf(ts)
-    # TODO: These seem wrong in `ls`. Not sure if it's TZ or what.
     return Timeval(math.floor(whole), math.floor(frac * 1e6))
 
 
 def nfs2_to_date(date: Timeval) -> dt.datetime:
-    return dt.datetime.utcfromtimestamp(date.seconds + (date.useconds / 1e6))
+    return dt.datetime.fromtimestamp(date.seconds + (date.useconds / 1e6), tz=dt.timezone.utc)
 
 
 def get_nfs2_cookie(entry: FSENTRY):

@@ -137,7 +137,7 @@ def date_to_nfs3(date: dt.datetime) -> NFSTime3:
 
 
 def nfs3_to_date(date: NFSTime3) -> dt.datetime:
-    return dt.datetime.utcfromtimestamp(date.seconds + (date.nseconds / 1e9))
+    return dt.datetime.fromtimestamp(date.seconds + (date.nseconds / 1e9), tz=dt.timezone.utc)
 
 
 class NFSV3Service(NFS_PROGRAM_3_SERVER):

@@ -1,14 +1,15 @@
 import datetime as dt
 import functools
-import hashlib
 import math
 import stat
 import struct
 import typing
+import xdrlib
 
 from pynefs.generated.rfc1813 import *
 import pynefs.generated.rfc1831 as rpc
 from pynefs.fs import FileSystemManager, FileType, BaseFS, FSException, FSENTRY
+from pynefs.rpchelp import want_call
 
 
 class WccWrapper(WccData):
@@ -40,7 +41,7 @@ def fs_error_handler(resp_creator: typing.Callable, num_wccs: int = 1):
             try:
                 return f(*args, *wccs)
             except FSException as e:
-                print(e.error_code, e.message)
+                print(e.error_code, e.message, f, args)
                 return resp_creator(e.error_code, *wccs)
         return _inner
     return _wrap
@@ -53,10 +54,23 @@ class MountV3Service(MOUNT_PROGRAM_3_SERVER):
     def NULL(self) -> None:
         pass
 
-    def MNT(self, mount_path: bytes) -> MountRes3:
-        fs = self.fs_manager.get_fs_by_root(mount_path)
-        if fs is None:
+    @staticmethod
+    def _extract_hostname(call_obj: rpc.RPCMsg) -> bytes:
+        cred = call_obj.header.cbody.cred
+        if cred.flavor == rpc.AuthFlavor.AUTH_SYS:
+            up = xdrlib.Unpacker(cred.body)
+            up.unpack_uint()
+            return up.unpack_opaque()
+        return b""
+
+    @want_call
+    def MNT(self, call_obj: rpc.RPCMsg, mount_path: bytes) -> MountRes3:
+        try:
+            fs = self.fs_manager.mount_fs_by_root(mount_path, self._extract_hostname(call_obj))
+        except KeyError:
             return MountRes3(MountStat3.MNT3ERR_NOENT)
+        print(call_obj)
+        print(f"Mounted {fs.fsid!r} {fs.root_dir}")
         return MountRes3(
             MountStat3.MNT3_OK,
             Mountres3OK(
@@ -70,7 +84,7 @@ class MountV3Service(MOUNT_PROGRAM_3_SERVER):
         # Let's just not bother then.
         return []
 
-    def UMNT(self, arg_0: bytes) -> None:
+    def UMNT(self, mount_name: bytes) -> None:
         return
 
     def UMNTALL(self) -> None:
@@ -78,8 +92,8 @@ class MountV3Service(MOUNT_PROGRAM_3_SERVER):
 
     def EXPORT(self) -> typing.List[ExportList]:
         return [
-            ExportList(fs.root_path, [b"*"])
-            for fs in self.fs_manager.filesystems.values()
+            ExportList(path, [b"*"])
+            for path in self.fs_manager.fs_factories.keys()
         ]
 
 
@@ -366,8 +380,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         if not source:
             raise FSException(NFSStat3.NFS3ERR_NOENT)
         dest_dir, dest_entry = self._get_named_child(arg_0.to.dir_handle, arg_0.to.name, to_wcc)
-        if dest_entry:
-            raise FSException(NFSStat3.NFS3ERR_EXIST)
+        # FS gets to decide whether or not clobbering is allowed
         fs: BaseFS = dest_dir.fs()
         fs.rename(source, dest_dir, arg_0.to.name)
         return RENAME3Res(
@@ -385,16 +398,16 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         # We ignore the limits specified in the request for now since
         # size calculations are annoying. This should be under the limits for most
         # reasonable clients
-        count = 50
+        count = 4
         if not directory:
             raise FSException(NFSStat3.NFS3ERR_STALE)
 
         fs: BaseFS = directory.fs()
         children = fs.readdir(directory)
 
-        child_digest = hashlib.sha256(b"".join(
-            struct.pack("!QQ", x.fileid, int(x.mtime.timestamp())) for x in children))
-        expected_verf = child_digest.digest()[:NFS3_COOKIEVERFSIZE]
+        # Dir mtime will invalidate whenever a child is added or removed, or
+        # when a child name changes, so RFC recommends this for cookie verf.
+        expected_verf = struct.pack("!Q", int(directory.mtime.timestamp()))
         if expected_verf != cookie_verf and cookie:
             raise FSException(NFSStat3.NFS3ERR_BAD_COOKIE)
 
@@ -465,7 +478,8 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
                 tbytes=10000,
                 fbytes=4000,
                 abytes=4000,
-                tfiles=100,
+                tfiles=200,
+                ffiles=100,
                 afiles=100,
                 invarsec=0,
             )

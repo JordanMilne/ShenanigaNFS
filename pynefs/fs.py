@@ -168,16 +168,19 @@ class SimpleDirectory(NodeDirectory, SimpleFSEntry):
     type: FileType = dataclasses.field(default=FileType.DIR, init=False)
     child_ids: List[int] = dataclasses.field(default_factory=list)
     root_dir: bool = dataclasses.field(default=False)
+    nlink: int = dataclasses.field(default=3)
 
     def unlink_child(self, child: FSENTRY):
         super().unlink_child(child)
         self.ctime = _utcnow()
         self.mtime = _utcnow()
+        child.ctime = _utcnow()
 
     def link_child(self, child: FSENTRY):
         super().link_child(child)
         self.ctime = _utcnow()
         self.mtime = _utcnow()
+        child.ctime = _utcnow()
 
 
 class BaseFS(abc.ABC):
@@ -186,14 +189,12 @@ class BaseFS(abc.ABC):
     num_blocks: int
     free_blocks: int
     avail_blocks: int
-    root_path: bytes
     read_only: bool
     root_dir: Optional[Directory]
 
-    def __init__(self, root_path: str):
+    def __init__(self):
         self.fsid = secrets.randbits(64)
         self.block_size = 4096
-        self.root_path = root_path.encode("utf8")
 
     def _verify_owned(self, entry: FSENTRY):
         if entry.fs() != self:
@@ -329,8 +330,8 @@ class NodeTrackingFS(BaseFS, abc.ABC):
     NFS_V2_COMPAT: bool = True
     root_dir: Optional[NodeDirectory]
 
-    def __init__(self, root_path: str):
-        super().__init__(root_path)
+    def __init__(self):
+        super().__init__()
         self.entries: Dict[int, FSENTRY] = {}
         self._fileid_base = 0
         self.root_dir = None
@@ -368,6 +369,10 @@ class NodeTrackingFS(BaseFS, abc.ABC):
             parent.unlink_child(entry)
         for descendant in self.iter_descendants(entry, inclusive=True):
             del self.entries[descendant.fileid]
+
+    def _change_parent(self, source: FSENTRY, new_parent: FSENTRY):
+        self.get_entry_by_id(source.parent_id).unlink_child(source)
+        new_parent.link_child(source)
 
     def sanity_check(self):
         # Not multi-rooted
@@ -507,8 +512,7 @@ class SimpleFS(NodeTrackingFS):
         if self.lookup(to_dir, new_name):
             raise FSException(NFSError.ERR_EXIST)
         if source.parent_id != to_dir.fileid:
-            self.get_entry_by_id(source.parent_id).unlink_child(source)
-            to_dir.link_child(source)
+            self._change_parent(source, to_dir)
         # ctime and mtime of the dir change even when renameing within same dir
         # because the dir owns the filenames in traditional *NIX filesystems
         to_dir.mtime = _utcnow()
@@ -591,15 +595,15 @@ class VerifyingFileHandleEncoder(FileHandleEncoder):
 
 
 class FileSystemManager:
-    def __init__(self, handle_encoder, filesystems):
+    def __init__(self, handle_encoder, factories: Dict[bytes, Callable]):
         self.handle_encoder: FileHandleEncoder = handle_encoder
-        self.filesystems: Dict[int, BaseFS] = {f.fsid: f for f in filesystems}
+        self.filesystems: Dict[int, BaseFS] = {}
+        self.fs_factories: Dict[bytes, Callable] = factories
 
-    def get_fs_by_root(self, root_path) -> Optional[BaseFS]:
-        for fs in self.filesystems.values():
-            if fs.root_path == root_path:
-                return fs
-        return None
+    def mount_fs_by_root(self, root_path, machine_name: bytes = b"") -> BaseFS:
+        new_fs: BaseFS = self.fs_factories[root_path](machine_name)
+        self.filesystems[new_fs.fsid] = new_fs
+        return new_fs
 
     def get_fs_by_fh(self, fh: bytes, nfs_v2=False) -> Optional[BaseFS]:
         decoded = self.handle_encoder.decode(fh, nfs_v2)

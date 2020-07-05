@@ -12,8 +12,8 @@ def propagate_owner_perms(mode):
 
 
 class ZipFS(SimpleFS):
-    def __init__(self, root_path, zip_path, read_only=True):
-        super().__init__(root_path)
+    def __init__(self, zip_path, read_only=True):
+        super().__init__()
         self.read_only = read_only
         self.num_blocks = 1
         self.free_blocks = 0

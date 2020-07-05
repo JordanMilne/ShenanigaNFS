@@ -90,8 +90,9 @@ class MountV1Service(MOUNTPROG_1_SERVER):
 
     def MNT(self, mount_path: bytes) -> FHStatus:
         fs_mgr = self.fs_manager
-        fs = fs_mgr.get_fs_by_root(mount_path)
-        if fs is None:
+        try:
+            fs = fs_mgr.mount_fs_by_root(mount_path)
+        except KeyError:
             return FHStatus(errno=errno.ENOENT)
         return FHStatus(errno=0, directory=fs_mgr.entry_to_fh(fs.root_dir, nfs_v2=True))
 
@@ -240,8 +241,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         if not source:
             return Stat.NFSERR_NOENT
         dest_dir, dest_entry = self._get_named_child(arg_0.to.dir, arg_0.to.name)
-        if dest_entry:
-            return Stat.NFSERR_EXIST
+        # FS gets to decide whether or not clobbering is allowed
         fs: BaseFS = dest_dir.fs()
         fs.rename(source, dest_dir, arg_0.to.name)
         return Stat.NFS_OK

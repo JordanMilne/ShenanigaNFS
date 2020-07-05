@@ -1,11 +1,13 @@
 import abc
 import asyncio
+import itertools
 from typing import *
 
 from pynefs import rpchelp
 from pynefs.client import TCPClient
 from pynefs.generated.rfc1831 import *
 import pynefs.generated.rfc1833_rpcbind as rpcbind
+from pynefs.portmanager import PortBinding, PortManager
 from pynefs.transport import SPLIT_MSG, BaseTransport, TCPTransport
 
 
@@ -14,14 +16,9 @@ class ConnCtx:
         self.state = {}
 
 
-def _addr_to_rpcbind(host: str, port: int):
-    # I have literally never seen this address representation
-    # outside of RPCBind and I don't like it.
-    return f"{host}.{port >> 8}.{port & 0xFF}".encode("utf8")
-
-
 class TransportServer:
     def __init__(self):
+        self.owner: str = ""
         self.progs: Set[rpchelp.Prog] = set()
 
     def register_prog(self, prog: rpchelp.Prog):
@@ -30,10 +27,14 @@ class TransportServer:
     async def notify_rpcbind(self, host="127.0.0.1", port=111):
         for prog in self.progs:
             async with SimpleRPCBindClient(host, port) as rpcb_client:
-                await rpcb_client.SET(self.get_prog_port_mapping(prog))
+                await rpcb_client.SET(self.get_prog_port_binding(prog).to_rpcbind())
+
+    def notify_port_manager(self, port_manager: PortManager):
+        for prog in self.progs:
+            port_manager.set_port(self.get_prog_port_binding(prog))
 
     @abc.abstractmethod
-    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> rpcbind.RPCB:
+    def get_prog_port_binding(self, prog: rpchelp.Prog) -> PortBinding:
         pass
 
     async def handle_message(self, transport: BaseTransport, msg: SPLIT_MSG):
@@ -54,11 +55,12 @@ class TransportServer:
         try:
             progs = [p for p in self.progs if p.prog == cbody.prog]
             if progs:
-                vers_progs = [p for p in progs if p.vers == cbody.vers]
+                vers_progs = [p for p in progs if p.support_version(cbody.vers)]
                 if vers_progs:
-                    reply_body_bytes = vers_progs[0].handle_proc_call(cbody.proc, call_body_bytes)
+                    reply_body_bytes = vers_progs[0].handle_proc_call(call, cbody.proc, call_body_bytes)
                 else:
-                    prog_versions = [p.vers for p in progs]
+                    prog_versions = itertools.chain(*[(p.vers, p.min_vers) for p in progs])
+                    prog_versions = list(x for x in prog_versions if x is not None)
                     mismatch = MismatchInfo(min(prog_versions), max(prog_versions))
                     stat = AcceptStat.PROG_MISMATCH
             else:
@@ -123,14 +125,15 @@ class TCPTransportServer(TransportServer):
             await self.handle_message(transport, read_ret)
         transport.close()
 
-    def get_prog_port_mapping(self, prog: rpchelp.Prog) -> rpcbind.RPCB:
-        return rpcbind.RPCB(
-            r_prog=prog.prog,
-            r_vers=prog.vers,
-            r_netid=b"tcp",
+    def get_prog_port_binding(self, prog: rpchelp.Prog) -> PortBinding:
+        return PortBinding(
+            prog_num=prog.prog,
+            vers=prog.vers,
+            protocol="tcp",
             # Same host as rpcbind
-            r_addr=_addr_to_rpcbind("0.0.0.0", self.bind_port),
-            r_owner=b"",
+            host="0.0.0.0",
+            port=self.bind_port,
+            owner=self.owner,
         )
 
 

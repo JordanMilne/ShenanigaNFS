@@ -4,8 +4,8 @@ from pynefs.fs import SimpleFS, SimpleDirectory, SimpleFile
 
 
 class NullFS(SimpleFS):
-    def __init__(self, root_path, read_only=True):
-        super().__init__(root_path)
+    def __init__(self, read_only=True):
+        super().__init__()
         self.read_only = read_only
         self.num_blocks = 1
         self.free_blocks = 0

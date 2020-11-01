@@ -6,9 +6,9 @@ import stat
 import struct
 import typing
 
-from pynefs.generated.rfc1094 import *
+from shenaniganfs.generated.rfc1094 import *
 
-from pynefs.fs import FileSystemManager, FileType, BaseFS, FSException, FSENTRY
+from shenaniganfs.fs import FileSystemManager, FileType, BaseFS, FSException, FSENTRY
 
 
 def sattr_to_dict(attrs: SAttr):

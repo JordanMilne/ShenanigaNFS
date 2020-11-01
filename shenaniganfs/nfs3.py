@@ -6,10 +6,10 @@ import struct
 import typing
 import xdrlib
 
-from pynefs.generated.rfc1813 import *
-import pynefs.generated.rfc1831 as rpc
-from pynefs.fs import FileSystemManager, FileType, BaseFS, FSException, FSENTRY
-from pynefs.rpchelp import want_call
+from shenaniganfs.generated.rfc1813 import *
+import shenaniganfs.generated.rfc1831 as rpc
+from shenaniganfs.fs import FileSystemManager, FileType, BaseFS, FSException, FSENTRY
+from shenaniganfs.rpchelp import want_call
 
 
 class WccWrapper(WccData):

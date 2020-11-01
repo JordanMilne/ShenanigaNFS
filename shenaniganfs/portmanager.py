@@ -1,8 +1,8 @@
 import datetime as dt
 from typing import *
 
-import pynefs.generated.rfc1833_portmapper as pm
-import pynefs.generated.rfc1833_rpcbind as rb
+import shenaniganfs.generated.rfc1833_portmapper as pm
+import shenaniganfs.generated.rfc1833_rpcbind as rb
 
 
 def _addr_to_rpcbind(host: str, port: int):

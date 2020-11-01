@@ -4,7 +4,7 @@ import dataclasses
 import typing
 from dataclasses import dataclass
 
-from pynefs import rpchelp
+from shenaniganfs import rpchelp
 
 TRUE = True
 FALSE = False
@@ -280,7 +280,7 @@ class ExportList(rpchelp.LinkedList):  # exportlist
     groups: typing.List[bytes] = rpchelp.rpc_field(GroupList)
 
 
-from pynefs import client
+from shenaniganfs import client
 
 
 class NFS_PROGRAM_2_SERVER(rpchelp.Prog):

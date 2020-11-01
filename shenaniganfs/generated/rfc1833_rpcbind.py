@@ -4,7 +4,7 @@ import dataclasses
 import typing
 from dataclasses import dataclass
 
-from pynefs import rpchelp
+from shenaniganfs import rpchelp
 
 TRUE = True
 FALSE = False
@@ -108,7 +108,7 @@ class Netbuf(rpchelp.Struct):  # netbuf
     buf: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
 
 
-from pynefs import client
+from shenaniganfs import client
 
 
 class RPCBPROG_3_SERVER(rpchelp.Prog):

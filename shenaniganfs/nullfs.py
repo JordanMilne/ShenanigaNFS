@@ -1,6 +1,6 @@
 import weakref
 
-from pynefs.fs import SimpleFS, SimpleDirectory, SimpleFile
+from shenaniganfs.fs import SimpleFS, SimpleDirectory, SimpleFile
 
 
 class NullFS(SimpleFS):

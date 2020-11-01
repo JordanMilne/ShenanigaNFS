@@ -4,9 +4,9 @@ import random
 import xdrlib
 from typing import *
 
-from pynefs import rpchelp
-from pynefs.generated.rfc1831 import *
-from pynefs.transport import BaseTransport, SPLIT_MSG, TCPTransport
+from shenaniganfs import rpchelp
+from shenaniganfs.generated.rfc1831 import *
+from shenaniganfs.transport import BaseTransport, SPLIT_MSG, TCPTransport
 
 _T = TypeVar("T")
 

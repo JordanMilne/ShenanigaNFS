@@ -45,7 +45,7 @@ from io import StringIO
 from ply import lex
 from ply import yacc
 
-from pynefs import rpchelp
+from shenaniganfs import rpchelp
 
 
 class LexError(Exception):
@@ -244,7 +244,7 @@ class Ctx:
         if self.progs:
             # Make sure this doesn't get printed for rfc1831 so we
             # don't get weird circular imports.
-            val = "from pynefs import client\n"
+            val = "from shenaniganfs import client\n"
         return val + "\n".join("\n".join(
             [p.str_one_vers(self, vers) for vers in p.versions.children] +
             [p.str_one_vers(self, vers, as_client=True) for vers in p.versions.children]
@@ -1043,7 +1043,7 @@ import dataclasses
 import typing
 from dataclasses import dataclass
 
-from pynefs import rpchelp
+from shenaniganfs import rpchelp
 
 TRUE = True
 FALSE = False

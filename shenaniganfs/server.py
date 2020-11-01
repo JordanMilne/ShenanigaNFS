@@ -3,12 +3,12 @@ import asyncio
 import itertools
 from typing import *
 
-from pynefs import rpchelp
-from pynefs.client import TCPClient
-from pynefs.generated.rfc1831 import *
-import pynefs.generated.rfc1833_rpcbind as rpcbind
-from pynefs.portmanager import PortBinding, PortManager
-from pynefs.transport import SPLIT_MSG, BaseTransport, TCPTransport
+from shenaniganfs import rpchelp
+from shenaniganfs.client import TCPClient
+from shenaniganfs.generated.rfc1831 import *
+import shenaniganfs.generated.rfc1833_rpcbind as rpcbind
+from shenaniganfs.portmanager import PortBinding, PortManager
+from shenaniganfs.transport import SPLIT_MSG, BaseTransport, TCPTransport
 
 
 class ConnCtx:

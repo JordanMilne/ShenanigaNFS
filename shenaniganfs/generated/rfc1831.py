@@ -4,7 +4,7 @@ import dataclasses
 import typing
 from dataclasses import dataclass
 
-from pynefs import rpchelp
+from shenaniganfs import rpchelp
 
 TRUE = True
 FALSE = False
@@ -128,24 +128,24 @@ class MismatchInfo(rpchelp.Struct):  # mismatch_info
 class RejectedReply(rpchelp.Union):  # rejected_reply
     SWITCH_OPTIONS = {RPC_MISMATCH: 'mismatch_info', AUTH_ERROR: 'auth_error'}
     r_stat: typing.Union[RejectStat, int] = rpchelp.rpc_field(RejectStat)
-    auth_error: typing.Optional[typing.Union[AuthStat, int]] = rpchelp.rpc_field(AuthStat, default=None)
     mismatch_info: typing.Optional[MismatchInfo] = rpchelp.rpc_field(MismatchInfo, default=None)
+    auth_error: typing.Optional[typing.Union[AuthStat, int]] = rpchelp.rpc_field(AuthStat, default=None)
 
 
 @dataclass
 class ReplyBody(rpchelp.Union):  # reply_body
     SWITCH_OPTIONS = {MSG_ACCEPTED: 'areply', MSG_DENIED: 'rreply'}
     stat: typing.Union[ReplyStat, int] = rpchelp.rpc_field(ReplyStat)
-    rreply: typing.Optional[RejectedReply] = rpchelp.rpc_field(RejectedReply, default=None)
     areply: typing.Optional[AcceptedReply] = rpchelp.rpc_field(AcceptedReply, default=None)
+    rreply: typing.Optional[RejectedReply] = rpchelp.rpc_field(RejectedReply, default=None)
 
 
 @dataclass
 class RPCBody(rpchelp.Union):  # rpc_body
     SWITCH_OPTIONS = {CALL: 'cbody', REPLY: 'rbody'}
     mtype: typing.Union[MsgType, int] = rpchelp.rpc_field(MsgType)
-    cbody: typing.Optional[CallBody] = rpchelp.rpc_field(CallBody, default=None)
     rbody: typing.Optional[ReplyBody] = rpchelp.rpc_field(ReplyBody, default=None)
+    cbody: typing.Optional[CallBody] = rpchelp.rpc_field(CallBody, default=None)
 
 
 @dataclass

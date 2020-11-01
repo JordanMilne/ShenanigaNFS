@@ -3,7 +3,7 @@ import math
 import weakref
 import zipfile
 
-from pynefs.fs import SimpleFS, SimpleDirectory, SimpleFile, NodeDirectory
+from shenaniganfs.fs import SimpleFS, SimpleDirectory, SimpleFile, NodeDirectory
 
 
 def propagate_owner_perms(mode):

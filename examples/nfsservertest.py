@@ -1,10 +1,10 @@
 import asyncio
 
-from pynefs.server import TCPTransportServer
-from pynefs.fs import FileSystemManager, VerifyingFileHandleEncoder
-from pynefs.nfs2 import MountV1Service, NFSV2Service
-from pynefs.nfs3 import NFSV3Service, MountV3Service
-from pynefs.nullfs import NullFS
+from shenaniganfs.server import TCPTransportServer
+from shenaniganfs.fs import FileSystemManager, VerifyingFileHandleEncoder
+from shenaniganfs.nfs2 import MountV1Service, NFSV2Service
+from shenaniganfs.nfs3 import NFSV3Service, MountV3Service
+from shenaniganfs.nullfs import NullFS
 
 
 async def main():

@@ -5,7 +5,7 @@ import xdrlib
 from io import BytesIO
 from typing import *
 
-from pynefs.generated.rfc1831 import RPCMsg
+from shenaniganfs.generated.rfc1831 import RPCMsg
 
 SPLIT_MSG = Tuple[RPCMsg, bytes]
 

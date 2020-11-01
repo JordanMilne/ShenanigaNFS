@@ -4,7 +4,7 @@ import dataclasses
 import typing
 from dataclasses import dataclass
 
-from pynefs import rpchelp
+from shenaniganfs import rpchelp
 
 TRUE = True
 FALSE = False
@@ -43,7 +43,7 @@ class CallResult(rpchelp.Struct):  # call_result
     res: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
 
 
-from pynefs import client
+from shenaniganfs import client
 
 
 class PMAP_PROG_2_SERVER(rpchelp.Prog):

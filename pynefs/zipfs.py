@@ -52,7 +52,7 @@ class ZipFS(SimpleFS):
             )
         else:
             entry = SimpleFile(
-                contents=path.read_bytes(),
+                contents=bytearray(path.read_bytes()),
                 **common_kwargs
             )
 

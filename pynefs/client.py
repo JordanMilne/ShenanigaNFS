@@ -8,14 +8,14 @@ from pynefs import rpchelp
 from pynefs.generated.rfc1831 import *
 from pynefs.transport import BaseTransport, SPLIT_MSG, TCPTransport
 
-T = TypeVar("T")
+_T = TypeVar("T")
 
 
-class UnpackedRPCMsg(Generic[T]):
+class UnpackedRPCMsg(Generic[_T]):
     """Wrapper for a parsed message header and parsed return data"""
-    def __init__(self, msg: RPCMsg, body: T):
+    def __init__(self, msg: RPCMsg, body: _T):
         self.msg = msg
-        self.body: Optional[T] = body
+        self.body: Optional[_T] = body
 
     def __repr__(self):
         return f"<{self.__class__.__name__}{(self.msg, self.body)!r}>"
@@ -115,7 +115,7 @@ class BaseClient(rpchelp.Prog):
     def gen_xid() -> int:
         return random.getrandbits(32)
 
-    async def send_call(self, proc_id: int, *args, xid: Optional[int] = None) -> UnpackedRPCMsg[T]:
+    async def send_call(self, proc_id: int, *args, xid: Optional[int] = None) -> UnpackedRPCMsg[_T]:
         if xid is None:
             xid = self.gen_xid()
         if not self.transport:

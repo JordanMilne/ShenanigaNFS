@@ -30,7 +30,8 @@ class WccWrapper(WccData):
 
     @after.setter
     def after(self, val):
-        return
+        # We're required to have a setter, ignore it.
+        pass
 
 
 def fs_error_handler(resp_creator: typing.Callable, num_wccs: int = 1):
@@ -55,13 +56,13 @@ class MountV3Service(MOUNT_PROGRAM_3_SERVER):
         pass
 
     @staticmethod
-    def _extract_hostname(call_obj: rpc.RPCMsg) -> bytes:
+    def _extract_hostname(call_obj: rpc.RPCMsg) -> typing.Optional[bytes]:
         cred = call_obj.header.cbody.cred
         if cred.flavor == rpc.AuthFlavor.AUTH_SYS:
             up = xdrlib.Unpacker(cred.body)
             up.unpack_uint()
             return up.unpack_opaque()
-        return b""
+        return None
 
     @want_call
     def MNT(self, call_obj: rpc.RPCMsg, mount_path: bytes) -> MountRes3:
@@ -297,6 +298,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
                 raise FSException(NFSStat3.NFS3ERR_EXIST)
             if target.type not in (FileType.REG, FileType.LNK):
                 raise FSException(NFSStat3.NFS3ERR_INVAL)
+            # NB: Atomicity issues if this is made threaded!
             fs.rm(target)
 
         entry = fs.create_file(target_dir, arg_0.where.name, sattr_to_dict(arg_0.how.obj_attributes))
@@ -515,7 +517,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         entry = self.fs_manager.get_entry_by_fh(arg_0.obj_handle)
         if not entry:
             raise FSException(NFSStat3.NFS3ERR_STALE)
-
+        obj_wcc.set_entry(entry)
         return PATHCONF3Res(
             NFSStat3.NFS3_OK,
             resok=PATHCONF3ResOK(

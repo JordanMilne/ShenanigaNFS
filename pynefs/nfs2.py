@@ -8,7 +8,6 @@ import typing
 
 from pynefs.generated.rfc1094 import *
 
-from pynefs.bidict import BiDict
 from pynefs.fs import FileSystemManager, FileType, BaseFS, FSException, FSENTRY
 
 
@@ -45,7 +44,7 @@ def get_nfs2_cookie(entry: FSENTRY):
 
 # https://tools.ietf.org/html/rfc1094#section-2.3.5
 # NFSv2 specific protocol weirdness
-_NFS2_MODE_MAPPING = BiDict({
+_NFS2_MODE_MAPPING = {
     FileType.CHR: stat.S_IFCHR,
     FileType.DIR: stat.S_IFDIR,
     FileType.BLK: stat.S_IFBLK,
@@ -53,7 +52,7 @@ _NFS2_MODE_MAPPING = BiDict({
     FileType.LNK: stat.S_IFLNK,
     FileType.SOCK: stat.S_IFSOCK,
     FileType.FIFO: stat.S_IFIFO,
-})
+}
 
 
 def entry_to_fattr(entry: FSENTRY) -> FAttr:
@@ -61,7 +60,7 @@ def entry_to_fattr(entry: FSENTRY) -> FAttr:
         f_type = Ftype.NFNON
     else:
         f_type = Ftype(entry.type)
-    mode = entry.mode | _NFS2_MODE_MAPPING[int(entry.type)]
+    mode = entry.mode | _NFS2_MODE_MAPPING[entry.type]
 
     return FAttr(
         type=f_type,
@@ -109,8 +108,8 @@ class MountV1Service(MOUNTPROG_1_SERVER):
 
     def EXPORT(self) -> typing.List[ExportList]:
         return [
-            ExportList(fs.root_path, [b"*"])
-            for fs in self.fs_manager.filesystems.values()
+            ExportList(path, [b"*"])
+            for path in self.fs_manager.fs_factories.keys()
         ]
 
 

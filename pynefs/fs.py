@@ -124,6 +124,30 @@ def _utcnow():
     return dt.datetime.now(tz=dt.timezone.utc)
 
 
+def _hydrate_sattrs(attrs: Dict[str, Any], entry: Optional[FSENTRY] = None) -> Dict[str, Any]:
+    new_attrs = {}
+    for attr_name, attr_val in attrs.items():
+        if attr_name == "size":
+            if not entry and attrs["size"] != 0:
+                # TODO: is this actually the case?
+                raise FSException(NFSError.ERR_NXIO, "Can't set a size on a new file!")
+            if entry and entry.type not in (FileType.REG, FileType.LNK):
+                raise FSException(NFSError.ERR_IO, "Must be a file to change size!")
+            # TODO: check new size within quota?
+        # This is a hint that the client wants to automatically fill in the server time
+        elif "time" in attr_name and attr_val is None:
+            attr_val = _utcnow()
+        new_attrs[attr_name] = attr_val
+    # Presumably this case is to allow the FS to choose the time rather than the NFS server,
+    # but we're all mashed together.
+    if "ctime" not in new_attrs:
+        new_attrs["ctime"] = _utcnow()
+    # Changing filesize means we have to update mtime, even if one wasn't specified
+    if "size" in new_attrs and entry and entry.size != new_attrs["size"]:
+        new_attrs["mtime"] = _utcnow()
+    return new_attrs
+
+
 @dataclasses.dataclass
 class SimpleFSEntry(BaseFSEntry):
     name: bytes
@@ -390,31 +414,6 @@ class NodeTrackingFS(BaseFS, abc.ABC):
 
 
 class SimpleFS(NodeTrackingFS):
-    @staticmethod
-    def _hydrate_sattrs(attrs: Dict[str, Any], entry: Optional[FSENTRY] = None) -> Dict[str, Any]:
-        new_attrs = {}
-        for attr_name, attr_val in attrs.items():
-            if attr_name == "size":
-                if not entry:
-                    if attrs["size"] != 0:
-                        # TODO: is this actually the case?
-                        raise FSException(NFSError.ERR_NXIO, "Can't set a size on a new file!")
-                if entry.type not in (FileType.REG, FileType.LNK):
-                    raise FSException(NFSError.ERR_IO, "Must be a file to change size!")
-                # TODO: check new size within quota
-            # This is a hint that the client wants to automatically fill in the server time
-            elif "time" in attr_name and attr_val is None:
-                attr_val = _utcnow()
-            new_attrs[attr_name] = attr_val
-        # Presumably this case is to allow the FS to choose the time rather than the NFS server,
-        # but we're all mashed together.
-        if "ctime" not in new_attrs:
-            new_attrs["ctime"] = _utcnow()
-        # Changing filesize means we have to update mtime, even if one wasn't specified
-        if "size" in new_attrs and entry and entry.size != new_attrs["size"]:
-            new_attrs["mtime"] = _utcnow()
-        return new_attrs
-
     def readdir(self, directory: FSENTRY) -> Sequence[FSENTRY]:
         self._verify_owned(directory)
         if directory.type != FileType.DIR:
@@ -469,7 +468,7 @@ class SimpleFS(NodeTrackingFS):
     def setattrs(self, entry: FSENTRY, attrs: Dict[str, Any]):
         self._verify_owned(entry)
         self._verify_writable()
-        new_attrs = self._hydrate_sattrs(attrs, entry)
+        new_attrs = _hydrate_sattrs(attrs, entry)
         new_size = new_attrs.pop("size", None)
         if new_size is not None:
             if entry.type != FileType.REG:
@@ -527,7 +526,7 @@ class SimpleFS(NodeTrackingFS):
         self._verify_writable()
         if self.lookup(dest, name):
             raise FSException(NFSError.ERR_EXIST)
-        new_attrs = self._hydrate_sattrs(attrs, entry=None)
+        new_attrs = _hydrate_sattrs(attrs, entry=None)
         new_entry = typ(
             fs=weakref.ref(self),
             name=name,
@@ -600,7 +599,7 @@ class FileSystemManager:
         self.filesystems: Dict[int, BaseFS] = {}
         self.fs_factories: Dict[bytes, Callable] = factories
 
-    def mount_fs_by_root(self, root_path, machine_name: bytes = b"") -> BaseFS:
+    def mount_fs_by_root(self, root_path, machine_name: Optional[bytes] = None) -> BaseFS:
         new_fs: BaseFS = self.fs_factories[root_path](machine_name)
         self.filesystems[new_fs.fsid] = new_fs
         return new_fs

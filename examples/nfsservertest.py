@@ -10,9 +10,9 @@ from pynefs.nullfs import NullFS
 async def main():
     fs_manager = FileSystemManager(
         VerifyingFileHandleEncoder(b"foobar"),
-        filesystems=[
-            NullFS("/tmp/nfs2", read_only=False),
-        ]
+        factories={
+            b"/tmp/nfs2": lambda x: NullFS(read_only=False),
+        },
     )
 
     transport_server = TCPTransportServer("127.0.0.1", 2222)

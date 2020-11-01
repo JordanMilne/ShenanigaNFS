@@ -10,6 +10,9 @@ from typing import *
 
 FSENTRY = Union["File", "Directory", "SymLink", "BaseFSEntry", "FSEntryProxy"]
 
+# 2x total path length for Linux
+REASONABLE_NAME_LIMIT = 8192
+
 
 # Mostly a copy of NFS2's error codes that are supported in 3 as well.
 class NFSError(enum.IntEnum):
@@ -206,6 +209,10 @@ class SimpleDirectory(NodeDirectory, SimpleFSEntry):
         self.mtime = _utcnow()
         child.ctime = _utcnow()
 
+    @property
+    def size(self) -> int:
+        return sum(len(self.fs().get_entry_by_id(x).name) for x in self.child_ids)
+
 
 class BaseFS(abc.ABC):
     fsid: int
@@ -213,12 +220,16 @@ class BaseFS(abc.ABC):
     num_blocks: int
     free_blocks: int
     avail_blocks: int
+    data_size: int
     read_only: bool
     root_dir: Optional[Directory]
+    owner_addr: Optional[str]
 
     def __init__(self):
         self.fsid = secrets.randbits(64)
         self.block_size = 4096
+        self.owner_addr = None
+        self.last_referenced = dt.datetime.utcnow()
 
     def _verify_owned(self, entry: FSENTRY):
         if entry.fs() != self:
@@ -354,12 +365,29 @@ class NodeTrackingFS(BaseFS, abc.ABC):
     NFS_V2_COMPAT: bool = True
     root_dir: Optional[NodeDirectory]
 
-    def __init__(self):
+    def __init__(self, size_quota=None, entries_quota=None):
         super().__init__()
         self.entries: Dict[int, FSENTRY] = {}
         self._fileid_base = 0
         self.root_dir = None
         self._fileid_mask = (2 ** (32 if self.NFS_V2_COMPAT else 64)) - 1
+        self.entries_quota: Optional[int] = entries_quota
+        self.size_quota: Optional[int] = size_quota
+
+    @property
+    def data_size(self):
+        return sum(x.size for x in self.entries.values())
+
+    def _verify_size_quota(self, size_delta):
+        if self.size_quota is None:
+            return
+        if self.data_size + size_delta >= self.size_quota:
+            raise FSException(NFSError.ERR_DQUOT, "Would exceed size quota")
+
+    def _verify_entries_quota(self):
+        if self.entries_quota is not None:
+            if len(self.entries) + 1 > self.entries_quota:
+                raise FSException(NFSError.ERR_DQUOT, "Would exceed entries quota")
 
     def _gen_fileid(self):
         # keep generating until we find one that doesn't collide
@@ -375,6 +403,7 @@ class NodeTrackingFS(BaseFS, abc.ABC):
     def track_entry(self, entry: FSENTRY):
         if entry.fs:
             self._verify_owned(entry)
+        self._verify_entries_quota()
         assert entry.fileid is None
         if not entry.fs:
             entry.fs = weakref.ref(self)
@@ -399,8 +428,8 @@ class NodeTrackingFS(BaseFS, abc.ABC):
         new_parent.link_child(source)
 
     def sanity_check(self):
-        # Not multi-rooted
         entries = list(self.entries.values())
+        # Not multi-rooted
         assert sum(getattr(entry, 'root_dir', False) for entry in entries) == 1
         # Everything correctly rooted
         assert all(getattr(entry, 'root_dir', False) or entry.parent_id is not None for entry in entries)
@@ -453,8 +482,8 @@ class SimpleFS(NodeTrackingFS):
         if entry.type != FileType.REG:
             raise FSException(NFSError.ERR_IO, "Not a regular file!")
         # Write chunks can be out of order, even when using TCP!
-        # I've observed misordered writes in multi-fragment PSHs.
         size = entry.size
+        self._verify_size_quota((offset + len(data)) - size)
         if offset > size:
             # Filling gaps with NUL seems to align with POSIX fseek() semantics.
             # https://pubs.opengroup.org/onlinepubs/009695399/functions/fseek.html#tag_03_191_03
@@ -473,7 +502,11 @@ class SimpleFS(NodeTrackingFS):
         if new_size is not None:
             if entry.type != FileType.REG:
                 raise FSException(NFSError.Stat.ERR_PERM, "Can't set size on non-file")
-            entry.contents = entry.contents[:new_size]
+            self._verify_size_quota(new_size - entry.size)
+            if new_size > entry.size:
+                entry.contents = entry.contents + (b"\x00" * (new_size - entry.size))
+            else:
+                entry.contents = entry.contents[:new_size]
 
         for attr_name, attr_val in new_attrs.items():
             assert hasattr(entry, attr_name)
@@ -501,6 +534,9 @@ class SimpleFS(NodeTrackingFS):
         self._verify_owned(source)
         self._verify_owned(to_dir)
         self._verify_writable()
+        if len(new_name) > REASONABLE_NAME_LIMIT:
+            raise FSException(NFSError.ERR_NAMETOOLONG)
+        self._verify_size_quota(len(new_name) - len(source.name))
         if source == self.root_dir:
             raise FSException(NFSError.ERR_PERM, "Trying to move root!")
         if not self._is_valid_name(new_name):
@@ -524,8 +560,13 @@ class SimpleFS(NodeTrackingFS):
     def _base_create(self, dest: NodeDirectory, name: bytes, attrs: Dict[str, Any], typ: Type) -> FSENTRY:
         self._verify_owned(dest)
         self._verify_writable()
+        if len(name) > REASONABLE_NAME_LIMIT:
+            raise FSException(NFSError.ERR_NAMETOOLONG)
         if self.lookup(dest, name):
             raise FSException(NFSError.ERR_EXIST)
+        self._verify_size_quota(len(name))
+        self._verify_entries_quota()
+
         new_attrs = _hydrate_sattrs(attrs, entry=None)
         new_entry = typ(
             fs=weakref.ref(self),
@@ -539,6 +580,7 @@ class SimpleFS(NodeTrackingFS):
         return self._base_create(dest, name, attrs, SimpleDirectory)
 
     def symlink(self, dest: NodeDirectory, name: bytes, attrs: Dict[str, Any], val: bytes) -> Symlink:
+        self._verify_size_quota(len(name) + len(val))
         entry: SimpleSymlink = self._base_create(dest, name, attrs, SimpleSymlink)
         entry.contents = val
         return entry
@@ -591,34 +633,3 @@ class VerifyingFileHandleEncoder(FileHandleEncoder):
         if not secrets.compare_digest(mac, self._calc_mac(payload, nfs_v2)):
             raise FSException(NFSError.ERR_IO, f"FH {fh!r} failed sig check")
         return DecodedFileHandle(*struct.unpack("!QQ", payload))
-
-
-class FileSystemManager:
-    def __init__(self, handle_encoder, factories: Dict[bytes, Callable]):
-        self.handle_encoder: FileHandleEncoder = handle_encoder
-        self.filesystems: Dict[int, BaseFS] = {}
-        self.fs_factories: Dict[bytes, Callable] = factories
-
-    def mount_fs_by_root(self, root_path, machine_name: Optional[bytes] = None) -> BaseFS:
-        new_fs: BaseFS = self.fs_factories[root_path](machine_name)
-        self.filesystems[new_fs.fsid] = new_fs
-        return new_fs
-
-    def get_fs_by_fh(self, fh: bytes, nfs_v2=False) -> Optional[BaseFS]:
-        decoded = self.handle_encoder.decode(fh, nfs_v2)
-        fs = self.filesystems.get(decoded.fsid)
-        if not fs:
-            return None
-        if decoded.fileid != fs.root_dir.fileid:
-            return None
-        return fs
-
-    def get_entry_by_fh(self, fh: bytes, nfs_v2=False) -> Optional[FSENTRY]:
-        decoded = self.handle_encoder.decode(fh, nfs_v2)
-        fs = self.filesystems.get(decoded.fsid)
-        if not fs:
-            return None
-        return fs.get_entry_by_id(decoded.fileid)
-
-    def entry_to_fh(self, entry: FSENTRY, nfs_v2=False):
-        return self.handle_encoder.encode(entry, nfs_v2)

@@ -8,7 +8,9 @@ import typing
 
 from shenaniganfs.generated.rfc1094 import *
 
-from shenaniganfs.fs import FileSystemManager, FileType, BaseFS, FSException, FSENTRY
+from shenaniganfs.fs import FileType, BaseFS, FSException, FSENTRY
+from shenaniganfs.fs_manager import FileSystemManager
+from shenaniganfs.rpchelp import want_ctx
 
 
 def sattr_to_dict(attrs: SAttr):
@@ -87,11 +89,12 @@ class MountV1Service(MOUNTPROG_1_SERVER):
     def NULL(self) -> None:
         pass
 
-    def MNT(self, mount_path: bytes) -> FHStatus:
+    @want_ctx
+    def MNT(self, call_ctx, mount_path: bytes) -> FHStatus:
         fs_mgr = self.fs_manager
         try:
-            fs = fs_mgr.mount_fs_by_root(mount_path)
-        except KeyError:
+            fs = fs_mgr.mount_fs_by_root(mount_path, call_ctx)
+        except (KeyError, ValueError):
             return FHStatus(errno=errno.ENOENT)
         return FHStatus(errno=0, directory=fs_mgr.entry_to_fh(fs.root_dir, nfs_v2=True))
 
@@ -262,6 +265,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         fs.rmdir(to_delete)
         return Stat.NFS_OK
 
+    @fs_error_handler(ReaddirRes)
     def READDIR(self, arg_0: ReaddirArgs) -> ReaddirRes:
         directory = self.fs_manager.get_entry_by_fh(arg_0.dir, nfs_v2=True)
         count = min(arg_0.count, 50)

@@ -357,8 +357,8 @@ class Proc:
                                    str(self.arg_types))
 
 
-def want_call(f):
-    f.want_call = True
+def want_ctx(f):
+    f.want_ctx = True
     return f
 
 
@@ -369,7 +369,7 @@ class Prog:
     min_vers: typing.Optional[int] = None
     procs: typing.Dict[int, Proc]
 
-    def support_version(self, vers: int) -> bool:
+    def supports_version(self, vers: int) -> bool:
         if self.min_vers is not None:
             return self.min_vers <= vers <= self.vers
         else:
@@ -378,7 +378,7 @@ class Prog:
     def get_handler(self, proc_id) -> typing.Callable:
         return getattr(self, self.procs[proc_id].name)
 
-    def handle_proc_call(self, call_obj, proc_id: int, call_body: bytes) -> bytes:
+    def handle_proc_call(self, call_ctx, proc_id: int, call_body: bytes) -> bytes:
         proc = self.procs.get(proc_id)
         if proc is None:
             raise NotImplementedError()
@@ -387,8 +387,8 @@ class Prog:
         argl = [arg_type.unpack(unpacker)
                 for arg_type in proc.arg_types]
         handler: typing.Callable = self.get_handler(proc_id)
-        if getattr(handler, 'want_call', False):
-            argl = [call_obj] + argl
+        if getattr(handler, 'want_ctx', False):
+            argl = [call_ctx] + argl
         rv = handler(*argl)
 
         packer = xdrlib.Packer()

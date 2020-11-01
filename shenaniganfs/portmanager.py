@@ -101,6 +101,7 @@ class SimplePortMapper(pm.PMAP_PROG_2_SERVER):
 
     def CALLIT(self, arg_0: pm.CallArgs) -> pm.CallResult:
         # We're not implementing this, it's a nightmare.
+        # https://github.com/okirch/rpcbind/blob/b3b031b07cc5909aaf964f9d4cf46f6097769320/src/security.c#L284-L296
         return pm.CallResult(port=0, res=b"")
 
 

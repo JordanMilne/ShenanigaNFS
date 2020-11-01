@@ -4,12 +4,13 @@ import math
 import stat
 import struct
 import typing
-import xdrlib
 
 from shenaniganfs.generated.rfc1813 import *
 import shenaniganfs.generated.rfc1831 as rpc
-from shenaniganfs.fs import FileSystemManager, FileType, BaseFS, FSException, FSENTRY
-from shenaniganfs.rpchelp import want_call
+from shenaniganfs.fs import FileType, BaseFS, FSException, FSENTRY
+from shenaniganfs.fs_manager import FileSystemManager
+from shenaniganfs.rpchelp import want_ctx
+from shenaniganfs.server import CallContext
 
 
 class WccWrapper(WccData):
@@ -55,23 +56,13 @@ class MountV3Service(MOUNT_PROGRAM_3_SERVER):
     def NULL(self) -> None:
         pass
 
-    @staticmethod
-    def _extract_hostname(call_obj: rpc.RPCMsg) -> typing.Optional[bytes]:
-        cred = call_obj.header.cbody.cred
-        if cred.flavor == rpc.AuthFlavor.AUTH_SYS:
-            up = xdrlib.Unpacker(cred.body)
-            up.unpack_uint()
-            return up.unpack_opaque()
-        return None
-
-    @want_call
-    def MNT(self, call_obj: rpc.RPCMsg, mount_path: bytes) -> MountRes3:
+    @want_ctx
+    def MNT(self, call_ctx: CallContext, mount_path: bytes) -> MountRes3:
         try:
-            fs = self.fs_manager.mount_fs_by_root(mount_path, self._extract_hostname(call_obj))
+            fs = self.fs_manager.mount_fs_by_root(mount_path, call_ctx)
         except KeyError:
             return MountRes3(MountStat3.MNT3ERR_NOENT)
-        print(call_obj)
-        print(f"Mounted {fs.fsid!r} {fs.root_dir}")
+        print(f"Mounted {call_ctx.transport.client_addr!r}: {fs.fsid!r}: {fs.root_dir}")
         return MountRes3(
             MountStat3.MNT3_OK,
             Mountres3OK(
@@ -471,8 +462,6 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         if not entry:
             raise FSException(NFSStat3.NFS3ERR_STALE)
         obj_wcc.set_entry(entry)
-        if entry.parent_id is not None:
-            raise FSException(NFSStat3.NFS3ERR_BADHANDLE)
         return FSSTAT3Res(
             NFSStat3.NFS3_OK,
             resok=FSSTAT3ResOK(

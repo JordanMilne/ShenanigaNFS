@@ -11,9 +11,10 @@ from shenaniganfs.portmanager import PortBinding, PortManager
 from shenaniganfs.transport import SPLIT_MSG, BaseTransport, TCPTransport
 
 
-class ConnCtx:
-    def __init__(self):
-        self.state = {}
+class CallContext:
+    def __init__(self, transport: BaseTransport, msg: RPCMsg):
+        self.msg = msg
+        self.transport = transport
 
 
 class TransportServer:
@@ -55,9 +56,10 @@ class TransportServer:
         try:
             progs = [p for p in self.progs if p.prog == cbody.prog]
             if progs:
-                vers_progs = [p for p in progs if p.support_version(cbody.vers)]
+                vers_progs = [p for p in progs if p.supports_version(cbody.vers)]
                 if vers_progs:
-                    reply_body_bytes = vers_progs[0].handle_proc_call(call, cbody.proc, call_body_bytes)
+                    call_ctx = CallContext(transport, call)
+                    reply_body_bytes = vers_progs[0].handle_proc_call(call_ctx, cbody.proc, call_body_bytes)
                 else:
                     prog_versions = itertools.chain(*[(p.vers, p.min_vers) for p in progs])
                     prog_versions = list(x for x in prog_versions if x is not None)

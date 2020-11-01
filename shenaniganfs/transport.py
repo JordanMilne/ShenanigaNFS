@@ -23,6 +23,10 @@ class BaseTransport(abc.ABC):
     def closed(self):
         return False
 
+    @property
+    def client_addr(self) -> Tuple:
+        return ()
+
     @abc.abstractmethod
     def close(self):
         pass
@@ -51,6 +55,10 @@ class TCPTransport(BaseTransport):
     @property
     def closed(self):
         return self.reader.at_eof() or self.writer.is_closing()
+
+    @property
+    def client_addr(self) -> Tuple:
+        return self.writer.get_extra_info('peername')
 
     def close(self):
         if self.writer.can_write_eof():

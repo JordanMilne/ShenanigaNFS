@@ -59,10 +59,10 @@ class MountV3Service(MOUNT_PROGRAM_3_SERVER):
     @want_ctx
     async def MNT(self, call_ctx: CallContext, mount_path: bytes) -> MountRes3:
         try:
-            fs = self.fs_manager.mount_fs_by_root(mount_path, call_ctx)
-        except KeyError:
+            fs: BaseFS = self.fs_manager.mount_fs_by_root(mount_path, call_ctx)
+        except (KeyError, ValueError):
             return MountRes3(MountStat3.MNT3ERR_NOENT)
-        print(f"Mounted {call_ctx.transport.client_addr!r}: {fs.fsid!r}: {fs.root_dir}")
+        print(f"Mounted {fs.owner_addr!r}: {fs.fsid!r}, {mount_path}")
         return MountRes3(
             MountStat3.MNT3_OK,
             Mountres3OK(

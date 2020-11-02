@@ -93,9 +93,10 @@ class MountV1Service(MOUNTPROG_1_SERVER):
     async def MNT(self, call_ctx, mount_path: bytes) -> FHStatus:
         fs_mgr = self.fs_manager
         try:
-            fs = fs_mgr.mount_fs_by_root(mount_path, call_ctx)
+            fs: BaseFS = fs_mgr.mount_fs_by_root(mount_path, call_ctx)
         except (KeyError, ValueError):
             return FHStatus(errno=errno.ENOENT)
+        print(f"Mounted {fs.owner_addr!r}: {fs.fsid!r}, {mount_path}")
         return FHStatus(errno=0, directory=fs_mgr.entry_to_fh(fs.root_dir, nfs_v2=True))
 
     async def DUMP(self) -> typing.List[MountList]:

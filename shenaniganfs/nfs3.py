@@ -220,7 +220,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
 
     @fs_error_handler(lambda code, obj_wcc: READLINK3Res(code, resfail=READLINK3ResFail(obj_wcc.after)))
     async def READLINK(self, arg_0: READLINK3Args, obj_wcc: WccWrapper) -> READLINK3Res:
-        fs_entry = self.fs_manager.get_entry_by_fh(arg_0.file_handle)
+        fs_entry = self.fs_manager.get_entry_by_fh(arg_0.symlink_handle)
         if not fs_entry:
             raise FSException(NFSStat3.NFS3ERR_STALE)
         obj_wcc.set_entry(fs_entry)

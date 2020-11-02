@@ -38,6 +38,7 @@ import os
 import re
 import string
 import sys
+import tempfile
 
 import typing
 from io import StringIO
@@ -147,9 +148,6 @@ def t_IDENT(t):
 
 def t_error(t):
     raise LexError(t)
-
-
-lexer = lex.lex()
 
 
 class RecasedName(str):
@@ -965,9 +963,6 @@ def p_error(t):
     raise ParseError(t)
 
 
-parser = yacc.yacc()
-
-
 class NodeVisitor(abc.ABC):
     def __init__(self, ctx: Ctx):
         self.ctx = ctx
@@ -1008,15 +1003,6 @@ class StructHoistingVisitor(NodeVisitor):
         root.children.insert(root.children.index(base_typedef), new_typ_spec)
 
 
-def testlex(s):
-    lexer.input(s)
-    while 1:
-        token = lexer.token()
-        if not token:
-            break
-        print(token)
-
-
 def print_ast(ast, level=0):
     print(" " * 4 * level)
     if isinstance(ast, Node):
@@ -1030,12 +1016,9 @@ def print_ast(ast, level=0):
         print(ast)
 
 
-def testyacc(s):
-    ast = parser.parse(s)
-    print_ast(ast)
-
-
-def test(s):
+def compile(s, temp_directory):
+    lexer = lex.lex(outputdir=temp_directory)
+    parser = yacc.yacc(outputdir=temp_directory)
     ast = parser.parse(s)
     ctx = Ctx(os.environ.get("REMAP_NAMES") == "1")
     hoister = StructHoistingVisitor(ctx)
@@ -1073,14 +1056,15 @@ FALSE = False
 
 
 def main():
-    testfn = test
+    testfn = compile
     #    testfn = testyacc
     #    testfn = testlex
 
     for fn in sys.argv[1:]:
         with open(fn) as f:
             s = f.read()
-        testfn(s)
+        with tempfile.TemporaryDirectory() as d:
+            testfn(s, d)
 
 
 if __name__ == '__main__':

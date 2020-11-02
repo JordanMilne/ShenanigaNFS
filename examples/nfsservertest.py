@@ -56,7 +56,7 @@ async def main():
     rpcbind_transport_server.register_prog(SimpleRPCBind(port_manager))
     rpcbind_transport_server.notify_port_manager(port_manager)
 
-    transport_server = TCPTransportServer("127.0.0.1", 2222)
+    transport_server = TCPTransportServer("0.0.0.0", 2049)
     transport_server.register_prog(MountV1Service(fs_manager))
     transport_server.register_prog(NFSV2Service(fs_manager))
     transport_server.register_prog(MountV3Service(fs_manager))

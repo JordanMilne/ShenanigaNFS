@@ -394,3 +394,16 @@ class Prog:
         packer = xdrlib.Packer()
         proc.ret_type.pack(packer, rv)
         return packer.get_buffer()
+
+
+def addr_to_rpcbind(host: str, port: int) -> bytes:
+    # I have literally never seen this address representation
+    # outside of RPCBind and I don't like it.
+    return f"{host}.{port >> 8}.{port & 0xFF}".encode("utf8")
+
+
+def rpcbind_to_addr(val: bytes) -> typing.Tuple[str, int]:
+    # I have literally never seen this address representation
+    # outside of RPCBind and I don't like it.
+    host, port_hi, port_lo = val.decode("utf8").rsplit(".", 2)
+    return host, ((int(port_hi) << 8) | int(port_lo))

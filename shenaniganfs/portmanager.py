@@ -3,12 +3,7 @@ from typing import *
 
 import shenaniganfs.generated.rfc1833_portmapper as pm
 import shenaniganfs.generated.rfc1833_rpcbind as rb
-
-
-def _addr_to_rpcbind(host: str, port: int):
-    # I have literally never seen this address representation
-    # outside of RPCBind and I don't like it.
-    return f"{host}.{port >> 8}.{port & 0xFF}".encode("utf8")
+from shenaniganfs.rpchelp import addr_to_rpcbind
 
 
 class PortBinding(NamedTuple):

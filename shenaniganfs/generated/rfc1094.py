@@ -113,7 +113,7 @@ Path = rpchelp.Opaque(rpchelp.LengthType.VAR, MAXPATHLEN)
 
 @dataclass
 class AttrStat(rpchelp.Union):  # attrstat
-    SWITCH_OPTIONS = {NFS_OK: 'attributes', None: None}
+    SWITCH_OPTIONS = {None: None, NFS_OK: 'attributes'}
     status: typing.Union[Stat, int] = rpchelp.rpc_field(Stat)
     attributes: typing.Optional[FAttr] = rpchelp.rpc_field(FAttr, default=None)
 
@@ -132,7 +132,7 @@ class DiropOK(rpchelp.Struct):  # diropok
 
 @dataclass
 class DiropRes(rpchelp.Union):  # diropres
-    SWITCH_OPTIONS = {NFS_OK: 'diropok', None: None}
+    SWITCH_OPTIONS = {None: None, NFS_OK: 'diropok'}
     status: typing.Union[Stat, int] = rpchelp.rpc_field(Stat)
     diropok: typing.Optional[DiropOK] = rpchelp.rpc_field(DiropOK, default=None)
 
@@ -148,7 +148,7 @@ class FsInfo(rpchelp.Struct):  # fs_info
 
 @dataclass
 class StatfsRes(rpchelp.Union):  # statfsres
-    SWITCH_OPTIONS = {NFS_OK: 'fs_info', None: None}
+    SWITCH_OPTIONS = {None: None, NFS_OK: 'fs_info'}
     status: typing.Union[Stat, int] = rpchelp.rpc_field(Stat)
     fs_info: typing.Optional[FsInfo] = rpchelp.rpc_field(FsInfo, default=None)
 
@@ -178,7 +178,7 @@ class ReaddirOK(rpchelp.Struct):  # readdirok
 
 @dataclass
 class ReaddirRes(rpchelp.Union):  # readdirres
-    SWITCH_OPTIONS = {NFS_OK: 'readdirok', None: None}
+    SWITCH_OPTIONS = {None: None, NFS_OK: 'readdirok'}
     status: typing.Union[Stat, int] = rpchelp.rpc_field(Stat)
     readdirok: typing.Optional[ReaddirOK] = rpchelp.rpc_field(ReaddirOK, default=None)
 
@@ -233,14 +233,14 @@ class AttrDat(rpchelp.Struct):  # attrdat
 
 @dataclass
 class ReadRes(rpchelp.Union):  # readres
-    SWITCH_OPTIONS = {NFS_OK: 'attr_and_data', None: None}
+    SWITCH_OPTIONS = {None: None, NFS_OK: 'attr_and_data'}
     status: typing.Union[Stat, int] = rpchelp.rpc_field(Stat)
     attr_and_data: typing.Optional[AttrDat] = rpchelp.rpc_field(AttrDat, default=None)
 
 
 @dataclass
 class ReadlinkRes(rpchelp.Union):  # readlinkres
-    SWITCH_OPTIONS = {NFS_OK: 'data', None: None}
+    SWITCH_OPTIONS = {None: None, NFS_OK: 'data'}
     status: typing.Union[Stat, int] = rpchelp.rpc_field(Stat)
     data: typing.Optional[bytes] = rpchelp.rpc_field(Path, default=None)
 
@@ -258,7 +258,7 @@ Name = rpchelp.Opaque(rpchelp.LengthType.VAR, MNTPATHLEN)
 
 @dataclass
 class FHStatus(rpchelp.Union):  # fhstatus
-    SWITCH_OPTIONS = {0: 'directory', None: None}
+    SWITCH_OPTIONS = {None: None, 0: 'directory'}
     errno: int = rpchelp.rpc_field(rpchelp.r_uint)
     directory: typing.Optional[bytes] = rpchelp.rpc_field(FHandle, default=None)
 

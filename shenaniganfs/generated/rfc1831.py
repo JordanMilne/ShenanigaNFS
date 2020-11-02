@@ -107,7 +107,7 @@ class MismatchInfo(rpchelp.Struct):  # mismatch_info
 
 @dataclass
 class ReplyData(rpchelp.Union):  # reply_data
-    SWITCH_OPTIONS = {SUCCESS: None, PROG_MISMATCH: 'mismatch', None: None}
+    SWITCH_OPTIONS = {SUCCESS: None, None: None, PROG_MISMATCH: 'mismatch'}
     stat: typing.Union[AcceptStat, int] = rpchelp.rpc_field(AcceptStat)
     mismatch: typing.Optional[MismatchInfo] = rpchelp.rpc_field(MismatchInfo, default=None)
 
@@ -126,26 +126,26 @@ class MismatchInfo(rpchelp.Struct):  # mismatch_info
 
 @dataclass
 class RejectedReply(rpchelp.Union):  # rejected_reply
-    SWITCH_OPTIONS = {RPC_MISMATCH: 'mismatch_info', AUTH_ERROR: 'auth_error'}
+    SWITCH_OPTIONS = {AUTH_ERROR: 'auth_error', RPC_MISMATCH: 'mismatch_info'}
     r_stat: typing.Union[RejectStat, int] = rpchelp.rpc_field(RejectStat)
-    mismatch_info: typing.Optional[MismatchInfo] = rpchelp.rpc_field(MismatchInfo, default=None)
     auth_error: typing.Optional[typing.Union[AuthStat, int]] = rpchelp.rpc_field(AuthStat, default=None)
+    mismatch_info: typing.Optional[MismatchInfo] = rpchelp.rpc_field(MismatchInfo, default=None)
 
 
 @dataclass
 class ReplyBody(rpchelp.Union):  # reply_body
     SWITCH_OPTIONS = {MSG_ACCEPTED: 'areply', MSG_DENIED: 'rreply'}
     stat: typing.Union[ReplyStat, int] = rpchelp.rpc_field(ReplyStat)
-    areply: typing.Optional[AcceptedReply] = rpchelp.rpc_field(AcceptedReply, default=None)
     rreply: typing.Optional[RejectedReply] = rpchelp.rpc_field(RejectedReply, default=None)
+    areply: typing.Optional[AcceptedReply] = rpchelp.rpc_field(AcceptedReply, default=None)
 
 
 @dataclass
 class RPCBody(rpchelp.Union):  # rpc_body
     SWITCH_OPTIONS = {CALL: 'cbody', REPLY: 'rbody'}
     mtype: typing.Union[MsgType, int] = rpchelp.rpc_field(MsgType)
-    rbody: typing.Optional[ReplyBody] = rpchelp.rpc_field(ReplyBody, default=None)
     cbody: typing.Optional[CallBody] = rpchelp.rpc_field(CallBody, default=None)
+    rbody: typing.Optional[ReplyBody] = rpchelp.rpc_field(ReplyBody, default=None)
 
 
 @dataclass

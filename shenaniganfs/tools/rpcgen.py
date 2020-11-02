@@ -509,6 +509,10 @@ class UnionBody(Node):
 
 
 class UnionList(NodeListComma):
+    def __init__(self, node, node_list=None):
+        super().__init__(node, node_list=node_list)
+        self.children = sorted(self.children, key=lambda x: x.decl.ident or "")
+
     def to_fields(self, ctx):
         for child in self.children:
             yield child.to_field(ctx)

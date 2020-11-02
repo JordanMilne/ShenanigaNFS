@@ -1,6 +1,6 @@
 # ShenanigaNFS
 
-Library for making somewhat conformant-ish low-level NFSv2/3 clients and servers.
+Python library for making somewhat conformant-ish low-level NFSv2/3 clients and servers.
 Includes tools for making NFS servers with mount-specific FS state and a 
 VFS API similar to FUSE for making custom filesystems.
 
@@ -30,12 +30,14 @@ Otherwise, the tools are low-level enough to be useful for reverse engineering
 and creating intentionally misbehaved filesystems.
 
 ## Running RPCBind as non-root
-See <https://stackoverflow.com/a/414258> for how to allow your script to bind to low ports. In short:
+See <https://stackoverflow.com/a/414258> for how to allow your script to bind 
+to low ports. In short:
 
 > `sudo setcap 'cap_net_bind_service=+ep' /path/to/python`
 
 ## Acknowledgements
 
-* [PineFS](https://www.panix.com/~asl2/software/Pinefs/) - Used as the basis for the XDR and IDL parsing code
+* [PineFS](https://www.panix.com/~asl2/software/Pinefs/) - Used as the basis for the 
+  XDR and IDL parsing code
 * [go-nfs](https://github.com/willscott/go-nfs) - Unrelated, but seems like we started writing 
   them at the same time. Also it looks nice and is probably more stable, give it a look.

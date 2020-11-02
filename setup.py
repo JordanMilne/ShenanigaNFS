@@ -19,11 +19,13 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.7",
+        "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    install_requires=[
-        "ply~=3.11"
-    ],
+    extras_require={
+        "rpcgen": ["ply~=3.11"],
+    },
     python_requires='>=3.7',
 )

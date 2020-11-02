@@ -313,6 +313,10 @@ class BaseFS(abc.ABC):
             yield entry
 
     @abc.abstractmethod
+    def get_child_by_name(self, directory: FSENTRY, name: bytes) -> Optional[FSENTRY]:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     def lookup(self, directory: FSENTRY, name: bytes) -> Optional[FSENTRY]:
         raise NotImplementedError()
 
@@ -455,7 +459,7 @@ class SimpleFS(NodeTrackingFS):
         assert (all(files))
         return files
 
-    def lookup(self, directory: FSENTRY, name: bytes) -> Optional[FSENTRY]:
+    def get_child_by_name(self, directory: FSENTRY, name: bytes) -> Optional[FSENTRY]:
         self._verify_owned(directory)
         if directory.type != FileType.DIR:
             raise FSException(NFSError.ERR_NOTDIR)
@@ -463,6 +467,10 @@ class SimpleFS(NodeTrackingFS):
             if child.name == name:
                 return child
         return None
+
+    def lookup(self, directory: FSENTRY, name: bytes) -> Optional[FSENTRY]:
+        """`get_named_child()` but part of the external API with potential side-effects"""
+        return self.get_child_by_name(directory, name)
 
     def read(self, entry: FSENTRY, offset: int, count: int) -> bytes:
         self._verify_owned(entry)
@@ -544,7 +552,7 @@ class SimpleFS(NodeTrackingFS):
         # trying to move a directory inside itself????
         if source in self.iter_ancestors(to_dir):
             raise FSException(NFSError.ERR_ACCES, "Recursive parenting attempt")
-        if self.lookup(to_dir, new_name):
+        if self.get_child_by_name(to_dir, new_name):
             raise FSException(NFSError.ERR_EXIST)
         if source.parent_id != to_dir.fileid:
             self._change_parent(source, to_dir)
@@ -562,7 +570,7 @@ class SimpleFS(NodeTrackingFS):
         self._verify_writable()
         if len(name) > REASONABLE_NAME_LIMIT:
             raise FSException(NFSError.ERR_NAMETOOLONG)
-        if self.lookup(dest, name):
+        if self.get_child_by_name(dest, name):
             raise FSException(NFSError.ERR_EXIST)
         self._verify_size_quota(len(name))
         self._verify_entries_quota()

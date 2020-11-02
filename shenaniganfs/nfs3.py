@@ -147,7 +147,8 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         super().__init__()
         self.fs_manager: FileSystemManager = fs_manager
 
-    def _get_named_child(self, dir_fh: bytes, name: bytes, dir_wcc: typing.Optional[WccWrapper] = None) \
+    def _get_child_by_name(self, dir_fh: bytes, name: bytes, dir_wcc: typing.Optional[WccWrapper] = None,
+                           do_lookup: bool = False) \
             -> typing.Tuple[FSENTRY, typing.Optional[FSENTRY]]:
         dir_entry = self.fs_manager.get_entry_by_fh(dir_fh)
         if not dir_entry:
@@ -157,7 +158,13 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         if dir_entry.type != FileType.DIR:
             raise FSException(NFSStat3.NFS3ERR_NOTDIR)
         fs: BaseFS = dir_entry.fs()
-        return dir_entry, fs.lookup(dir_entry, name)
+
+        # Do we want a side-effectful lookup?
+        if do_lookup:
+            entry = fs.lookup(dir_entry, name)
+        else:
+            entry = fs.get_child_by_name(dir_entry, name)
+        return dir_entry, entry
 
     async def NULL(self) -> None:
         pass
@@ -190,7 +197,12 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
 
     @fs_error_handler(lambda code, dir_wcc: LOOKUP3Res(code, resfail=LOOKUP3ResFail(dir_wcc.after)))
     async def LOOKUP(self, arg_0: LOOKUP3Args, dir_wcc: WccWrapper) -> LOOKUP3Res:
-        directory, child = self._get_named_child(arg_0.what.dir_handle, arg_0.what.name, dir_wcc)
+        directory, child = self._get_child_by_name(
+            dir_fh=arg_0.what.dir_handle,
+            name=arg_0.what.name,
+            dir_wcc=dir_wcc,
+            do_lookup=True,
+        )
         if not child:
             raise FSException(NFSStat3.NFS3ERR_NOENT)
 
@@ -278,7 +290,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
 
     @fs_error_handler(lambda code, dir_wcc: CREATE3Res(code, resfail=CREATE3ResFail(dir_wcc)))
     async def CREATE(self, arg_0: CREATE3Args, dir_wcc: WccWrapper) -> CREATE3Res:
-        target_dir, target = self._get_named_child(arg_0.where.dir_handle, arg_0.where.name, dir_wcc)
+        target_dir, target = self._get_child_by_name(arg_0.where.dir_handle, arg_0.where.name, dir_wcc)
         # We have no intention of supporting exclusive mode for the moment
         # due to the additional bookkeeping required
         if arg_0.how.mode == Createmode3.EXCLUSIVE:
@@ -305,7 +317,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
 
     @fs_error_handler(lambda code, dir_wcc: MKDIR3Res(code, resfail=MKDIR3ResFail(dir_wcc)))
     async def MKDIR(self, arg_0: MKDIR3Args, dir_wcc: WccWrapper) -> MKDIR3Res:
-        target_dir, target = self._get_named_child(arg_0.where.dir_handle, arg_0.where.name, dir_wcc)
+        target_dir, target = self._get_child_by_name(arg_0.where.dir_handle, arg_0.where.name, dir_wcc)
         if target:
             raise FSException(NFSStat3.NFS3ERR_EXIST)
         fs: BaseFS = target_dir.fs()
@@ -321,7 +333,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
 
     @fs_error_handler(lambda code, dir_wcc: SYMLINK3Res(code, resfail=CREATE3ResFail(dir_wcc)))
     async def SYMLINK(self, arg_0: SYMLINK3Args, dir_wcc: WccWrapper) -> SYMLINK3Res:
-        target_dir, target = self._get_named_child(arg_0.where.dir_handle, arg_0.where.name, dir_wcc)
+        target_dir, target = self._get_child_by_name(arg_0.where.dir_handle, arg_0.where.name, dir_wcc)
         if target:
             raise FSException(NFSStat3.NFS3ERR_EXIST)
         fs: BaseFS = target_dir.fs()
@@ -342,7 +354,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
 
     @fs_error_handler(lambda code, dir_wcc: REMOVE3Res(code, resfail=REMOVE3ResFail(dir_wcc)))
     async def REMOVE(self, arg_0: REMOVE3Args, dir_wcc: WccWrapper) -> REMOVE3Res:
-        dir_entry, to_delete = self._get_named_child(arg_0.object.dir_handle, arg_0.object.name, dir_wcc)
+        dir_entry, to_delete = self._get_child_by_name(arg_0.object.dir_handle, arg_0.object.name, dir_wcc)
         if not to_delete:
             raise FSException(NFSStat3.NFS3ERR_NOENT)
         if to_delete.type == FileType.DIR:
@@ -356,7 +368,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
 
     @fs_error_handler(lambda code, dir_wcc: RMDIR3Res(code, resfail=RMDIR3ResFail(dir_wcc)))
     async def RMDIR(self, arg_0: RMDIR3Args, dir_wcc: WccWrapper) -> RMDIR3Res:
-        dir_entry, to_delete = self._get_named_child(arg_0.object.dir_handle, arg_0.object.name, dir_wcc)
+        dir_entry, to_delete = self._get_child_by_name(arg_0.object.dir_handle, arg_0.object.name, dir_wcc)
         if not to_delete:
             raise FSException(NFSStat3.NFS3ERR_NOENT)
         if to_delete.type != FileType.DIR:
@@ -370,10 +382,10 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
 
     @fs_error_handler(lambda code, from_wcc, to_wcc: RENAME3Res(code, resfail=RENAME3ResFail(from_wcc, to_wcc)), 2)
     async def RENAME(self, arg_0: RENAME3Args, from_wcc: WccWrapper, to_wcc: WccWrapper) -> RENAME3Res:
-        source_dir, source = self._get_named_child(arg_0.from_.dir_handle, arg_0.from_.name, from_wcc)
+        source_dir, source = self._get_child_by_name(arg_0.from_.dir_handle, arg_0.from_.name, from_wcc)
         if not source:
             raise FSException(NFSStat3.NFS3ERR_NOENT)
-        dest_dir, dest_entry = self._get_named_child(arg_0.to.dir_handle, arg_0.to.name, to_wcc)
+        dest_dir, dest_entry = self._get_child_by_name(arg_0.to.dir_handle, arg_0.to.name, to_wcc)
         # FS gets to decide whether or not clobbering is allowed
         fs: BaseFS = dest_dir.fs()
         fs.rename(source, dest_dir, arg_0.to.name)

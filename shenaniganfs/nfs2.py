@@ -134,14 +134,21 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         super().__init__()
         self.fs_manager: FileSystemManager = fs_manager
 
-    def _get_named_child(self, dir_fh: bytes, name: bytes) -> typing.Tuple[FSENTRY, typing.Optional[FSENTRY]]:
+    def _get_child_by_name(self, dir_fh: bytes, name: bytes, do_lookup: bool = False) \
+            -> typing.Tuple[FSENTRY, typing.Optional[FSENTRY]]:
         dir_entry = self.fs_manager.get_entry_by_fh(dir_fh, nfs_v2=True)
         if not dir_entry:
             raise FSException(Stat.NFSERR_STALE)
         if dir_entry.type != FileType.DIR:
             raise FSException(Stat.NFSERR_NOTDIR)
         fs: BaseFS = dir_entry.fs()
-        return dir_entry, fs.lookup(dir_entry, name)
+
+        # Do we want a side-effectful lookup?
+        if do_lookup:
+            entry = fs.lookup(dir_entry, name)
+        else:
+            entry = fs.get_child_by_name(dir_entry, name)
+        return dir_entry, entry
 
     async def NULL(self) -> None:
         pass
@@ -167,7 +174,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
 
     @fs_error_handler(DiropRes)
     async def LOOKUP(self, arg_0: DiropArgs) -> DiropRes:
-        directory, child = self._get_named_child(arg_0.dir, arg_0.name)
+        directory, child = self._get_child_by_name(arg_0.dir, arg_0.name, do_lookup=True)
         if not child:
             return DiropRes(Stat.NFSERR_NOENT)
 
@@ -212,7 +219,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         return AttrStat(Stat.NFS_OK, entry_to_fattr(entry))
 
     def _create_common(self, arg_0: CreateArgs, create_func: typing.Callable) -> DiropRes:
-        target_dir, target = self._get_named_child(arg_0.where.dir, arg_0.where.name)
+        target_dir, target = self._get_child_by_name(arg_0.where.dir, arg_0.where.name)
         if target:
             return DiropRes(Stat.NFSERR_EXIST)
         fs: BaseFS = target_dir.fs()
@@ -232,7 +239,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
 
     @fs_error_handler(Stat)
     async def REMOVE(self, arg_0: DiropArgs) -> Stat:
-        dir_entry, to_delete = self._get_named_child(arg_0.dir, arg_0.name)
+        dir_entry, to_delete = self._get_child_by_name(arg_0.dir, arg_0.name)
         if not to_delete:
             return Stat.NFSERR_NOENT
         if to_delete.type == FileType.DIR:
@@ -243,10 +250,10 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
 
     @fs_error_handler(Stat)
     async def RENAME(self, arg_0: RenameArgs) -> Stat:
-        source_dir, source = self._get_named_child(arg_0.from_.dir, arg_0.from_.name)
+        source_dir, source = self._get_child_by_name(arg_0.from_.dir, arg_0.from_.name)
         if not source:
             return Stat.NFSERR_NOENT
-        dest_dir, dest_entry = self._get_named_child(arg_0.to.dir, arg_0.to.name)
+        dest_dir, dest_entry = self._get_child_by_name(arg_0.to.dir, arg_0.to.name)
         # FS gets to decide whether or not clobbering is allowed
         fs: BaseFS = dest_dir.fs()
         fs.rename(source, dest_dir, arg_0.to.name)
@@ -260,7 +267,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
 
     @fs_error_handler(Stat)
     async def RMDIR(self, arg_0: DiropArgs) -> Stat:
-        dir_entry, to_delete = self._get_named_child(arg_0.dir, arg_0.name)
+        dir_entry, to_delete = self._get_child_by_name(arg_0.dir, arg_0.name)
         if not to_delete:
             return Stat.NFSERR_NOENT
         if to_delete.type != FileType.DIR:

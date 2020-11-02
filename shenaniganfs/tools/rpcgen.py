@@ -495,7 +495,7 @@ class UnionBody(Node):
         buf += f"\t{sw_field[0]}: {field_type.type_hint()}{field_data}\n"
 
         # Don't output dupes of fields used in multiple branches
-        for field in set(fields.values()):
+        for field in sorted(set(fields.values()), key=lambda x: str(x)):
             if not field[0]:
                 continue
             field_type = eval(field[1], globals(), ctx.locals)

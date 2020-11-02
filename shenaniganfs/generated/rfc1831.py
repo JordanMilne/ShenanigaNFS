@@ -136,8 +136,8 @@ class RejectedReply(rpchelp.Union):  # rejected_reply
 class ReplyBody(rpchelp.Union):  # reply_body
     SWITCH_OPTIONS = {MSG_ACCEPTED: 'areply', MSG_DENIED: 'rreply'}
     stat: typing.Union[ReplyStat, int] = rpchelp.rpc_field(ReplyStat)
-    rreply: typing.Optional[RejectedReply] = rpchelp.rpc_field(RejectedReply, default=None)
     areply: typing.Optional[AcceptedReply] = rpchelp.rpc_field(AcceptedReply, default=None)
+    rreply: typing.Optional[RejectedReply] = rpchelp.rpc_field(RejectedReply, default=None)
 
 
 @dataclass

@@ -27,7 +27,7 @@ class PortBinding(NamedTuple):
             r_prog=self.prog_num,
             r_vers=self.vers,
             r_netid=self.protocol.encode("utf8"),
-            r_addr=_addr_to_rpcbind(self.host, self.port),
+            r_addr=addr_to_rpcbind(self.host, self.port),
             r_owner=self.owner.encode("utf8"),
         )
 
@@ -73,28 +73,28 @@ class SimplePortMapper(pm.PMAP_PROG_2_SERVER):
         super().__init__()
         self.port_manager = port_manager
 
-    def NULL(self) -> None:
+    async def NULL(self) -> None:
         pass
 
-    def SET(self, arg_0: pm.Mapping) -> bool:
+    async def SET(self, arg_0: pm.Mapping) -> bool:
         return False
 
-    def UNSET(self, arg_0: pm.Mapping) -> bool:
+    async def UNSET(self, arg_0: pm.Mapping) -> bool:
         return False
 
-    def GETPORT(self, arg_0: pm.Mapping) -> int:
+    async def GETPORT(self, arg_0: pm.Mapping) -> int:
         prot_str = "tcp" if arg_0.prot == pm.IPPROTO_TCP else "udp"
         match = self.port_manager.get_mapping(arg_0.prog, prot_str)
         if not match:
             return 0
         return match.port
 
-    def DUMP(self) -> List[pm.Mapping]:
+    async def DUMP(self) -> List[pm.Mapping]:
         return [
             x.to_portmapper() for x in self.port_manager.bindings if x.portmapper_compatible
         ]
 
-    def CALLIT(self, arg_0: pm.CallArgs) -> pm.CallResult:
+    async def CALLIT(self, arg_0: pm.CallArgs) -> pm.CallResult:
         # We're not implementing this, it's a nightmare.
         # https://github.com/okirch/rpcbind/blob/b3b031b07cc5909aaf964f9d4cf46f6097769320/src/security.c#L284-L296
         return pm.CallResult(port=0, res=b"")
@@ -107,48 +107,48 @@ class SimpleRPCBind(rb.RPCBPROG_4_SERVER):
         super().__init__()
         self.port_manager = port_manager
 
-    def NULL(self) -> None:
+    async def NULL(self) -> None:
         pass
 
-    def SET(self, arg_0: rb.RPCB) -> bool:
+    async def SET(self, arg_0: rb.RPCB) -> bool:
         return False
 
-    def UNSET(self, arg_0: rb.RPCB) -> bool:
+    async def UNSET(self, arg_0: rb.RPCB) -> bool:
         return False
 
-    def GETADDR(self, arg_0: rb.RPCB) -> bytes:
+    async def GETADDR(self, arg_0: rb.RPCB) -> bytes:
         match = self.port_manager.get_mapping(arg_0.r_prog, arg_0.r_netid.decode("utf8"))
         if not match:
             return b""
         return match.to_rpcbind().r_addr
 
-    def DUMP(self) -> List[rb.RPCB]:
+    async def DUMP(self) -> List[rb.RPCB]:
         return [x.to_rpcbind() for x in self.port_manager.bindings]
 
-    def BCAST(self, arg_0: rb.RPCBRmtcallArgs) -> rb.RPCBRmtcallRes:
+    async def BCAST(self, arg_0: rb.RPCBRmtcallArgs) -> rb.RPCBRmtcallRes:
         return rb.RPCBRmtcallRes(b"", b"")
 
-    def GETTIME(self) -> int:
+    async def GETTIME(self) -> int:
         return int(dt.datetime.now(tz=dt.timezone.utc).timestamp())
 
-    def UADDR2TADDR(self, arg_0: bytes) -> rb.Netbuf:
+    async def UADDR2TADDR(self, arg_0: bytes) -> rb.Netbuf:
         return rb.Netbuf(0, b"")
 
-    def TADDR2UADDR(self, arg_0: rb.Netbuf) -> bytes:
+    async def TADDR2UADDR(self, arg_0: rb.Netbuf) -> bytes:
         return b""
 
-    def GETVERSADDR(self, arg_0: rb.RPCB) -> bytes:
+    async def GETVERSADDR(self, arg_0: rb.RPCB) -> bytes:
         match = self.port_manager.get_vers_mapping(arg_0.r_prog, arg_0.r_vers, arg_0.r_netid.decode("utf8"))
         if not match:
             return b""
         return match.to_rpcbind().r_addr
 
-    def INDIRECT(self, arg_0: rb.RPCBRmtcallArgs) -> rb.RPCBRmtcallRes:
+    async def INDIRECT(self, arg_0: rb.RPCBRmtcallArgs) -> rb.RPCBRmtcallRes:
         return rb.RPCBRmtcallRes(b"", b"")
 
-    def GETADDRLIST(self, arg_0: rb.RPCB) -> List[rb.RPCBEntry]:
+    async def GETADDRLIST(self, arg_0: rb.RPCB) -> List[rb.RPCBEntry]:
         # semantics for this are hard to grok. Meh, doesn't seem to be used much.
         return []
 
-    def GETSTAT(self) -> List[rb.RPCBStat]:
+    async def GETSTAT(self) -> List[rb.RPCBStat]:
         return []

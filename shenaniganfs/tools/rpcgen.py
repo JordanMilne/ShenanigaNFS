@@ -650,7 +650,7 @@ class Program(Node):
         for proc in vers.proc_defs.children:
             if not as_client:
                 funcs_str += "\t@abc.abstractmethod\n"
-            funcs_str += f"\t{'async ' if as_client else ''}def {proc.ident}(self"
+            funcs_str += f"\tasync def {proc.ident}(self"
             for i, parm_type in enumerate(proc.parm_list.children):
                 funcs_str += f", arg_{i}: {_get_type(parm_type).type_hint()}"
             ret_type_hint = _get_type(proc.ret_type).type_hint()

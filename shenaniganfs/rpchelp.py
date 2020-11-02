@@ -378,7 +378,7 @@ class Prog:
     def get_handler(self, proc_id) -> typing.Callable:
         return getattr(self, self.procs[proc_id].name)
 
-    def handle_proc_call(self, call_ctx, proc_id: int, call_body: bytes) -> bytes:
+    async def handle_proc_call(self, call_ctx, proc_id: int, call_body: bytes) -> bytes:
         proc = self.procs.get(proc_id)
         if proc is None:
             raise NotImplementedError()
@@ -389,7 +389,7 @@ class Prog:
         handler: typing.Callable = self.get_handler(proc_id)
         if getattr(handler, 'want_ctx', False):
             argl = [call_ctx] + argl
-        rv = handler(*argl)
+        rv = await handler(*argl)
 
         packer = xdrlib.Packer()
         proc.ret_type.pack(packer, rv)

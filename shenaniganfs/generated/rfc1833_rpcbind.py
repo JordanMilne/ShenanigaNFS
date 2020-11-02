@@ -127,39 +127,39 @@ class RPCBPROG_3_SERVER(rpchelp.Prog):
     }
 
     @abc.abstractmethod
-    def NULL(self) -> None:
+    async def NULL(self) -> None:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def SET(self, arg_0: RPCB) -> bool:
+    async def SET(self, arg_0: RPCB) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def UNSET(self, arg_0: RPCB) -> bool:
+    async def UNSET(self, arg_0: RPCB) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETADDR(self, arg_0: RPCB) -> bytes:
+    async def GETADDR(self, arg_0: RPCB) -> bytes:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def DUMP(self) -> typing.List[RPCB]:
+    async def DUMP(self) -> typing.List[RPCB]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def CALLIT(self, arg_0: RPCBRmtcallArgs) -> RPCBRmtcallRes:
+    async def CALLIT(self, arg_0: RPCBRmtcallArgs) -> RPCBRmtcallRes:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETTIME(self) -> int:
+    async def GETTIME(self) -> int:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def UADDR2TADDR(self, arg_0: bytes) -> Netbuf:
+    async def UADDR2TADDR(self, arg_0: bytes) -> Netbuf:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def TADDR2UADDR(self, arg_0: Netbuf) -> bytes:
+    async def TADDR2UADDR(self, arg_0: Netbuf) -> bytes:
         raise NotImplementedError()
 
 
@@ -183,55 +183,55 @@ class RPCBPROG_4_SERVER(rpchelp.Prog):
     }
 
     @abc.abstractmethod
-    def NULL(self) -> None:
+    async def NULL(self) -> None:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def SET(self, arg_0: RPCB) -> bool:
+    async def SET(self, arg_0: RPCB) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def UNSET(self, arg_0: RPCB) -> bool:
+    async def UNSET(self, arg_0: RPCB) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETADDR(self, arg_0: RPCB) -> bytes:
+    async def GETADDR(self, arg_0: RPCB) -> bytes:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def DUMP(self) -> typing.List[RPCB]:
+    async def DUMP(self) -> typing.List[RPCB]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def BCAST(self, arg_0: RPCBRmtcallArgs) -> RPCBRmtcallRes:
+    async def BCAST(self, arg_0: RPCBRmtcallArgs) -> RPCBRmtcallRes:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETTIME(self) -> int:
+    async def GETTIME(self) -> int:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def UADDR2TADDR(self, arg_0: bytes) -> Netbuf:
+    async def UADDR2TADDR(self, arg_0: bytes) -> Netbuf:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def TADDR2UADDR(self, arg_0: Netbuf) -> bytes:
+    async def TADDR2UADDR(self, arg_0: Netbuf) -> bytes:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETVERSADDR(self, arg_0: RPCB) -> bytes:
+    async def GETVERSADDR(self, arg_0: RPCB) -> bytes:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def INDIRECT(self, arg_0: RPCBRmtcallArgs) -> RPCBRmtcallRes:
+    async def INDIRECT(self, arg_0: RPCBRmtcallArgs) -> RPCBRmtcallRes:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETADDRLIST(self, arg_0: RPCB) -> typing.List[RPCBEntry]:
+    async def GETADDRLIST(self, arg_0: RPCB) -> typing.List[RPCBEntry]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETSTAT(self) -> typing.List[RPCBStat]:
+    async def GETSTAT(self) -> typing.List[RPCBStat]:
         raise NotImplementedError()
 
 

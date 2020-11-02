@@ -59,27 +59,27 @@ class PMAP_PROG_2_SERVER(rpchelp.Prog):
     }
 
     @abc.abstractmethod
-    def NULL(self) -> None:
+    async def NULL(self) -> None:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def SET(self, arg_0: Mapping) -> bool:
+    async def SET(self, arg_0: Mapping) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def UNSET(self, arg_0: Mapping) -> bool:
+    async def UNSET(self, arg_0: Mapping) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETPORT(self, arg_0: Mapping) -> int:
+    async def GETPORT(self, arg_0: Mapping) -> int:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def DUMP(self) -> typing.List[Mapping]:
+    async def DUMP(self) -> typing.List[Mapping]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def CALLIT(self, arg_0: CallArgs) -> CallResult:
+    async def CALLIT(self, arg_0: CallArgs) -> CallResult:
         raise NotImplementedError()
 
 

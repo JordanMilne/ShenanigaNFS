@@ -308,75 +308,75 @@ class NFS_PROGRAM_2_SERVER(rpchelp.Prog):
     }
 
     @abc.abstractmethod
-    def NULL(self) -> None:
+    async def NULL(self) -> None:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETATTR(self, arg_0: bytes) -> AttrStat:
+    async def GETATTR(self, arg_0: bytes) -> AttrStat:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def SETATTR(self, arg_0: SattrArgs) -> AttrStat:
+    async def SETATTR(self, arg_0: SattrArgs) -> AttrStat:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def ROOT(self) -> None:
+    async def ROOT(self) -> None:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def LOOKUP(self, arg_0: DiropArgs) -> DiropRes:
+    async def LOOKUP(self, arg_0: DiropArgs) -> DiropRes:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def READLINK(self, arg_0: bytes) -> ReadlinkRes:
+    async def READLINK(self, arg_0: bytes) -> ReadlinkRes:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def READ(self, arg_0: ReadArgs) -> ReadRes:
+    async def READ(self, arg_0: ReadArgs) -> ReadRes:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def WRITECACHE(self) -> None:
+    async def WRITECACHE(self) -> None:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def WRITE(self, arg_0: WriteArgs) -> AttrStat:
+    async def WRITE(self, arg_0: WriteArgs) -> AttrStat:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def CREATE(self, arg_0: CreateArgs) -> DiropRes:
+    async def CREATE(self, arg_0: CreateArgs) -> DiropRes:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def REMOVE(self, arg_0: DiropArgs) -> typing.Union[Stat, int]:
+    async def REMOVE(self, arg_0: DiropArgs) -> typing.Union[Stat, int]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def RENAME(self, arg_0: RenameArgs) -> typing.Union[Stat, int]:
+    async def RENAME(self, arg_0: RenameArgs) -> typing.Union[Stat, int]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def LINK(self, arg_0: LinkArgs) -> typing.Union[Stat, int]:
+    async def LINK(self, arg_0: LinkArgs) -> typing.Union[Stat, int]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def SYMLINK(self, arg_0: SymlinkArgs) -> typing.Union[Stat, int]:
+    async def SYMLINK(self, arg_0: SymlinkArgs) -> typing.Union[Stat, int]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def MKDIR(self, arg_0: CreateArgs) -> DiropRes:
+    async def MKDIR(self, arg_0: CreateArgs) -> DiropRes:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def RMDIR(self, arg_0: DiropArgs) -> typing.Union[Stat, int]:
+    async def RMDIR(self, arg_0: DiropArgs) -> typing.Union[Stat, int]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def READDIR(self, arg_0: ReaddirArgs) -> ReaddirRes:
+    async def READDIR(self, arg_0: ReaddirArgs) -> ReaddirRes:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def STATFS(self, arg_0: bytes) -> StatfsRes:
+    async def STATFS(self, arg_0: bytes) -> StatfsRes:
         raise NotImplementedError()
 
 
@@ -472,27 +472,27 @@ class MOUNTPROG_1_SERVER(rpchelp.Prog):
     }
 
     @abc.abstractmethod
-    def NULL(self) -> None:
+    async def NULL(self) -> None:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def MNT(self, arg_0: bytes) -> FHStatus:
+    async def MNT(self, arg_0: bytes) -> FHStatus:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def DUMP(self) -> typing.List[MountList]:
+    async def DUMP(self) -> typing.List[MountList]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def UMNT(self, arg_0: bytes) -> None:
+    async def UMNT(self, arg_0: bytes) -> None:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def UMNTALL(self) -> None:
+    async def UMNTALL(self) -> None:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def EXPORT(self) -> typing.List[ExportList]:
+    async def EXPORT(self) -> typing.List[ExportList]:
         raise NotImplementedError()
 
 

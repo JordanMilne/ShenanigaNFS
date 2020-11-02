@@ -342,8 +342,8 @@ class READLINK3ResFail(rpchelp.Struct):  # READLINK3resfail
 class READLINK3Res(rpchelp.Union):  # READLINK3res
     SWITCH_OPTIONS = {None: 'resfail', NFS3_OK: 'resok'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resfail: typing.Optional[READLINK3ResFail] = rpchelp.rpc_field(READLINK3ResFail, default=None)
     resok: typing.Optional[READLINK3ResOK] = rpchelp.rpc_field(READLINK3ResOK, default=None)
+    resfail: typing.Optional[READLINK3ResFail] = rpchelp.rpc_field(READLINK3ResFail, default=None)
 
 
 @dataclass
@@ -370,8 +370,8 @@ class READ3ResFail(rpchelp.Struct):  # READ3resfail
 class READ3Res(rpchelp.Union):  # READ3res
     SWITCH_OPTIONS = {None: 'resfail', NFS3_OK: 'resok'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resok: typing.Optional[READ3ResOK] = rpchelp.rpc_field(READ3ResOK, default=None)
     resfail: typing.Optional[READ3ResFail] = rpchelp.rpc_field(READ3ResFail, default=None)
+    resok: typing.Optional[READ3ResOK] = rpchelp.rpc_field(READ3ResOK, default=None)
 
 
 class StableHow(rpchelp.Enum):  # stable_how
@@ -406,8 +406,8 @@ class WRITE3ResFail(rpchelp.Struct):  # WRITE3resfail
 class WRITE3Res(rpchelp.Union):  # WRITE3res
     SWITCH_OPTIONS = {None: 'resfail', NFS3_OK: 'resok'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resok: typing.Optional[WRITE3ResOK] = rpchelp.rpc_field(WRITE3ResOK, default=None)
     resfail: typing.Optional[WRITE3ResFail] = rpchelp.rpc_field(WRITE3ResFail, default=None)
+    resok: typing.Optional[WRITE3ResOK] = rpchelp.rpc_field(WRITE3ResOK, default=None)
 
 
 class Createmode3(rpchelp.Enum):  # createmode3
@@ -420,8 +420,8 @@ class Createmode3(rpchelp.Enum):  # createmode3
 class Createhow3(rpchelp.Union):  # createhow3
     SWITCH_OPTIONS = {UNCHECKED: 'obj_attributes', GUARDED: 'obj_attributes', EXCLUSIVE: 'verf'}
     mode: typing.Union[Createmode3, int] = rpchelp.rpc_field(Createmode3)
-    verf: typing.Optional[bytes] = rpchelp.rpc_field(Createverf3, default=None)
     obj_attributes: typing.Optional[SAttr3] = rpchelp.rpc_field(SAttr3, default=None)
+    verf: typing.Optional[bytes] = rpchelp.rpc_field(Createverf3, default=None)
 
 
 @dataclass
@@ -446,8 +446,8 @@ class CREATE3ResFail(rpchelp.Struct):  # CREATE3resfail
 class CREATE3Res(rpchelp.Union):  # CREATE3res
     SWITCH_OPTIONS = {None: 'resfail', NFS3_OK: 'resok'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resok: typing.Optional[CREATE3ResOK] = rpchelp.rpc_field(CREATE3ResOK, default=None)
     resfail: typing.Optional[CREATE3ResFail] = rpchelp.rpc_field(CREATE3ResFail, default=None)
+    resok: typing.Optional[CREATE3ResOK] = rpchelp.rpc_field(CREATE3ResOK, default=None)
 
 
 @dataclass
@@ -472,8 +472,8 @@ class MKDIR3ResFail(rpchelp.Struct):  # MKDIR3resfail
 class MKDIR3Res(rpchelp.Union):  # MKDIR3res
     SWITCH_OPTIONS = {None: 'resfail', NFS3_OK: 'resok'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resfail: typing.Optional[MKDIR3ResFail] = rpchelp.rpc_field(MKDIR3ResFail, default=None)
     resok: typing.Optional[MKDIR3ResOK] = rpchelp.rpc_field(MKDIR3ResOK, default=None)
+    resfail: typing.Optional[MKDIR3ResFail] = rpchelp.rpc_field(MKDIR3ResFail, default=None)
 
 
 @dataclass
@@ -504,8 +504,8 @@ class SYMLINK3ResFail(rpchelp.Struct):  # SYMLINK3resfail
 class SYMLINK3Res(rpchelp.Union):  # SYMLINK3res
     SWITCH_OPTIONS = {None: 'resfail', NFS3_OK: 'resok'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resfail: typing.Optional[SYMLINK3ResFail] = rpchelp.rpc_field(SYMLINK3ResFail, default=None)
     resok: typing.Optional[SYMLINK3ResOK] = rpchelp.rpc_field(SYMLINK3ResOK, default=None)
+    resfail: typing.Optional[SYMLINK3ResFail] = rpchelp.rpc_field(SYMLINK3ResFail, default=None)
 
 
 @dataclass
@@ -518,10 +518,10 @@ class DeviceData3(rpchelp.Struct):  # devicedata3
 class MknodData3(rpchelp.Union):  # mknoddata3
     SWITCH_OPTIONS = {None: None, NF3BLK: 'blk_device', NF3CHR: 'chr_device', NF3FIFO: 'fifo_pipe_attributes', NF3SOCK: 'sock_pipe_attributes'}
     type: typing.Union[Ftype3, int] = rpchelp.rpc_field(Ftype3)
-    blk_device: typing.Optional[DeviceData3] = rpchelp.rpc_field(DeviceData3, default=None)
     fifo_pipe_attributes: typing.Optional[SAttr3] = rpchelp.rpc_field(SAttr3, default=None)
-    sock_pipe_attributes: typing.Optional[SAttr3] = rpchelp.rpc_field(SAttr3, default=None)
     chr_device: typing.Optional[DeviceData3] = rpchelp.rpc_field(DeviceData3, default=None)
+    blk_device: typing.Optional[DeviceData3] = rpchelp.rpc_field(DeviceData3, default=None)
+    sock_pipe_attributes: typing.Optional[SAttr3] = rpchelp.rpc_field(SAttr3, default=None)
 
 
 @dataclass
@@ -569,8 +569,8 @@ class REMOVE3ResFail(rpchelp.Struct):  # REMOVE3resfail
 class REMOVE3Res(rpchelp.Union):  # REMOVE3res
     SWITCH_OPTIONS = {None: 'resfail', NFS3_OK: 'resok'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resfail: typing.Optional[REMOVE3ResFail] = rpchelp.rpc_field(REMOVE3ResFail, default=None)
     resok: typing.Optional[REMOVE3ResOK] = rpchelp.rpc_field(REMOVE3ResOK, default=None)
+    resfail: typing.Optional[REMOVE3ResFail] = rpchelp.rpc_field(REMOVE3ResFail, default=None)
 
 
 @dataclass
@@ -618,8 +618,8 @@ class RENAME3ResFail(rpchelp.Struct):  # RENAME3resfail
 class RENAME3Res(rpchelp.Union):  # RENAME3res
     SWITCH_OPTIONS = {None: 'resfail', NFS3_OK: 'resok'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resfail: typing.Optional[RENAME3ResFail] = rpchelp.rpc_field(RENAME3ResFail, default=None)
     resok: typing.Optional[RENAME3ResOK] = rpchelp.rpc_field(RENAME3ResOK, default=None)
+    resfail: typing.Optional[RENAME3ResFail] = rpchelp.rpc_field(RENAME3ResFail, default=None)
 
 
 @dataclass
@@ -759,8 +759,8 @@ class FSSTAT3ResFail(rpchelp.Struct):  # FSSTAT3resfail
 class FSSTAT3Res(rpchelp.Union):  # FSSTAT3res
     SWITCH_OPTIONS = {None: 'resfail', NFS3_OK: 'resok'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resfail: typing.Optional[FSSTAT3ResFail] = rpchelp.rpc_field(FSSTAT3ResFail, default=None)
     resok: typing.Optional[FSSTAT3ResOK] = rpchelp.rpc_field(FSSTAT3ResOK, default=None)
+    resfail: typing.Optional[FSSTAT3ResFail] = rpchelp.rpc_field(FSSTAT3ResFail, default=None)
 
 
 FSF3_LINK = 0x0001
@@ -827,8 +827,8 @@ class PATHCONF3ResFail(rpchelp.Struct):  # PATHCONF3resfail
 class PATHCONF3Res(rpchelp.Union):  # PATHCONF3res
     SWITCH_OPTIONS = {None: 'resfail', NFS3_OK: 'resok'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resfail: typing.Optional[PATHCONF3ResFail] = rpchelp.rpc_field(PATHCONF3ResFail, default=None)
     resok: typing.Optional[PATHCONF3ResOK] = rpchelp.rpc_field(PATHCONF3ResOK, default=None)
+    resfail: typing.Optional[PATHCONF3ResFail] = rpchelp.rpc_field(PATHCONF3ResFail, default=None)
 
 
 @dataclass
@@ -853,8 +853,8 @@ class COMMIT3ResFail(rpchelp.Struct):  # COMMIT3resfail
 class COMMIT3Res(rpchelp.Union):  # COMMIT3res
     SWITCH_OPTIONS = {None: 'resfail', NFS3_OK: 'resok'}
     status: typing.Union[NFSStat3, int] = rpchelp.rpc_field(NFSStat3)
-    resfail: typing.Optional[COMMIT3ResFail] = rpchelp.rpc_field(COMMIT3ResFail, default=None)
     resok: typing.Optional[COMMIT3ResOK] = rpchelp.rpc_field(COMMIT3ResOK, default=None)
+    resfail: typing.Optional[COMMIT3ResFail] = rpchelp.rpc_field(COMMIT3ResFail, default=None)
 
 
 MNTPATHLEN = 1024
@@ -940,91 +940,91 @@ class NFS_PROGRAM_3_SERVER(rpchelp.Prog):
     }
 
     @abc.abstractmethod
-    def NULL(self) -> None:
+    async def NULL(self) -> None:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def GETATTR(self, arg_0: GETATTR3Args) -> GETATTR3Res:
+    async def GETATTR(self, arg_0: GETATTR3Args) -> GETATTR3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def SETATTR(self, arg_0: SETATTR3Args) -> SETATTR3Res:
+    async def SETATTR(self, arg_0: SETATTR3Args) -> SETATTR3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def LOOKUP(self, arg_0: LOOKUP3Args) -> LOOKUP3Res:
+    async def LOOKUP(self, arg_0: LOOKUP3Args) -> LOOKUP3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def ACCESS(self, arg_0: ACCESS3Args) -> ACCESS3Res:
+    async def ACCESS(self, arg_0: ACCESS3Args) -> ACCESS3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def READLINK(self, arg_0: READLINK3Args) -> READLINK3Res:
+    async def READLINK(self, arg_0: READLINK3Args) -> READLINK3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def READ(self, arg_0: READ3Args) -> READ3Res:
+    async def READ(self, arg_0: READ3Args) -> READ3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def WRITE(self, arg_0: WRITE3Args) -> WRITE3Res:
+    async def WRITE(self, arg_0: WRITE3Args) -> WRITE3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def CREATE(self, arg_0: CREATE3Args) -> CREATE3Res:
+    async def CREATE(self, arg_0: CREATE3Args) -> CREATE3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def MKDIR(self, arg_0: MKDIR3Args) -> MKDIR3Res:
+    async def MKDIR(self, arg_0: MKDIR3Args) -> MKDIR3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def SYMLINK(self, arg_0: SYMLINK3Args) -> SYMLINK3Res:
+    async def SYMLINK(self, arg_0: SYMLINK3Args) -> SYMLINK3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def MKNOD(self, arg_0: MKNOD3Args) -> MKNOD3Res:
+    async def MKNOD(self, arg_0: MKNOD3Args) -> MKNOD3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def REMOVE(self, arg_0: REMOVE3Args) -> REMOVE3Res:
+    async def REMOVE(self, arg_0: REMOVE3Args) -> REMOVE3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def RMDIR(self, arg_0: RMDIR3Args) -> RMDIR3Res:
+    async def RMDIR(self, arg_0: RMDIR3Args) -> RMDIR3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def RENAME(self, arg_0: RENAME3Args) -> RENAME3Res:
+    async def RENAME(self, arg_0: RENAME3Args) -> RENAME3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def LINK(self, arg_0: LINK3Args) -> LINK3Res:
+    async def LINK(self, arg_0: LINK3Args) -> LINK3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def READDIR(self, arg_0: READDIR3Args) -> READDIR3Res:
+    async def READDIR(self, arg_0: READDIR3Args) -> READDIR3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def READDIRPLUS(self, arg_0: READDIRPLUS3Args) -> READDIRPLUS3Res:
+    async def READDIRPLUS(self, arg_0: READDIRPLUS3Args) -> READDIRPLUS3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def FSSTAT(self, arg_0: FSSTAT3Args) -> FSSTAT3Res:
+    async def FSSTAT(self, arg_0: FSSTAT3Args) -> FSSTAT3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def FSINFO(self, arg_0: FSINFO3Args) -> FSINFO3Res:
+    async def FSINFO(self, arg_0: FSINFO3Args) -> FSINFO3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def PATHCONF(self, arg_0: PATHCONF3Args) -> PATHCONF3Res:
+    async def PATHCONF(self, arg_0: PATHCONF3Args) -> PATHCONF3Res:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def COMMIT(self, arg_0: COMMIT3Args) -> COMMIT3Res:
+    async def COMMIT(self, arg_0: COMMIT3Args) -> COMMIT3Res:
         raise NotImplementedError()
 
 
@@ -1136,27 +1136,27 @@ class MOUNT_PROGRAM_3_SERVER(rpchelp.Prog):
     }
 
     @abc.abstractmethod
-    def NULL(self) -> None:
+    async def NULL(self) -> None:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def MNT(self, arg_0: bytes) -> MountRes3:
+    async def MNT(self, arg_0: bytes) -> MountRes3:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def DUMP(self) -> typing.List[MountList]:
+    async def DUMP(self) -> typing.List[MountList]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def UMNT(self, arg_0: bytes) -> None:
+    async def UMNT(self, arg_0: bytes) -> None:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def UMNTALL(self) -> None:
+    async def UMNTALL(self) -> None:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def EXPORT(self) -> typing.List[ExportList]:
+    async def EXPORT(self) -> typing.List[ExportList]:
         raise NotImplementedError()
 
 

@@ -59,7 +59,7 @@ class TransportServer:
                 vers_progs = [p for p in progs if p.supports_version(cbody.vers)]
                 if vers_progs:
                     call_ctx = CallContext(transport, call)
-                    reply_body_bytes = vers_progs[0].handle_proc_call(call_ctx, cbody.proc, call_body_bytes)
+                    reply_body_bytes = await vers_progs[0].handle_proc_call(call_ctx, cbody.proc, call_body_bytes)
                 else:
                     prog_versions = itertools.chain(*[(p.vers, p.min_vers) for p in progs])
                     prog_versions = list(x for x in prog_versions if x is not None)

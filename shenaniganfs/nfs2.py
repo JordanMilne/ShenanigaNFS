@@ -146,6 +146,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
     async def NULL(self) -> None:
         pass
 
+    @fs_error_handler(AttrStat)
     async def GETATTR(self, fh: bytes) -> AttrStat:
         fs_entry = self.fs_manager.get_entry_by_fh(fh, nfs_v2=True)
         if not fs_entry:
@@ -164,6 +165,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
     async def ROOT(self) -> None:
         pass
 
+    @fs_error_handler(DiropRes)
     async def LOOKUP(self, arg_0: DiropArgs) -> DiropRes:
         directory, child = self._get_named_child(arg_0.dir, arg_0.name)
         if not child:
@@ -175,6 +177,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
             DiropOK(fs_mgr.entry_to_fh(child, nfs_v2=True), entry_to_fattr(child))
         )
 
+    @fs_error_handler(ReadlinkRes)
     async def READLINK(self, fh: bytes) -> ReadlinkRes:
         fs_entry = self.fs_manager.get_entry_by_fh(fh, nfs_v2=True)
         if not fs_entry:
@@ -297,6 +300,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
             )
         )
 
+    @fs_error_handler(StatfsRes)
     async def STATFS(self, fh: bytes) -> StatfsRes:
         fs = self.fs_manager.get_fs_by_fh(fh, nfs_v2=True)
         if not fs:

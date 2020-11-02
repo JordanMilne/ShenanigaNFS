@@ -162,6 +162,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
     async def NULL(self) -> None:
         pass
 
+    @fs_error_handler(lambda code: GETATTR3Res(code), 0)
     async def GETATTR(self, arg_0: GETATTR3Args) -> GETATTR3Res:
         fs_entry = self.fs_manager.get_entry_by_fh(arg_0.obj_handle)
         if not fs_entry:

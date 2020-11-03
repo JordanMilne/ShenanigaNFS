@@ -122,7 +122,7 @@ class NodeDirectory(Directory, abc.ABC):
         child.parent_id = None
 
 
-def _utcnow():
+def utcnow():
     # Necessary because datetime.utcnow() is not TZ-aware :|
     return dt.datetime.now(tz=dt.timezone.utc)
 
@@ -139,15 +139,15 @@ def _hydrate_sattrs(attrs: Dict[str, Any], entry: Optional[FSENTRY] = None) -> D
             # TODO: check new size within quota?
         # This is a hint that the client wants to automatically fill in the server time
         elif "time" in attr_name and attr_val is None:
-            attr_val = _utcnow()
+            attr_val = utcnow()
         new_attrs[attr_name] = attr_val
     # Presumably this case is to allow the FS to choose the time rather than the NFS server,
     # but we're all mashed together.
     if "ctime" not in new_attrs:
-        new_attrs["ctime"] = _utcnow()
+        new_attrs["ctime"] = utcnow()
     # Changing filesize means we have to update mtime, even if one wasn't specified
     if "size" in new_attrs and entry and entry.size != new_attrs["size"]:
-        new_attrs["mtime"] = _utcnow()
+        new_attrs["mtime"] = utcnow()
     return new_attrs
 
 
@@ -165,9 +165,9 @@ class SimpleFSEntry(BaseFSEntry):
     gid: int = dataclasses.field(default=65534)
     rdev: Tuple[int, int] = dataclasses.field(default=(0, 0))
     blocks: int = dataclasses.field(default=1)
-    atime: dt.datetime = dataclasses.field(default_factory=_utcnow)
-    mtime: dt.datetime = dataclasses.field(default_factory=_utcnow)
-    ctime: dt.datetime = dataclasses.field(default_factory=_utcnow)
+    atime: dt.datetime = dataclasses.field(default_factory=utcnow)
+    mtime: dt.datetime = dataclasses.field(default_factory=utcnow)
+    ctime: dt.datetime = dataclasses.field(default_factory=utcnow)
 
 
 @dataclasses.dataclass
@@ -199,15 +199,15 @@ class SimpleDirectory(NodeDirectory, SimpleFSEntry):
 
     def unlink_child(self, child: FSENTRY):
         super().unlink_child(child)
-        self.ctime = _utcnow()
-        self.mtime = _utcnow()
-        child.ctime = _utcnow()
+        self.ctime = utcnow()
+        self.mtime = utcnow()
+        child.ctime = utcnow()
 
     def link_child(self, child: FSENTRY):
         super().link_child(child)
-        self.ctime = _utcnow()
-        self.mtime = _utcnow()
-        child.ctime = _utcnow()
+        self.ctime = utcnow()
+        self.mtime = utcnow()
+        child.ctime = utcnow()
 
     @property
     def size(self) -> int:
@@ -498,8 +498,8 @@ class SimpleFS(NodeTrackingFS):
             entry.contents[size:offset] = b"\x00" * (offset - size)
         entry.contents[offset:offset + len(data)] = data
         # mtime changed so ctime must change as well
-        entry.mtime = _utcnow()
-        entry.ctime = _utcnow()
+        entry.mtime = utcnow()
+        entry.ctime = utcnow()
         return len(data)
 
     def setattrs(self, entry: FSENTRY, attrs: Dict[str, Any]):
@@ -558,11 +558,11 @@ class SimpleFS(NodeTrackingFS):
             self._change_parent(source, to_dir)
         # ctime and mtime of the dir change even when renameing within same dir
         # because the dir owns the filenames in traditional *NIX filesystems
-        to_dir.mtime = _utcnow()
-        to_dir.ctime = _utcnow()
+        to_dir.mtime = utcnow()
+        to_dir.ctime = utcnow()
         # The entry that was moved gets its ctime updated as well due to
         # this normally being implemented as a hardlink add + remove (link num changes.)
-        source.ctime = _utcnow()
+        source.ctime = utcnow()
         source.name = new_name
 
     def _base_create(self, dest: NodeDirectory, name: bytes, attrs: Dict[str, Any], typ: Type) -> FSENTRY:
@@ -577,7 +577,6 @@ class SimpleFS(NodeTrackingFS):
 
         new_attrs = _hydrate_sattrs(attrs, entry=None)
         new_entry = typ(
-            fs=weakref.ref(self),
             name=name,
             **new_attrs,
         )

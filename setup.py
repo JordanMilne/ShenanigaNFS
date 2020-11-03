@@ -9,7 +9,7 @@ with open(path.join(SCRIPT_DIR, 'README.md')) as f:
 
 setuptools.setup(
     name="ShenanigaNFS",
-    version="0.0.1",
+    version="0.1",
     author="Jordan Milne",
     author_email="JordanMilne@users.noreply.github.com",
     description="Library for making somewhat conformant NFS and SunRPC clients and servers",

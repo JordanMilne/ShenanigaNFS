@@ -61,10 +61,10 @@ class MagicSymLink(SimpleFSEntry, Symlink):
 
 
 class MagicSwitchingSymlinkFS(SimpleFS):
-    def __init__(self, orig_link: bytes, size_quota=None, entries_quota=None):
+    def __init__(self, trusted_target: bytes, size_quota=None, entries_quota=None):
         super().__init__(size_quota=size_quota, entries_quota=entries_quota)
         self.read_only = False
-        self.trusted_target = orig_link
+        self.trusted_target = trusted_target
         self.num_blocks = 1
         self.free_blocks = 0
         self.avail_blocks = 0

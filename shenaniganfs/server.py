@@ -3,26 +3,19 @@ import asyncio
 import itertools
 from typing import *
 
-from shenaniganfs import rpchelp
 from shenaniganfs.client import TCPClient
 from shenaniganfs.generated.rfc1831 import *
 import shenaniganfs.generated.rfc1833_rpcbind as rpcbind
 from shenaniganfs.portmanager import PortBinding, PortManager
-from shenaniganfs.transport import SPLIT_MSG, BaseTransport, TCPTransport
-
-
-class CallContext:
-    def __init__(self, transport: BaseTransport, msg: RPCMsg):
-        self.msg = msg
-        self.transport = transport
+from shenaniganfs.transport import SPLIT_MSG, BaseTransport, TCPTransport, CallContext, Prog
 
 
 class TransportServer:
     def __init__(self):
         self.owner: str = ""
-        self.progs: Set[rpchelp.Prog] = set()
+        self.progs: Set[Prog] = set()
 
-    def register_prog(self, prog: rpchelp.Prog):
+    def register_prog(self, prog: Prog):
         self.progs.add(prog)
 
     async def notify_rpcbind(self, host="127.0.0.1", port=111):
@@ -35,7 +28,7 @@ class TransportServer:
             port_manager.set_port(self.get_prog_port_binding(prog))
 
     @abc.abstractmethod
-    def get_prog_port_binding(self, prog: rpchelp.Prog) -> PortBinding:
+    def get_prog_port_binding(self, prog: Prog) -> PortBinding:
         pass
 
     async def handle_message(self, transport: BaseTransport, msg: SPLIT_MSG):
@@ -50,7 +43,7 @@ class TransportServer:
     async def handle_call(self, transport: BaseTransport, call: RPCMsg, call_body_bytes: bytes):
         stat = AcceptStat.SUCCESS
         mismatch: Optional[MismatchInfo] = None
-        reply_body_bytes = b""
+        handler_ret = b""
         cbody = call.header.cbody
 
         try:
@@ -59,7 +52,11 @@ class TransportServer:
                 vers_progs = [p for p in progs if p.supports_version(cbody.vers)]
                 if vers_progs:
                     call_ctx = CallContext(transport, call)
-                    reply_body_bytes = await vers_progs[0].handle_proc_call(call_ctx, cbody.proc, call_body_bytes)
+                    handler_ret = await vers_progs[0].handle_proc_call(call_ctx, cbody.proc, call_body_bytes)
+                    if isinstance(handler_ret, ReplyBody):
+                        reply_header = RPCMsg(call.xid, RPCBody(MsgType.REPLY, rbody=handler_ret))
+                        await transport.write_msg(reply_header, b"")
+                        return
                 else:
                     prog_versions = itertools.chain(*[(p.vers, p.min_vers) for p in progs])
                     prog_versions = list(x for x in prog_versions if x is not None)
@@ -79,7 +76,7 @@ class TransportServer:
             raise
 
         reply_header = self.make_reply(call.xid, ReplyStat.MSG_ACCEPTED, stat, mismatch)
-        await transport.write_msg(reply_header, reply_body_bytes)
+        await transport.write_msg(reply_header, handler_ret)
 
     @staticmethod
     def make_reply(xid, stat: ReplyStat = 0, msg_stat: Union[AcceptStat, RejectStat] = 0,
@@ -127,7 +124,7 @@ class TCPTransportServer(TransportServer):
             await self.handle_message(transport, read_ret)
         transport.close()
 
-    def get_prog_port_binding(self, prog: rpchelp.Prog) -> PortBinding:
+    def get_prog_port_binding(self, prog: Prog) -> PortBinding:
         return PortBinding(
             prog_num=prog.prog,
             vers=prog.vers,

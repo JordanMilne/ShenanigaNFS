@@ -108,10 +108,10 @@ class Netbuf(rpchelp.Struct):  # netbuf
     buf: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
 
 
-from shenaniganfs import client
+from shenaniganfs import client, transport
 
 
-class RPCBPROG_3_SERVER(rpchelp.Prog):
+class RPCBPROG_3_SERVER(transport.Prog):
     prog = 100000
     vers = 3
     procs = {
@@ -127,43 +127,52 @@ class RPCBPROG_3_SERVER(rpchelp.Prog):
     }
 
     @abc.abstractmethod
-    async def NULL(self) -> None:
+    async def NULL(self, call_ctx: transport.CallContext) \
+            -> transport.ProcRet[None]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def SET(self, arg_0: RPCB) -> bool:
+    async def SET(self, call_ctx: transport.CallContext, arg_0: RPCB) \
+            -> transport.ProcRet[bool]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def UNSET(self, arg_0: RPCB) -> bool:
+    async def UNSET(self, call_ctx: transport.CallContext, arg_0: RPCB) \
+            -> transport.ProcRet[bool]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def GETADDR(self, arg_0: RPCB) -> bytes:
+    async def GETADDR(self, call_ctx: transport.CallContext, arg_0: RPCB) \
+            -> transport.ProcRet[bytes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def DUMP(self) -> typing.List[RPCB]:
+    async def DUMP(self, call_ctx: transport.CallContext) \
+            -> transport.ProcRet[typing.List[RPCB]]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def CALLIT(self, arg_0: RPCBRmtcallArgs) -> RPCBRmtcallRes:
+    async def CALLIT(self, call_ctx: transport.CallContext, arg_0: RPCBRmtcallArgs) \
+            -> transport.ProcRet[RPCBRmtcallRes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def GETTIME(self) -> int:
+    async def GETTIME(self, call_ctx: transport.CallContext) \
+            -> transport.ProcRet[int]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def UADDR2TADDR(self, arg_0: bytes) -> Netbuf:
+    async def UADDR2TADDR(self, call_ctx: transport.CallContext, arg_0: bytes) \
+            -> transport.ProcRet[Netbuf]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def TADDR2UADDR(self, arg_0: Netbuf) -> bytes:
+    async def TADDR2UADDR(self, call_ctx: transport.CallContext, arg_0: Netbuf) \
+            -> transport.ProcRet[bytes]:
         raise NotImplementedError()
 
 
-class RPCBPROG_4_SERVER(rpchelp.Prog):
+class RPCBPROG_4_SERVER(transport.Prog):
     prog = 100000
     vers = 4
     procs = {
@@ -183,55 +192,68 @@ class RPCBPROG_4_SERVER(rpchelp.Prog):
     }
 
     @abc.abstractmethod
-    async def NULL(self) -> None:
+    async def NULL(self, call_ctx: transport.CallContext) \
+            -> transport.ProcRet[None]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def SET(self, arg_0: RPCB) -> bool:
+    async def SET(self, call_ctx: transport.CallContext, arg_0: RPCB) \
+            -> transport.ProcRet[bool]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def UNSET(self, arg_0: RPCB) -> bool:
+    async def UNSET(self, call_ctx: transport.CallContext, arg_0: RPCB) \
+            -> transport.ProcRet[bool]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def GETADDR(self, arg_0: RPCB) -> bytes:
+    async def GETADDR(self, call_ctx: transport.CallContext, arg_0: RPCB) \
+            -> transport.ProcRet[bytes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def DUMP(self) -> typing.List[RPCB]:
+    async def DUMP(self, call_ctx: transport.CallContext) \
+            -> transport.ProcRet[typing.List[RPCB]]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def BCAST(self, arg_0: RPCBRmtcallArgs) -> RPCBRmtcallRes:
+    async def BCAST(self, call_ctx: transport.CallContext, arg_0: RPCBRmtcallArgs) \
+            -> transport.ProcRet[RPCBRmtcallRes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def GETTIME(self) -> int:
+    async def GETTIME(self, call_ctx: transport.CallContext) \
+            -> transport.ProcRet[int]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def UADDR2TADDR(self, arg_0: bytes) -> Netbuf:
+    async def UADDR2TADDR(self, call_ctx: transport.CallContext, arg_0: bytes) \
+            -> transport.ProcRet[Netbuf]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def TADDR2UADDR(self, arg_0: Netbuf) -> bytes:
+    async def TADDR2UADDR(self, call_ctx: transport.CallContext, arg_0: Netbuf) \
+            -> transport.ProcRet[bytes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def GETVERSADDR(self, arg_0: RPCB) -> bytes:
+    async def GETVERSADDR(self, call_ctx: transport.CallContext, arg_0: RPCB) \
+            -> transport.ProcRet[bytes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def INDIRECT(self, arg_0: RPCBRmtcallArgs) -> RPCBRmtcallRes:
+    async def INDIRECT(self, call_ctx: transport.CallContext, arg_0: RPCBRmtcallArgs) \
+            -> transport.ProcRet[RPCBRmtcallRes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def GETADDRLIST(self, arg_0: RPCB) -> typing.List[RPCBEntry]:
+    async def GETADDRLIST(self, call_ctx: transport.CallContext, arg_0: RPCB) \
+            -> transport.ProcRet[typing.List[RPCBEntry]]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def GETSTAT(self) -> typing.List[RPCBStat]:
+    async def GETSTAT(self, call_ctx: transport.CallContext) \
+            -> transport.ProcRet[typing.List[RPCBStat]]:
         raise NotImplementedError()
 
 

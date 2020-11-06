@@ -242,7 +242,7 @@ class Ctx:
         if self.progs:
             # Make sure this doesn't get printed for rfc1831 so we
             # don't get weird circular imports.
-            val = "from shenaniganfs import client\n"
+            val = "from shenaniganfs import client, transport\n"
         return val + "\n".join("\n".join(
             [p.str_one_vers(self, vers) for vers in p.versions.children] +
             [p.str_one_vers(self, vers, as_client=True) for vers in p.versions.children]
@@ -628,7 +628,7 @@ class Program(Node):
 
     def str_one_vers(self, ctx, vers, as_client=False):
         class_suffix = "CLIENT" if as_client else "SERVER"
-        base_class = "client.BaseClient" if as_client else "rpchelp.Prog"
+        base_class = "client.BaseClient" if as_client else "transport.Prog"
         class_decl = f'\n\n\nclass {self.ident}_{vers.version_id}_{class_suffix}({base_class}):'
         prog = 'prog = %s' % (self.program_id,)
         vers_str = 'vers = %s' % (vers.version_id,)
@@ -649,13 +649,15 @@ class Program(Node):
             if not as_client:
                 funcs_str += "\t@abc.abstractmethod\n"
             funcs_str += f"\tasync def {proc.ident}(self"
+            if not as_client:
+                funcs_str += ", call_ctx: transport.CallContext"
             for i, parm_type in enumerate(proc.parm_list.children):
                 funcs_str += f", arg_{i}: {_get_type(parm_type).type_hint()}"
             ret_type_hint = _get_type(proc.ret_type).type_hint()
             if as_client:
                 funcs_str += f") -> client.UnpackedRPCMsg[{ret_type_hint}]:\n"
             else:
-                funcs_str += f") -> {ret_type_hint}:\n"
+                funcs_str += f") \\\n\t\t\t-> transport.ProcRet[{ret_type_hint}]:\n"
             if as_client:
                 arg_list = ', '.join(f"arg_{i}" for i in range(len(proc.parm_list.children)))
                 funcs_str += f"\t\treturn await self.send_call({proc.proc_id}, {arg_list})\n\n"

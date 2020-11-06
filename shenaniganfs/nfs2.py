@@ -10,7 +10,7 @@ from shenaniganfs.generated.rfc1094 import *
 
 from shenaniganfs.fs import FileType, BaseFS, FSException, FSENTRY
 from shenaniganfs.fs_manager import FileSystemManager
-from shenaniganfs.rpchelp import want_ctx
+from shenaniganfs.transport import CallContext, ProcRet
 
 
 def sattr_to_dict(attrs: SAttr):
@@ -86,11 +86,10 @@ class MountV1Service(MOUNTPROG_1_SERVER):
     def __init__(self, fs_manager):
         self.fs_manager: FileSystemManager = fs_manager
 
-    async def NULL(self) -> None:
+    async def NULL(self, call_ctx: CallContext) -> ProcRet[None]:
         pass
 
-    @want_ctx
-    async def MNT(self, call_ctx, mount_path: bytes) -> FHStatus:
+    async def MNT(self, call_ctx: CallContext, mount_path: bytes) -> ProcRet[FHStatus]:
         fs_mgr = self.fs_manager
         try:
             fs: BaseFS = fs_mgr.mount_fs_by_root(mount_path, call_ctx)
@@ -99,18 +98,18 @@ class MountV1Service(MOUNTPROG_1_SERVER):
         print(f"Mounted {fs.owner_addr!r}: {fs.fsid!r}, {mount_path}")
         return FHStatus(errno=0, directory=fs_mgr.entry_to_fh(fs.root_dir, nfs_v2=True))
 
-    async def DUMP(self) -> typing.List[MountList]:
+    async def DUMP(self, call_ctx: CallContext) -> ProcRet[typing.List[MountList]]:
         # State maintenance is only for informational purposes?
         # Let's just not bother then.
         return []
 
-    async def UMNT(self, arg_0: bytes) -> None:
+    async def UMNT(self, call_ctx: CallContext, arg_0: bytes) -> ProcRet[None]:
         return
 
-    async def UMNTALL(self) -> None:
+    async def UMNTALL(self, call_ctx: CallContext) -> ProcRet[None]:
         return
 
-    async def EXPORT(self) -> typing.List[ExportList]:
+    async def EXPORT(self, call_ctx: CallContext) -> ProcRet[typing.List[ExportList]]:
         return [
             ExportList(path, [b"*"])
             for path in self.fs_manager.fs_factories.keys()
@@ -135,7 +134,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         self.fs_manager: FileSystemManager = fs_manager
 
     def _get_child_by_name(self, dir_fh: bytes, name: bytes, do_lookup: bool = False) \
-            -> typing.Tuple[FSENTRY, typing.Optional[FSENTRY]]:
+            -> ProcRet[typing.Tuple[FSENTRY, typing.Optional[FSENTRY]]]:
         dir_entry = self.fs_manager.get_entry_by_fh(dir_fh, nfs_v2=True)
         if not dir_entry:
             raise FSException(Stat.NFSERR_STALE)
@@ -150,18 +149,18 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
             entry = fs.get_child_by_name(dir_entry, name)
         return dir_entry, entry
 
-    async def NULL(self) -> None:
+    async def NULL(self, call_ctx: CallContext) -> ProcRet[None]:
         pass
 
     @fs_error_handler(AttrStat)
-    async def GETATTR(self, fh: bytes) -> AttrStat:
+    async def GETATTR(self, call_ctx: CallContext, fh: bytes) -> ProcRet[AttrStat]:
         fs_entry = self.fs_manager.get_entry_by_fh(fh, nfs_v2=True)
         if not fs_entry:
             return AttrStat(Stat.NFSERR_STALE)
         return AttrStat(Stat.NFS_OK, entry_to_fattr(fs_entry))
 
     @fs_error_handler(AttrStat)
-    async def SETATTR(self, arg_0: SattrArgs) -> AttrStat:
+    async def SETATTR(self, call_ctx: CallContext, arg_0: SattrArgs) -> ProcRet[AttrStat]:
         entry = self.fs_manager.get_entry_by_fh(arg_0.file, nfs_v2=True)
         if not entry:
             return AttrStat(Stat.NFSERR_STALE)
@@ -169,11 +168,11 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         fs.setattrs(entry, sattr_to_dict(arg_0.attributes))
         return AttrStat(Stat.NFS_OK, entry_to_fattr(entry))
 
-    async def ROOT(self) -> None:
+    async def ROOT(self, call_ctx: CallContext) -> ProcRet[None]:
         pass
 
     @fs_error_handler(DiropRes)
-    async def LOOKUP(self, arg_0: DiropArgs) -> DiropRes:
+    async def LOOKUP(self, call_ctx: CallContext, arg_0: DiropArgs) -> ProcRet[DiropRes]:
         directory, child = self._get_child_by_name(arg_0.dir, arg_0.name, do_lookup=True)
         if not child:
             return DiropRes(Stat.NFSERR_NOENT)
@@ -185,7 +184,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         )
 
     @fs_error_handler(ReadlinkRes)
-    async def READLINK(self, fh: bytes) -> ReadlinkRes:
+    async def READLINK(self, call_ctx: CallContext, fh: bytes) -> ProcRet[ReadlinkRes]:
         fs_entry = self.fs_manager.get_entry_by_fh(fh, nfs_v2=True)
         if not fs_entry:
             return ReadlinkRes(Stat.NFSERR_STALE)
@@ -196,7 +195,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         return ReadlinkRes(Stat.NFS_OK, fs.readlink(fs_entry))
 
     @fs_error_handler(ReadRes)
-    async def READ(self, read_args: ReadArgs) -> ReadRes:
+    async def READ(self, call_ctx: CallContext, read_args: ReadArgs) -> ProcRet[ReadRes]:
         fs_entry = self.fs_manager.get_entry_by_fh(read_args.file, nfs_v2=True)
         if not fs_entry:
             return ReadRes(Stat.NFSERR_STALE)
@@ -206,11 +205,11 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
             data=fs.read(fs_entry, read_args.offset, min(read_args.count, 4096))
         ))
 
-    async def WRITECACHE(self) -> None:
+    async def WRITECACHE(self, call_ctx: CallContext) -> ProcRet[None]:
         pass
 
     @fs_error_handler(AttrStat)
-    async def WRITE(self, write_args: WriteArgs) -> AttrStat:
+    async def WRITE(self, call_ctx: CallContext, write_args: WriteArgs) -> ProcRet[AttrStat]:
         entry = self.fs_manager.get_entry_by_fh(write_args.file, nfs_v2=True)
         if not entry or entry.type != FileType.REG:
             return AttrStat(Stat.NFSERR_IO)
@@ -218,7 +217,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         fs.write(entry, write_args.offset, write_args.data)
         return AttrStat(Stat.NFS_OK, entry_to_fattr(entry))
 
-    def _create_common(self, arg_0: CreateArgs, create_func: typing.Callable) -> DiropRes:
+    def _create_common(self, arg_0: CreateArgs, create_func: typing.Callable) -> ProcRet[DiropRes]:
         target_dir, target = self._get_child_by_name(arg_0.where.dir, arg_0.where.name)
         if target:
             return DiropRes(Stat.NFSERR_EXIST)
@@ -230,15 +229,15 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         ))
 
     @fs_error_handler(DiropRes)
-    async def CREATE(self, arg_0: CreateArgs) -> DiropRes:
+    async def CREATE(self, call_ctx: CallContext, arg_0: CreateArgs) -> ProcRet[DiropRes]:
         return self._create_common(arg_0, lambda fs: fs.create_file)
 
     @fs_error_handler(DiropRes)
-    async def MKDIR(self, arg_0: CreateArgs) -> DiropRes:
+    async def MKDIR(self, call_ctx: CallContext, arg_0: CreateArgs) -> ProcRet[DiropRes]:
         return self._create_common(arg_0, lambda fs: fs.mkdir)
 
     @fs_error_handler(Stat)
-    async def REMOVE(self, arg_0: DiropArgs) -> Stat:
+    async def REMOVE(self, call_ctx: CallContext, arg_0: DiropArgs) -> ProcRet[Stat]:
         dir_entry, to_delete = self._get_child_by_name(arg_0.dir, arg_0.name)
         if not to_delete:
             return Stat.NFSERR_NOENT
@@ -249,7 +248,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         return Stat.NFS_OK
 
     @fs_error_handler(Stat)
-    async def RENAME(self, arg_0: RenameArgs) -> Stat:
+    async def RENAME(self, call_ctx: CallContext, arg_0: RenameArgs) -> ProcRet[Stat]:
         source_dir, source = self._get_child_by_name(arg_0.from_.dir, arg_0.from_.name)
         if not source:
             return Stat.NFSERR_NOENT
@@ -259,14 +258,14 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         fs.rename(source, dest_dir, arg_0.to.name)
         return Stat.NFS_OK
 
-    async def LINK(self, arg_0: LinkArgs) -> Stat:
+    async def LINK(self, call_ctx: CallContext, arg_0: LinkArgs) -> ProcRet[Stat]:
         return Stat.NFSERR_PERM
 
-    async def SYMLINK(self, arg_0: SymlinkArgs) -> Stat:
+    async def SYMLINK(self, call_ctx: CallContext, arg_0: SymlinkArgs) -> ProcRet[Stat]:
         return Stat.NFSERR_PERM
 
     @fs_error_handler(Stat)
-    async def RMDIR(self, arg_0: DiropArgs) -> Stat:
+    async def RMDIR(self, call_ctx: CallContext, arg_0: DiropArgs) -> ProcRet[Stat]:
         dir_entry, to_delete = self._get_child_by_name(arg_0.dir, arg_0.name)
         if not to_delete:
             return Stat.NFSERR_NOENT
@@ -277,7 +276,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         return Stat.NFS_OK
 
     @fs_error_handler(ReaddirRes)
-    async def READDIR(self, arg_0: ReaddirArgs) -> ReaddirRes:
+    async def READDIR(self, call_ctx: CallContext, arg_0: ReaddirArgs) -> ProcRet[ReaddirRes]:
         directory = self.fs_manager.get_entry_by_fh(arg_0.dir, nfs_v2=True)
         count = min(arg_0.count, 50)
         if not directory:
@@ -310,7 +309,7 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         )
 
     @fs_error_handler(StatfsRes)
-    async def STATFS(self, fh: bytes) -> StatfsRes:
+    async def STATFS(self, call_ctx: CallContext, fh: bytes) -> ProcRet[StatfsRes]:
         fs = self.fs_manager.get_fs_by_fh(fh, nfs_v2=True)
         if not fs:
             return StatfsRes(Stat.NFSERR_STALE)

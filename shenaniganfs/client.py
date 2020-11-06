@@ -4,9 +4,8 @@ import random
 import xdrlib
 from typing import *
 
-from shenaniganfs import rpchelp
 from shenaniganfs.generated.rfc1831 import *
-from shenaniganfs.transport import BaseTransport, SPLIT_MSG, TCPTransport
+from shenaniganfs.transport import BaseTransport, Prog, SPLIT_MSG, TCPTransport
 
 _T = TypeVar("T")
 
@@ -47,7 +46,7 @@ class UnpackedRPCMsg(Generic[_T]):
         return True
 
 
-class BaseClient(rpchelp.Prog):
+class BaseClient(Prog):
     transport: Optional[BaseTransport]
 
     def __init__(self):

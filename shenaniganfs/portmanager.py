@@ -1,9 +1,11 @@
 import datetime as dt
 from typing import *
 
+import shenaniganfs.generated.rfc1831 as rpc
 import shenaniganfs.generated.rfc1833_portmapper as pm
 import shenaniganfs.generated.rfc1833_rpcbind as rb
 from shenaniganfs.rpchelp import addr_to_rpcbind
+from shenaniganfs.transport import CallContext, ProcRet
 
 
 class PortBinding(NamedTuple):
@@ -73,31 +75,42 @@ class SimplePortMapper(pm.PMAP_PROG_2_SERVER):
         super().__init__()
         self.port_manager = port_manager
 
-    async def NULL(self) -> None:
+    async def NULL(self, call_ctx: CallContext) -> ProcRet[None]:
         pass
 
-    async def SET(self, arg_0: pm.Mapping) -> bool:
-        return False
+    async def SET(self, call_ctx: CallContext, arg_0: pm.Mapping) -> ProcRet[bool]:
+        return self._make_reply_body(
+            reject_stat=rpc.RejectStat.AUTH_ERROR,
+            # Somewhat of a misnomer, just catch-all for server doesn't
+            # want to handle this call for security reasons.
+            auth_stat=rpc.AuthStat.AUTH_TOOWEAK,
+        )
 
-    async def UNSET(self, arg_0: pm.Mapping) -> bool:
-        return False
+    async def UNSET(self, call_ctx: CallContext, arg_0: pm.Mapping) -> ProcRet[bool]:
+        return self._make_reply_body(
+            reject_stat=rpc.RejectStat.AUTH_ERROR,
+            auth_stat=rpc.AuthStat.AUTH_TOOWEAK,
+        )
 
-    async def GETPORT(self, arg_0: pm.Mapping) -> int:
+    async def GETPORT(self, call_ctx: CallContext, arg_0: pm.Mapping) -> ProcRet[int]:
         prot_str = "tcp" if arg_0.prot == pm.IPPROTO_TCP else "udp"
         match = self.port_manager.get_mapping(arg_0.prog, prot_str)
         if not match:
             return 0
         return match.port
 
-    async def DUMP(self) -> List[pm.Mapping]:
+    async def DUMP(self, call_ctx: CallContext) -> ProcRet[List[pm.Mapping]]:
         return [
             x.to_portmapper() for x in self.port_manager.bindings if x.portmapper_compatible
         ]
 
-    async def CALLIT(self, arg_0: pm.CallArgs) -> pm.CallResult:
+    async def CALLIT(self, call_ctx: CallContext, arg_0: pm.CallArgs) -> ProcRet[pm.CallResult]:
         # We're not implementing this, it's a nightmare.
         # https://github.com/okirch/rpcbind/blob/b3b031b07cc5909aaf964f9d4cf46f6097769320/src/security.c#L284-L296
-        return pm.CallResult(port=0, res=b"")
+        return self._make_reply_body(
+            reject_stat=rpc.RejectStat.AUTH_ERROR,
+            auth_stat=rpc.AuthStat.AUTH_TOOWEAK,
+        )
 
 
 class SimpleRPCBind(rb.RPCBPROG_4_SERVER):
@@ -107,48 +120,60 @@ class SimpleRPCBind(rb.RPCBPROG_4_SERVER):
         super().__init__()
         self.port_manager = port_manager
 
-    async def NULL(self) -> None:
+    async def NULL(self, call_ctx: CallContext) -> ProcRet[None]:
         pass
 
-    async def SET(self, arg_0: rb.RPCB) -> bool:
-        return False
+    async def SET(self, call_ctx: CallContext, arg_0: rb.RPCB) -> ProcRet[bool]:
+        return self._make_reply_body(
+            reject_stat=rpc.RejectStat.AUTH_ERROR,
+            auth_stat=rpc.AuthStat.AUTH_TOOWEAK,
+        )
 
-    async def UNSET(self, arg_0: rb.RPCB) -> bool:
-        return False
+    async def UNSET(self, call_ctx: CallContext, arg_0: rb.RPCB) -> ProcRet[bool]:
+        return self._make_reply_body(
+            reject_stat=rpc.RejectStat.AUTH_ERROR,
+            auth_stat=rpc.AuthStat.AUTH_TOOWEAK,
+        )
 
-    async def GETADDR(self, arg_0: rb.RPCB) -> bytes:
+    async def GETADDR(self, call_ctx: CallContext, arg_0: rb.RPCB) -> ProcRet[bytes]:
         match = self.port_manager.get_mapping(arg_0.r_prog, arg_0.r_netid.decode("utf8"))
         if not match:
             return b""
         return match.to_rpcbind().r_addr
 
-    async def DUMP(self) -> List[rb.RPCB]:
+    async def DUMP(self, call_ctx: CallContext) -> ProcRet[List[rb.RPCB]]:
         return [x.to_rpcbind() for x in self.port_manager.bindings]
 
-    async def BCAST(self, arg_0: rb.RPCBRmtcallArgs) -> rb.RPCBRmtcallRes:
-        return rb.RPCBRmtcallRes(b"", b"")
+    async def BCAST(self, call_ctx: CallContext, arg_0: rb.RPCBRmtcallArgs) -> ProcRet[rb.RPCBRmtcallRes]:
+        return self._make_reply_body(
+            reject_stat=rpc.RejectStat.AUTH_ERROR,
+            auth_stat=rpc.AuthStat.AUTH_TOOWEAK,
+        )
 
-    async def GETTIME(self) -> int:
+    async def GETTIME(self, call_ctx: CallContext) -> ProcRet[int]:
         return int(dt.datetime.now(tz=dt.timezone.utc).timestamp())
 
-    async def UADDR2TADDR(self, arg_0: bytes) -> rb.Netbuf:
-        return rb.Netbuf(0, b"")
+    async def UADDR2TADDR(self, call_ctx: CallContext, arg_0: bytes) -> ProcRet[rb.Netbuf]:
+        raise NotImplementedError()
 
-    async def TADDR2UADDR(self, arg_0: rb.Netbuf) -> bytes:
-        return b""
+    async def TADDR2UADDR(self, call_ctx: CallContext, arg_0: rb.Netbuf) -> ProcRet[bytes]:
+        raise NotImplementedError()
 
-    async def GETVERSADDR(self, arg_0: rb.RPCB) -> bytes:
+    async def GETVERSADDR(self, call_ctx: CallContext, arg_0: rb.RPCB) -> ProcRet[bytes]:
         match = self.port_manager.get_vers_mapping(arg_0.r_prog, arg_0.r_vers, arg_0.r_netid.decode("utf8"))
         if not match:
             return b""
         return match.to_rpcbind().r_addr
 
-    async def INDIRECT(self, arg_0: rb.RPCBRmtcallArgs) -> rb.RPCBRmtcallRes:
-        return rb.RPCBRmtcallRes(b"", b"")
+    async def INDIRECT(self, call_ctx: CallContext, arg_0: rb.RPCBRmtcallArgs) -> ProcRet[rb.RPCBRmtcallRes]:
+        return self._make_reply_body(
+            reject_stat=rpc.RejectStat.AUTH_ERROR,
+            auth_stat=rpc.AuthStat.AUTH_TOOWEAK,
+        )
 
-    async def GETADDRLIST(self, arg_0: rb.RPCB) -> List[rb.RPCBEntry]:
+    async def GETADDRLIST(self, call_ctx: CallContext, arg_0: rb.RPCB) -> ProcRet[List[rb.RPCBEntry]]:
         # semantics for this are hard to grok. Meh, doesn't seem to be used much.
-        return []
+        raise NotImplementedError()
 
-    async def GETSTAT(self) -> List[rb.RPCBStat]:
-        return []
+    async def GETSTAT(self, call_ctx: CallContext) -> ProcRet[List[rb.RPCBStat]]:
+        raise NotImplementedError()

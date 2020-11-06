@@ -43,10 +43,10 @@ class CallResult(rpchelp.Struct):  # call_result
     res: bytes = rpchelp.rpc_field(rpchelp.Opaque(rpchelp.LengthType.VAR, None))
 
 
-from shenaniganfs import client
+from shenaniganfs import client, transport
 
 
-class PMAP_PROG_2_SERVER(rpchelp.Prog):
+class PMAP_PROG_2_SERVER(transport.Prog):
     prog = 100000
     vers = 2
     procs = {
@@ -59,27 +59,33 @@ class PMAP_PROG_2_SERVER(rpchelp.Prog):
     }
 
     @abc.abstractmethod
-    async def NULL(self) -> None:
+    async def NULL(self, call_ctx: transport.CallContext) \
+            -> transport.ProcRet[None]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def SET(self, arg_0: Mapping) -> bool:
+    async def SET(self, call_ctx: transport.CallContext, arg_0: Mapping) \
+            -> transport.ProcRet[bool]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def UNSET(self, arg_0: Mapping) -> bool:
+    async def UNSET(self, call_ctx: transport.CallContext, arg_0: Mapping) \
+            -> transport.ProcRet[bool]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def GETPORT(self, arg_0: Mapping) -> int:
+    async def GETPORT(self, call_ctx: transport.CallContext, arg_0: Mapping) \
+            -> transport.ProcRet[int]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def DUMP(self) -> typing.List[Mapping]:
+    async def DUMP(self, call_ctx: transport.CallContext) \
+            -> transport.ProcRet[typing.List[Mapping]]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def CALLIT(self, arg_0: CallArgs) -> CallResult:
+    async def CALLIT(self, call_ctx: transport.CallContext, arg_0: CallArgs) \
+            -> transport.ProcRet[CallResult]:
         raise NotImplementedError()
 
 

@@ -357,45 +357,6 @@ class Proc:
                                    str(self.arg_types))
 
 
-def want_ctx(f):
-    f.want_ctx = True
-    return f
-
-
-class Prog:
-    """Base class for rpcgen-created server classes."""
-    prog: int
-    vers: int
-    min_vers: typing.Optional[int] = None
-    procs: typing.Dict[int, Proc]
-
-    def supports_version(self, vers: int) -> bool:
-        if self.min_vers is not None:
-            return self.min_vers <= vers <= self.vers
-        else:
-            return self.vers == vers
-
-    def get_handler(self, proc_id) -> typing.Callable:
-        return getattr(self, self.procs[proc_id].name)
-
-    async def handle_proc_call(self, call_ctx, proc_id: int, call_body: bytes) -> bytes:
-        proc = self.procs.get(proc_id)
-        if proc is None:
-            raise NotImplementedError()
-
-        unpacker = xdrlib.Unpacker(call_body)
-        argl = [arg_type.unpack(unpacker)
-                for arg_type in proc.arg_types]
-        handler: typing.Callable = self.get_handler(proc_id)
-        if getattr(handler, 'want_ctx', False):
-            argl = [call_ctx] + argl
-        rv = await handler(*argl)
-
-        packer = xdrlib.Packer()
-        proc.ret_type.pack(packer, rv)
-        return packer.get_buffer()
-
-
 def addr_to_rpcbind(host: str, port: int) -> bytes:
     # I have literally never seen this address representation
     # outside of RPCBind and I don't like it.

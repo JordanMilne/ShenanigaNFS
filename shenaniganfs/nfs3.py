@@ -9,8 +9,7 @@ from shenaniganfs.generated.rfc1813 import *
 import shenaniganfs.generated.rfc1831 as rpc
 from shenaniganfs.fs import FileType, BaseFS, FSException, FSENTRY
 from shenaniganfs.fs_manager import FileSystemManager
-from shenaniganfs.rpchelp import want_ctx
-from shenaniganfs.server import CallContext
+from shenaniganfs.transport import CallContext, ProcRet
 
 
 class WccWrapper(WccData):
@@ -53,11 +52,10 @@ class MountV3Service(MOUNT_PROGRAM_3_SERVER):
     def __init__(self, fs_manager):
         self.fs_manager: FileSystemManager = fs_manager
 
-    async def NULL(self) -> None:
+    async def NULL(self, call_ctx: CallContext) -> ProcRet[None]:
         pass
 
-    @want_ctx
-    async def MNT(self, call_ctx: CallContext, mount_path: bytes) -> MountRes3:
+    async def MNT(self, call_ctx: CallContext, mount_path: bytes) -> ProcRet[MountRes3]:
         try:
             fs: BaseFS = self.fs_manager.mount_fs_by_root(mount_path, call_ctx)
         except (KeyError, ValueError):
@@ -71,18 +69,18 @@ class MountV3Service(MOUNT_PROGRAM_3_SERVER):
             ),
         )
 
-    async def DUMP(self) -> typing.List[MountList]:
+    async def DUMP(self, call_ctx: CallContext) -> ProcRet[typing.List[MountList]]:
         # State maintenance is only for informational purposes?
         # Let's just not bother then.
         return []
 
-    async def UMNT(self, mount_name: bytes) -> None:
+    async def UMNT(self, call_ctx: CallContext, mount_name: bytes) -> ProcRet[None]:
         return
 
-    async def UMNTALL(self) -> None:
+    async def UMNTALL(self, call_ctx: CallContext) -> ProcRet[None]:
         return
 
-    async def EXPORT(self) -> typing.List[ExportList]:
+    async def EXPORT(self, call_ctx: CallContext) -> ProcRet[typing.List[ExportList]]:
         return [
             ExportList(path, [b"*"])
             for path in self.fs_manager.fs_factories.keys()
@@ -166,11 +164,11 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
             entry = fs.get_child_by_name(dir_entry, name)
         return dir_entry, entry
 
-    async def NULL(self) -> None:
+    async def NULL(self, call_ctx: CallContext) -> ProcRet[None]:
         pass
 
     @fs_error_handler(lambda code: GETATTR3Res(code), 0)
-    async def GETATTR(self, arg_0: GETATTR3Args) -> GETATTR3Res:
+    async def GETATTR(self, call_ctx: CallContext, arg_0: GETATTR3Args) -> ProcRet[GETATTR3Res]:
         fs_entry = self.fs_manager.get_entry_by_fh(arg_0.obj_handle)
         if not fs_entry:
             return GETATTR3Res(NFSStat3.NFS3ERR_STALE)
@@ -180,7 +178,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         )
 
     @fs_error_handler(lambda code, obj_wcc: SETATTR3Res(code, resfail=SETATTR3ResFail(obj_wcc)))
-    async def SETATTR(self, arg_0: SETATTR3Args, obj_wcc: WccWrapper) -> SETATTR3Res:
+    async def SETATTR(self, call_ctx: CallContext, arg_0: SETATTR3Args, obj_wcc: WccWrapper) -> ProcRet[SETATTR3Res]:
         entry = self.fs_manager.get_entry_by_fh(arg_0.obj_handle)
         if not entry:
             raise FSException(NFSStat3.NFS3ERR_STALE)
@@ -196,7 +194,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         )
 
     @fs_error_handler(lambda code, dir_wcc: LOOKUP3Res(code, resfail=LOOKUP3ResFail(dir_wcc.after)))
-    async def LOOKUP(self, arg_0: LOOKUP3Args, dir_wcc: WccWrapper) -> LOOKUP3Res:
+    async def LOOKUP(self, call_ctx: CallContext, arg_0: LOOKUP3Args, dir_wcc: WccWrapper) -> ProcRet[LOOKUP3Res]:
         directory, child = self._get_child_by_name(
             dir_fh=arg_0.what.dir_handle,
             name=arg_0.what.name,
@@ -216,7 +214,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         )
 
     @fs_error_handler(lambda code, obj_wcc: ACCESS3Res(code, resfail=ACCESS3ResFail(obj_wcc.after)))
-    async def ACCESS(self, arg_0: ACCESS3Args, obj_wcc: WccWrapper) -> ACCESS3Res:
+    async def ACCESS(self, call_ctx: CallContext, arg_0: ACCESS3Args, obj_wcc: WccWrapper) -> ProcRet[ACCESS3Res]:
         entry = self.fs_manager.get_entry_by_fh(arg_0.obj_handle)
         if not entry:
             raise FSException(NFSStat3.NFS3ERR_STALE)
@@ -231,7 +229,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         )
 
     @fs_error_handler(lambda code, obj_wcc: READLINK3Res(code, resfail=READLINK3ResFail(obj_wcc.after)))
-    async def READLINK(self, arg_0: READLINK3Args, obj_wcc: WccWrapper) -> READLINK3Res:
+    async def READLINK(self, call_ctx: CallContext, arg_0: READLINK3Args, obj_wcc: WccWrapper) -> ProcRet[READLINK3Res]:
         fs_entry = self.fs_manager.get_entry_by_fh(arg_0.symlink_handle)
         if not fs_entry:
             raise FSException(NFSStat3.NFS3ERR_STALE)
@@ -247,7 +245,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         )
 
     @fs_error_handler(lambda code, obj_wcc: READ3Res(code, resfail=READ3ResFail(obj_wcc.after)))
-    async def READ(self, arg_0: READ3Args, obj_wcc: WccWrapper) -> READ3Res:
+    async def READ(self, call_ctx: CallContext, arg_0: READ3Args, obj_wcc: WccWrapper) -> ProcRet[READ3Res]:
         fs_entry = self.fs_manager.get_entry_by_fh(arg_0.file_handle)
         if not fs_entry:
             raise FSException(NFSStat3.NFS3ERR_STALE)
@@ -265,7 +263,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         )
 
     @fs_error_handler(lambda code, obj_wcc: WRITE3Res(code, resfail=WRITE3ResFail(obj_wcc)))
-    async def WRITE(self, arg_0: WRITE3Args, obj_wcc: WccWrapper) -> WRITE3Res:
+    async def WRITE(self, call_ctx: CallContext, arg_0: WRITE3Args, obj_wcc: WccWrapper) -> ProcRet[WRITE3Res]:
         entry = self.fs_manager.get_entry_by_fh(arg_0.file_handle)
         if not entry:
             raise FSException(NFSStat3.NFS3ERR_STALE)
@@ -289,7 +287,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         )
 
     @fs_error_handler(lambda code, dir_wcc: CREATE3Res(code, resfail=CREATE3ResFail(dir_wcc)))
-    async def CREATE(self, arg_0: CREATE3Args, dir_wcc: WccWrapper) -> CREATE3Res:
+    async def CREATE(self, call_ctx: CallContext, arg_0: CREATE3Args, dir_wcc: WccWrapper) -> ProcRet[CREATE3Res]:
         target_dir, target = self._get_child_by_name(arg_0.where.dir_handle, arg_0.where.name, dir_wcc)
         # We have no intention of supporting exclusive mode for the moment
         # due to the additional bookkeeping required
@@ -316,7 +314,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         )
 
     @fs_error_handler(lambda code, dir_wcc: MKDIR3Res(code, resfail=MKDIR3ResFail(dir_wcc)))
-    async def MKDIR(self, arg_0: MKDIR3Args, dir_wcc: WccWrapper) -> MKDIR3Res:
+    async def MKDIR(self, call_ctx: CallContext, arg_0: MKDIR3Args, dir_wcc: WccWrapper) -> ProcRet[MKDIR3Res]:
         target_dir, target = self._get_child_by_name(arg_0.where.dir_handle, arg_0.where.name, dir_wcc)
         if target:
             raise FSException(NFSStat3.NFS3ERR_EXIST)
@@ -332,7 +330,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         )
 
     @fs_error_handler(lambda code, dir_wcc: SYMLINK3Res(code, resfail=CREATE3ResFail(dir_wcc)))
-    async def SYMLINK(self, arg_0: SYMLINK3Args, dir_wcc: WccWrapper) -> SYMLINK3Res:
+    async def SYMLINK(self, call_ctx: CallContext, arg_0: SYMLINK3Args, dir_wcc: WccWrapper) -> ProcRet[SYMLINK3Res]:
         target_dir, target = self._get_child_by_name(arg_0.where.dir_handle, arg_0.where.name, dir_wcc)
         if target:
             raise FSException(NFSStat3.NFS3ERR_EXIST)
@@ -349,11 +347,11 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
             )
         )
 
-    async def MKNOD(self, arg_0: MKNOD3Args) -> MKNOD3Res:
+    async def MKNOD(self, call_ctx: CallContext, arg_0: MKNOD3Args) -> ProcRet[MKNOD3Res]:
         return MKNOD3Res(NFSStat3.NFS3ERR_NOTSUPP, resfail=MKNOD3ResFail(WccData()))
 
     @fs_error_handler(lambda code, dir_wcc: REMOVE3Res(code, resfail=REMOVE3ResFail(dir_wcc)))
-    async def REMOVE(self, arg_0: REMOVE3Args, dir_wcc: WccWrapper) -> REMOVE3Res:
+    async def REMOVE(self, call_ctx: CallContext, arg_0: REMOVE3Args, dir_wcc: WccWrapper) -> ProcRet[REMOVE3Res]:
         dir_entry, to_delete = self._get_child_by_name(arg_0.object.dir_handle, arg_0.object.name, dir_wcc)
         if not to_delete:
             raise FSException(NFSStat3.NFS3ERR_NOENT)
@@ -367,7 +365,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         )
 
     @fs_error_handler(lambda code, dir_wcc: RMDIR3Res(code, resfail=RMDIR3ResFail(dir_wcc)))
-    async def RMDIR(self, arg_0: RMDIR3Args, dir_wcc: WccWrapper) -> RMDIR3Res:
+    async def RMDIR(self, call_ctx: CallContext, arg_0: RMDIR3Args, dir_wcc: WccWrapper) -> ProcRet[RMDIR3Res]:
         dir_entry, to_delete = self._get_child_by_name(arg_0.object.dir_handle, arg_0.object.name, dir_wcc)
         if not to_delete:
             raise FSException(NFSStat3.NFS3ERR_NOENT)
@@ -381,7 +379,8 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         )
 
     @fs_error_handler(lambda code, from_wcc, to_wcc: RENAME3Res(code, resfail=RENAME3ResFail(from_wcc, to_wcc)), 2)
-    async def RENAME(self, arg_0: RENAME3Args, from_wcc: WccWrapper, to_wcc: WccWrapper) -> RENAME3Res:
+    async def RENAME(self, call_ctx: CallContext, arg_0: RENAME3Args,
+                     from_wcc: WccWrapper, to_wcc: WccWrapper) -> ProcRet[RENAME3Res]:
         source_dir, source = self._get_child_by_name(arg_0.from_.dir_handle, arg_0.from_.name, from_wcc)
         if not source:
             raise FSException(NFSStat3.NFS3ERR_NOENT)
@@ -394,7 +393,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
             resok=RENAME3ResOK(from_wcc, to_wcc),
         )
 
-    async def LINK(self, arg_0: LINK3Args) -> LINK3Res:
+    async def LINK(self, call_ctx: CallContext, arg_0: LINK3Args) -> ProcRet[LINK3Res]:
         return LINK3Res(NFSStat3.NFS3ERR_NOTSUPP, resfail=LINK3ResFail(None, WccData()))
 
     def _readdir_common(self, dir_handle: bytes, cookie: int, cookie_verf: bytes,
@@ -431,7 +430,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         return eof, children_slice, expected_verf
 
     @fs_error_handler(lambda code, dir_wcc: READDIR3Res(code, resfail=READDIR3ResFail(dir_wcc.after)))
-    async def READDIR(self, arg_0: READDIR3Args, dir_wcc: WccWrapper) -> READDIR3Res:
+    async def READDIR(self, call_ctx: CallContext, arg_0: READDIR3Args, dir_wcc: WccWrapper) -> ProcRet[READDIR3Res]:
         eof, children, verf = self._readdir_common(arg_0.dir_handle, arg_0.cookie, arg_0.cookieverf, dir_wcc)
         return READDIR3Res(
             NFSStat3.NFS3_OK,
@@ -450,7 +449,8 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         )
 
     @fs_error_handler(lambda code, dir_wcc: READDIRPLUS3Res(code, resfail=READDIRPLUS3ResFail(dir_wcc.after)))
-    async def READDIRPLUS(self, arg_0: READDIRPLUS3Args, dir_wcc: WccWrapper) -> READDIRPLUS3Res:
+    async def READDIRPLUS(self, call_ctx: CallContext, arg_0: READDIRPLUS3Args, dir_wcc: WccWrapper) \
+            -> ProcRet[READDIRPLUS3Res]:
         eof, children, verf = self._readdir_common(arg_0.dir_handle, arg_0.cookie, arg_0.cookieverf, dir_wcc)
         return READDIRPLUS3Res(
             NFSStat3.NFS3_OK,
@@ -471,7 +471,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         )
 
     @fs_error_handler(lambda code, obj_wcc: FSSTAT3Res(code, resfail=FSSTAT3ResFail(obj_wcc.after)))
-    async def FSSTAT(self, arg_0: FSSTAT3Args, obj_wcc: WccWrapper) -> FSSTAT3Res:
+    async def FSSTAT(self, call_ctx: CallContext, arg_0: FSSTAT3Args, obj_wcc: WccWrapper) -> ProcRet[FSSTAT3Res]:
         entry = self.fs_manager.get_entry_by_fh(arg_0.fsroot_handle)
         if not entry:
             raise FSException(NFSStat3.NFS3ERR_STALE)
@@ -491,7 +491,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         )
 
     @fs_error_handler(lambda code, obj_wcc: FSINFO3Res(code, resfail=FSINFO3ResFail(obj_wcc.after)))
-    async def FSINFO(self, arg_0: FSINFO3Args, obj_wcc: WccWrapper) -> FSINFO3Res:
+    async def FSINFO(self, call_ctx: CallContext, arg_0: FSINFO3Args, obj_wcc: WccWrapper) -> ProcRet[FSINFO3Res]:
         entry = self.fs_manager.get_entry_by_fh(arg_0.fsroot_handle)
         if not entry:
             raise FSException(NFSStat3.NFS3ERR_STALE)
@@ -516,7 +516,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         )
 
     @fs_error_handler(lambda code, obj_wcc: PATHCONF3Res(code, resfail=PATHCONF3ResFail(obj_wcc.after)))
-    async def PATHCONF(self, arg_0: PATHCONF3Args, obj_wcc: WccWrapper) -> PATHCONF3Res:
+    async def PATHCONF(self, call_ctx: CallContext, arg_0: PATHCONF3Args, obj_wcc: WccWrapper) -> ProcRet[PATHCONF3Res]:
         entry = self.fs_manager.get_entry_by_fh(arg_0.obj_handle)
         if not entry:
             raise FSException(NFSStat3.NFS3ERR_STALE)
@@ -535,7 +535,7 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         )
 
     @fs_error_handler(lambda code, obj_wcc: COMMIT3Res(code, resfail=COMMIT3ResFail(obj_wcc)))
-    async def COMMIT(self, arg_0: COMMIT3Args, obj_wcc: WccWrapper) -> COMMIT3Res:
+    async def COMMIT(self, call_ctx: CallContext, arg_0: COMMIT3Args, obj_wcc: WccWrapper) -> ProcRet[COMMIT3Res]:
         entry = self.fs_manager.get_entry_by_fh(arg_0.file_handle)
         if not entry:
             raise FSException(NFSStat3.NFS3ERR_STALE)

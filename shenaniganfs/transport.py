@@ -5,9 +5,13 @@ import xdrlib
 from io import BytesIO
 from typing import *
 
-from shenaniganfs.generated.rfc1831 import RPCMsg
+from shenaniganfs.generated.rfc1831 import *
+from shenaniganfs.rpchelp import Proc
 
 SPLIT_MSG = Tuple[RPCMsg, bytes]
+
+_T = TypeVar("T")
+ProcRet = Union[ReplyBody, _T]
 
 
 class BaseTransport(abc.ABC):
@@ -85,3 +89,72 @@ class TCPTransport(BaseTransport):
                 raise ValueError(f"Overly large RPC message! {total_len}, {frag_len}")
             msg_bytes.write(await self.reader.readexactly(frag_len))
         return msg_bytes.getvalue()
+
+
+class CallContext:
+    def __init__(self, transport: BaseTransport, msg: RPCMsg):
+        self.msg = msg
+        self.transport = transport
+
+
+class Prog:
+    """Base class for rpcgen-created server classes."""
+    prog: int
+    vers: int
+    min_vers: Optional[int] = None
+    procs: Dict[int, Proc]
+
+    def supports_version(self, vers: int) -> bool:
+        if self.min_vers is not None:
+            return self.min_vers <= vers <= self.vers
+        else:
+            return self.vers == vers
+
+    def get_handler(self, proc_id) -> Callable:
+        return getattr(self, self.procs[proc_id].name)
+
+    @staticmethod
+    def _make_reply_body(
+            accept_stat: Optional[AcceptStat] = None,
+            reject_stat: Optional[RejectStat] = None,
+            auth_stat: Optional[AuthStat] = None,
+    ):
+        if sum(x is None for x in (accept_stat, reject_stat)) != 1:
+            raise Exception("Must specify either accept_stat OR reject_stat!")
+
+        return ReplyBody(
+            stat=ReplyStat.MSG_ACCEPTED if accept_stat is not None else ReplyStat.MSG_DENIED,
+            areply=AcceptedReply(
+                # TODO: this should be replaced on the way out,
+                #  prog probably doesn't know which to use
+                verf=OpaqueAuth(
+                    flavor=AuthFlavor.AUTH_NONE,
+                    body=b"",
+                ),
+                data=ReplyData(
+                    stat=accept_stat,
+                )
+            ) if accept_stat is not None else None,
+            rreply=RejectedReply(
+                r_stat=reject_stat,
+                auth_error=auth_stat,
+            ) if reject_stat is not None else None,
+        )
+
+    async def handle_proc_call(self, call_ctx: CallContext, proc_id: int, call_body: bytes) \
+            -> Union[ReplyBody, bytes]:
+        proc = self.procs.get(proc_id)
+        if proc is None:
+            raise NotImplementedError()
+
+        unpacker = xdrlib.Unpacker(call_body)
+        argl = [arg_type.unpack(unpacker)
+                for arg_type in proc.arg_types]
+        handler: Callable = self.get_handler(proc_id)
+        rv = await handler(call_ctx, *argl)
+        if isinstance(rv, ReplyBody):
+            return rv
+
+        packer = xdrlib.Packer()
+        proc.ret_type.pack(packer, rv)
+        return packer.get_buffer()

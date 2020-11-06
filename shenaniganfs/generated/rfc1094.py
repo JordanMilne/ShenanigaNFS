@@ -280,10 +280,10 @@ class ExportList(rpchelp.LinkedList):  # exportlist
     groups: typing.List[bytes] = rpchelp.rpc_field(GroupList)
 
 
-from shenaniganfs import client
+from shenaniganfs import client, transport
 
 
-class NFS_PROGRAM_2_SERVER(rpchelp.Prog):
+class NFS_PROGRAM_2_SERVER(transport.Prog):
     prog = 100003
     vers = 2
     procs = {
@@ -308,75 +308,93 @@ class NFS_PROGRAM_2_SERVER(rpchelp.Prog):
     }
 
     @abc.abstractmethod
-    async def NULL(self) -> None:
+    async def NULL(self, call_ctx: transport.CallContext) \
+            -> transport.ProcRet[None]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def GETATTR(self, arg_0: bytes) -> AttrStat:
+    async def GETATTR(self, call_ctx: transport.CallContext, arg_0: bytes) \
+            -> transport.ProcRet[AttrStat]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def SETATTR(self, arg_0: SattrArgs) -> AttrStat:
+    async def SETATTR(self, call_ctx: transport.CallContext, arg_0: SattrArgs) \
+            -> transport.ProcRet[AttrStat]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def ROOT(self) -> None:
+    async def ROOT(self, call_ctx: transport.CallContext) \
+            -> transport.ProcRet[None]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def LOOKUP(self, arg_0: DiropArgs) -> DiropRes:
+    async def LOOKUP(self, call_ctx: transport.CallContext, arg_0: DiropArgs) \
+            -> transport.ProcRet[DiropRes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def READLINK(self, arg_0: bytes) -> ReadlinkRes:
+    async def READLINK(self, call_ctx: transport.CallContext, arg_0: bytes) \
+            -> transport.ProcRet[ReadlinkRes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def READ(self, arg_0: ReadArgs) -> ReadRes:
+    async def READ(self, call_ctx: transport.CallContext, arg_0: ReadArgs) \
+            -> transport.ProcRet[ReadRes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def WRITECACHE(self) -> None:
+    async def WRITECACHE(self, call_ctx: transport.CallContext) \
+            -> transport.ProcRet[None]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def WRITE(self, arg_0: WriteArgs) -> AttrStat:
+    async def WRITE(self, call_ctx: transport.CallContext, arg_0: WriteArgs) \
+            -> transport.ProcRet[AttrStat]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def CREATE(self, arg_0: CreateArgs) -> DiropRes:
+    async def CREATE(self, call_ctx: transport.CallContext, arg_0: CreateArgs) \
+            -> transport.ProcRet[DiropRes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def REMOVE(self, arg_0: DiropArgs) -> typing.Union[Stat, int]:
+    async def REMOVE(self, call_ctx: transport.CallContext, arg_0: DiropArgs) \
+            -> transport.ProcRet[typing.Union[Stat, int]]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def RENAME(self, arg_0: RenameArgs) -> typing.Union[Stat, int]:
+    async def RENAME(self, call_ctx: transport.CallContext, arg_0: RenameArgs) \
+            -> transport.ProcRet[typing.Union[Stat, int]]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def LINK(self, arg_0: LinkArgs) -> typing.Union[Stat, int]:
+    async def LINK(self, call_ctx: transport.CallContext, arg_0: LinkArgs) \
+            -> transport.ProcRet[typing.Union[Stat, int]]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def SYMLINK(self, arg_0: SymlinkArgs) -> typing.Union[Stat, int]:
+    async def SYMLINK(self, call_ctx: transport.CallContext, arg_0: SymlinkArgs) \
+            -> transport.ProcRet[typing.Union[Stat, int]]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def MKDIR(self, arg_0: CreateArgs) -> DiropRes:
+    async def MKDIR(self, call_ctx: transport.CallContext, arg_0: CreateArgs) \
+            -> transport.ProcRet[DiropRes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def RMDIR(self, arg_0: DiropArgs) -> typing.Union[Stat, int]:
+    async def RMDIR(self, call_ctx: transport.CallContext, arg_0: DiropArgs) \
+            -> transport.ProcRet[typing.Union[Stat, int]]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def READDIR(self, arg_0: ReaddirArgs) -> ReaddirRes:
+    async def READDIR(self, call_ctx: transport.CallContext, arg_0: ReaddirArgs) \
+            -> transport.ProcRet[ReaddirRes]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def STATFS(self, arg_0: bytes) -> StatfsRes:
+    async def STATFS(self, call_ctx: transport.CallContext, arg_0: bytes) \
+            -> transport.ProcRet[StatfsRes]:
         raise NotImplementedError()
 
 
@@ -459,7 +477,7 @@ class NFS_PROGRAM_2_CLIENT(client.BaseClient):
         return await self.send_call(17, arg_0)
 
 
-class MOUNTPROG_1_SERVER(rpchelp.Prog):
+class MOUNTPROG_1_SERVER(transport.Prog):
     prog = 100005
     vers = 1
     procs = {
@@ -472,27 +490,33 @@ class MOUNTPROG_1_SERVER(rpchelp.Prog):
     }
 
     @abc.abstractmethod
-    async def NULL(self) -> None:
+    async def NULL(self, call_ctx: transport.CallContext) \
+            -> transport.ProcRet[None]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def MNT(self, arg_0: bytes) -> FHStatus:
+    async def MNT(self, call_ctx: transport.CallContext, arg_0: bytes) \
+            -> transport.ProcRet[FHStatus]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def DUMP(self) -> typing.List[MountList]:
+    async def DUMP(self, call_ctx: transport.CallContext) \
+            -> transport.ProcRet[typing.List[MountList]]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def UMNT(self, arg_0: bytes) -> None:
+    async def UMNT(self, call_ctx: transport.CallContext, arg_0: bytes) \
+            -> transport.ProcRet[None]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def UMNTALL(self) -> None:
+    async def UMNTALL(self, call_ctx: transport.CallContext) \
+            -> transport.ProcRet[None]:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def EXPORT(self) -> typing.List[ExportList]:
+    async def EXPORT(self, call_ctx: transport.CallContext) \
+            -> transport.ProcRet[typing.List[ExportList]]:
         raise NotImplementedError()
 
 

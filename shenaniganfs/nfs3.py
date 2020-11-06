@@ -420,8 +420,9 @@ class NFSV3Service(NFS_PROGRAM_3_SERVER):
         child_ids = [e.fileid for e in children]
         cookie_idx = 0
         if cookie:
-            cookie_idx = child_ids.index(cookie)
-            if cookie_idx == -1:
+            try:
+                cookie_idx = child_ids.index(cookie)
+            except ValueError:
                 raise FSException(NFSStat3.NFS3ERR_BAD_COOKIE)
             cookie_idx += 1
 

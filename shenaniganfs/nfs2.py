@@ -288,8 +288,10 @@ class NFSV2Service(NFS_PROGRAM_2_SERVER):
         fs: BaseFS = directory.fs()
         children = fs.readdir(directory)
         if not null_cookie:
-            cookie_idx = [get_nfs2_cookie(e) for e in children].index(arg_0.cookie)
-            if cookie_idx == -1:
+            cookies = [get_nfs2_cookie(e) for e in children]
+            try:
+                cookie_idx = cookies.index(arg_0.cookie)
+            except ValueError:
                 return ReaddirRes(Stat.NFSERR_NOENT)
             cookie_idx += 1
 

@@ -559,6 +559,8 @@ class ProcedureList(NodeListComma):
         return prefix
 
     def remove_common_prefix(self):
+        if len(self.children) == 1:
+            return
         prefix = self._common_prefix([p.ident for p in self.children])
         if not prefix:
             return

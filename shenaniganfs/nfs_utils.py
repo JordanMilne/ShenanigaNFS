@@ -3,6 +3,7 @@ from shenaniganfs.nfs2 import MountV1Service, NFSV2Service
 from shenaniganfs.nfs3 import MountV3Service, NFSV3Service
 from shenaniganfs.portmanager import PortManager, SimplePortMapper, SimpleRPCBind
 from shenaniganfs.server import TCPTransportServer
+from shenaniganfs.statd import StatDV1Server
 
 
 async def serve_nfs(fs_manager: FileSystemManager, use_internal_rpcbind=True):
@@ -20,6 +21,7 @@ async def serve_nfs(fs_manager: FileSystemManager, use_internal_rpcbind=True):
     transport_server.register_prog(NFSV2Service(fs_manager))
     transport_server.register_prog(MountV3Service(fs_manager))
     transport_server.register_prog(NFSV3Service(fs_manager))
+    transport_server.register_prog(StatDV1Server())
     if use_internal_rpcbind:
         transport_server.notify_port_manager(port_manager)
     else:

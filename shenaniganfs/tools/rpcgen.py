@@ -558,9 +558,15 @@ class ProcedureList(NodeListComma):
             prefix = prefix[:last_match]
         return prefix
 
-    def remove_common_prefix(self):
+    def remove_common_prefix(self, vers_ident: typing.Optional[str] = None):
         if len(self.children) == 1:
+            # Only one child, can't check if there's a common prefix across children,
+            # just check if there's a version ident prefix instead
+            child = self.children[0]
+            if vers_ident and child.ident.startswith(vers_ident) and vers_ident != child.ident:
+                child.ident = child.ident[len(vers_ident):].lstrip("_")
             return
+
         prefix = self._common_prefix([p.ident for p in self.children])
         if not prefix:
             return
@@ -677,7 +683,7 @@ class Version(Node):
     def __init__(self, ident, proc_defs, version_id):
         Node.__init__(self)
         self.ident = ident
-        proc_defs.remove_common_prefix()
+        proc_defs.remove_common_prefix(ident)
         # All programs have an implicit NULL procedure
         if not any(str(proc.proc_id) == "0" for proc in proc_defs.children):
             void_spec = TypeSpec("void", False, True, False)

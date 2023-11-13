@@ -12,5 +12,6 @@ compile_idl rfc1813
 compile_idl rfc1831
 compile_idl rfc1833_portmapper
 compile_idl rfc1833_rpcbind
+compile_idl statd
 
 echo "Done"
